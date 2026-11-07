@@ -73,7 +73,7 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api):
     current = release.active_deployment(service, staging_token, read=read)
     if current is None or current.get("id") != deploy:
         raise release.ReleaseError("The verified staging deployment is no longer live.")
-    repository = "ghcr.io/" + repo.lower() + "/commercial"
+    repository = release.commercial_image_repository(repo)
     release.deployed_image(current, image, candidate, repository)
     return {"staging_run": run_id, "staging_attempt": attempt,
             "staging_run_url": f"https://github.com/{repo}/actions/runs/{run_id}",
@@ -143,7 +143,7 @@ def verify_render_database(service, token, expected_fingerprint, *, read):
 
 
 def check_production_prior(image, previous_image, previous, candidate, environ):
-    repository = "ghcr.io/" + environ["GITHUB_REPOSITORY"].lower() + "/commercial"
+    repository = release.commercial_image_repository(environ["GITHUB_REPOSITORY"])
     expected = environ.get("PRODUCTION_PREVIOUS_IMAGE", "")
     expected_digest = release.immutable_digest(expected, repository)
     recovery = environ.get("PRODUCTION_RECOVERY_SHA256", "")

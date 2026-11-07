@@ -12,12 +12,12 @@ from tabula_rasa.migration.model import digest
 from tabula_rasa.infrastructure.postgres import hosted
 
 ROOT = Path(__file__).resolve().parents[2]
-REPOSITORY = "ghcr.io/roklion/project_tabula_rasa/commercial"
+REPOSITORY = "ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-private"
 IMAGE = REPOSITORY + "@sha256:" + "a" * 64
 PRIOR = REPOSITORY + "@sha256:" + "b" * 64
 MANIFEST = "sha256:" + "e" * 64
 PRIOR_MANIFEST = "sha256:" + "f" * 64
-ENV = {"TABULA_RASA_ENVIRONMENT": "staging", "GITHUB_REPOSITORY": "Roklion/Project_Tabula_Rasa",
+ENV = {"TABULA_RASA_ENVIRONMENT": "staging", "GITHUB_REPOSITORY": "heathcote-advisory/Project_Tabula_Rasa",
        "TABULA_RASA_ACCESS_MODE": "restricted_alpha",
        "TABULA_RASA_PUBLIC_ORIGIN": "https://stage.example.test", "RENDER_SERVICE_ID": "srv-test",
        "RENDER_API_KEY": "synthetic-only", "TABULA_RASA_ALPHA_USERNAME": "stage", "TABULA_RASA_ALPHA_PASSWORD": "synthetic"}

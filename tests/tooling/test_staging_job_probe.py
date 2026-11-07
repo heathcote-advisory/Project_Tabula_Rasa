@@ -59,7 +59,8 @@ def test_exact_tested_image_required_before_public_probe(monkeypatch):
 
 
 @pytest.mark.parametrize('image_repository,accepted', [
-    ('ghcr.io/heathcote-advisory/project_tabula_rasa/commercial', True),
+    ('ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-private', True),
+    ('ghcr.io/heathcote-advisory/project_tabula_rasa/commercial', False),
     ('ghcr.io/roklion/project_tabula_rasa/commercial', False),
     ('ghcr.io/other/project_tabula_rasa/commercial', False),
 ])
@@ -87,7 +88,7 @@ def test_organization_image_preflight_preserves_repository_boundary(image_reposi
             probe.preflight(env)
         verified.assert_not_called()
         public.assert_not_called()
-    metadata.assert_called_once_with(env['IMAGE'], 'ghcr.io/heathcote-advisory/project_tabula_rasa/commercial')
+    metadata.assert_called_once_with(env['IMAGE'], 'ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-private')
 
 
 def test_public_release_mismatch_does_not_open_database(monkeypatch):

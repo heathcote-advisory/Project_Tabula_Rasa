@@ -49,7 +49,7 @@ def validate(environ, *, runtime=True):
 
 def preflight(environ):
     validate(environ, runtime=False)
-    repository = 'ghcr.io/' + environ['GITHUB_REPOSITORY'].lower() + '/commercial'
+    repository = release.commercial_image_repository(environ['GITHUB_REPOSITORY'])
     candidate = release.image_metadata(environ.get('IMAGE', ''), repository)
     if candidate['release'] != environ['GITHUB_SHA'] or candidate['schema'] != head_revision():
         raise ValueError('Use this exact workflow revision image.')

@@ -8,7 +8,7 @@ services:
     plan: free
     region: virginia
     image:
-      url: ghcr.io/heathcote-advisory/project_tabula_rasa/commercial:bootstrap
+      url: ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-private:bootstrap
     healthCheckPath: /health/ready
     envVars:
       - key: TABULA_RASA_ENVIRONMENT
@@ -37,7 +37,7 @@ services:
     plan: free
     region: virginia
     image:
-      url: ghcr.io/heathcote-advisory/project_tabula_rasa/commercial:bootstrap
+      url: ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-private:bootstrap
     healthCheckPath: /health/ready
     envVars:
       - key: TABULA_RASA_ENVIRONMENT

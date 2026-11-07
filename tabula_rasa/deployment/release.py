@@ -22,6 +22,10 @@ INDEX_TYPES = {"application/vnd.oci.image.index.v1+json",
                "application/vnd.docker.distribution.manifest.list.v2+json"}
 
 
+def commercial_image_repository(github_repository):
+    return "ghcr.io/" + github_repository.lower() + "/commercial-private"
+
+
 def immutable_digest(image, repository):
     if not isinstance(image, str) or not re.fullmatch(re.escape(repository) + r"@sha256:[0-9a-f]{64}", image):
         raise ReleaseError("Use an immutable digest in the configured repository.")
@@ -217,7 +221,7 @@ def promote(image, environ, *, read=api, metadata=image_metadata, verify=validat
         def check_release(revision):
             check(environ['TABULA_RASA_PUBLIC_ORIGIN'], environ['TABULA_RASA_ALPHA_USERNAME'],
                   environ['TABULA_RASA_ALPHA_PASSWORD'], revision)
-    repository = "ghcr.io/" + environ["GITHUB_REPOSITORY"].lower() + "/commercial"
+    repository = commercial_image_repository(environ["GITHUB_REPOSITORY"])
     candidate = metadata(image, repository)
     verify(candidate["release"], environ)
     origin = environ["TABULA_RASA_PUBLIC_ORIGIN"]
@@ -302,7 +306,7 @@ def main():
         environ = dict(os.environ)
         promotion_mode(environ)
         if args.command == "verify":
-            repository = "ghcr.io/" + environ["GITHUB_REPOSITORY"].lower() + "/commercial"
+            repository = commercial_image_repository(environ["GITHUB_REPOSITORY"])
             metadata = image_metadata(args.image, repository)
             validated_main(metadata["release"], environ)
             environment = environ["TABULA_RASA_ENVIRONMENT"]

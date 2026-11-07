@@ -419,11 +419,18 @@ acceptance stay with platform operations and commercial recovery agreement.
 
 ## Registry ownership changes
 
-The image workflow and ordinary promotion derive the GHCR repository from
-`GITHUB_REPOSITORY`. Transferring the source repository can therefore change the
-expected image location while retained images and Render services still use the
-previous location. Repository redirects do not migrate container packages or
-prove that Actions and Render retain registry access.
+The image workflow, promotion checks and staging job probe use the same GHCR
+repository derived from `GITHUB_REPOSITORY` with the `/commercial-private` suffix.
+Verify that the destination package is private and that GitHub Actions can publish
+to it before merging a registry change. Image publication can run while
+promotions are paused. Configure Render with a credential that can read the
+private package. After the cutover, automatic development and staging releases
+use those configured credentials without additional operator steps.
+
+Transferring the source repository can change the expected image location while
+retained images and Render services still use the previous location. Repository
+redirects do not migrate packages or preserve Actions and Render access.
+Keep restricted images in a private destination package.
 
 Treat a registry change as a separately approved operating procedure. Inventory
 live and rollback index/runtime digests, schemas, registry visibility and read/write
