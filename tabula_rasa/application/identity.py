@@ -21,6 +21,12 @@ class IdentityError(Exception):
         super().__init__(code)
 
 
+class IdentityStorageUnavailable(IdentityError):
+    def __init__(self, *, exhausted):
+        self.exhausted = exhausted
+        super().__init__("unavailable")
+
+
 READ = frozenset({'bookkeeping:read'})
 WRITE = READ | {'bookkeeping:write'}
 HANDOFF = WRITE | {'bookkeeping:import', 'bookkeeping:export'}
