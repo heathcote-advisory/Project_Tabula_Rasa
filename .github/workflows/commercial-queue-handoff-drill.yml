@@ -1,0 +1,57 @@
+name: Commercial queue handoff drill
+
+on:
+  push:
+    branches: [codex/455-queue-handoff-drill]
+    paths: [.github/workflows/commercial-queue-handoff-drill.yml]
+
+permissions: {}
+
+jobs:
+  holder:
+    name: Hold synthetic queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    concurrency:
+      group: synthetic-queue-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+      queue: max
+    steps:
+      - name: Hold lock for 20 minutes
+        run: |
+          date -u '+Holder started at %FT%TZ'
+          sleep 1200
+          date -u '+Holder finished at %FT%TZ'
+
+  observe-holder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+    steps:
+      - name: Confirm the holder is running before submitting the waiter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in {1..20}; do
+            holding=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
+              --jq 'any(.jobs[]; .name == "Hold synthetic queue" and any(.steps[]?; .name == "Hold lock for 20 minutes" and .status == "in_progress"))')
+            if [[ "$holding" == true ]]; then
+              date -u '+Holder observed at %FT%TZ'
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Holder did not reach the timed step. The waiter will not run.' >&2
+          exit 1
+
+  waiter:
+    name: Wait in synthetic queue
+    needs: observe-holder
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    concurrency:
+      group: synthetic-queue-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+      queue: max
+    steps:
+      - name: Report queue release
+        run: date -u '+Waiter started at %FT%TZ'
