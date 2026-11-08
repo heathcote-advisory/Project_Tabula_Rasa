@@ -514,6 +514,59 @@ verified by the operator under the [database recovery procedure](DATABASE_RECOVE
 Avoid concurrent Render configuration changes, manual deploys, or other migrators
 during the release window.
 
+### Plan a forward schema maintenance window
+
+Before interrupting service, use the actual operator terminal and existing
+maintenance credential for a read-only check. Confirm the direct database
+fingerprint, connected role, expected source revision and required migration
+privileges. Compare the connection's endpoint fingerprint with the approved
+production binding using the [same identity calculation as
+deployment](../../tabula_rasa/infrastructure/postgres/identity.py). From that
+terminal, connect with the maintenance credential using your approved private
+credential input and run a read-only SQL check:
+
+```sql
+BEGIN READ ONLY;
+SELECT current_user, current_database(),
+       has_schema_privilege(current_user, 'public', 'USAGE') AS schema_usage,
+       has_schema_privilege(current_user, 'public', 'CREATE') AS schema_create;
+SELECT version_num FROM public.alembic_version;
+ROLLBACK;
+```
+
+Compare the results privately with the approved role and source revision. In
+the same read-only session, verify the additional privileges and ownership
+required by the specific migration. Keep connection strings out of command
+arguments, shell history and evidence. Resolve connection or input failures
+from the actual operator terminal while the current release is serving traffic.
+
+The approved plan must name the staging-verified digest, the new schema grants,
+all application and worker writers, and the way ingress stays restricted during
+the image switch. Drain the writers, verify a fresh recovery point, and confirm
+the current revision again before running the locked forward upgrade. Afterward,
+check the committed revision, effective runtime and worker grants, and continued
+separation of the promotion role before serving traffic on the new image.
+
+On Render, saving an image URL and resuming a service are separate from verifying
+the image currently serving traffic. A resumed service can still show the prior
+deployment as live. Plan a way to keep traffic restricted until the approved
+digest is actually live. For example, a maintenance rule on an existing upstream
+gateway can restrict traffic if direct access to the service is also blocked.
+Before the migration, verify the restriction from outside the operator access
+path on every public hostname, including the direct Render URL. If the plan
+cannot prevent an incompatible image from serving, stop and use a reviewed
+compatibility bridge or another approved procedure. Verify the exact digest,
+readiness, version and mode-specific smoke through the approved operator access
+path before reopening ingress.
+
+If a migration attempt stops, read back the database revision and grants before
+deciding how to recover. With the original compatible state confirmed, use the
+approved recovery steps to restore the prior image and apply the
+[compatible rollback verification checks](#promotion-failure-and-rollback).
+Once the new schema has committed, keep incompatible images out of service and
+use reviewed forward repair or the [isolated database restore
+procedure](DATABASE_RECOVERY.md).
+
 ### Select and promote a release
 
 1. In **Commercial release image**, select the completed automatic run whose
