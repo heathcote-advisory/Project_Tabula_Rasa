@@ -71,6 +71,12 @@ historical caller/evidence decisions.
 
 ## Local main-branch push guard
 
+Use `heathcote-advisory/Project_Tabula_Rasa` for current GitHub CLI and API
+operations. Check `git remote get-url origin` after a repository transfer and
+before publishing. Historical issue and Actions links can retain their original
+paths. Confirm the current repository directly when checking permissions or
+configuring automation.
+
 The tracked .githooks/pre-push hook blocks pushes that would update remote
 main. Git does not activate tracked hooks automatically. After a clone:
 
@@ -161,22 +167,16 @@ PR head and candidate; a previous head's green result cannot establish readiness
 
 #### Optional GitHub enforcement (good to have)
 
-The maintainer has chosen to retain the current GitHub plan. A plan upgrade,
-GitHub-enforced branch protection/rulesets and their associated protections,
-configuration readback, and a probe proving that GitHub blocks a failing merge are
-optional future improvements. They are not prerequisites for the authoritative CI gate.
-Current-revision CI success and satisfied review conditions remain required by
-repository/agent policy; enforcement is procedural while GitHub's hard block is
-unavailable. Do not describe optional enforcement as configured or verified.
+Current-revision CI success and satisfied review conditions are required by
+repository policy. Verify any GitHub-enforced branch protection or ruleset on
+the current organization repository before relying on a server-side merge
+block. Apply the repository's procedural gate while enforcement is unverified
+or unavailable.
 
-Repository files cannot enable GitHub's required-check enforcement. If the
-maintainer elects to enable it later, an administrator can use this optional setup:
+An authorized administrator can configure and verify enforcement in GitHub:
 
-1. Ensure the private repository's plan supports branch protection/rulesets.
-   On 2026-10-07, read-only queries of both `main` protection and rulesets
-   returned HTTP 403 with GitHub's "Upgrade to GitHub Pro or make this repository
-   public" response. Enforcement remains **unverified and unavailable on that
-   plan**; do not describe this implementation as enforced protection. Keep the
+1. Confirm that the current organization's plan and the administrator's access
+   support the intended protections for a private repository. Keep the
    repository private. Arrange an eligible plan only if the owner elects to
    pursue this optional improvement.
 2. In **Settings > Branches > Add branch protection rule**, target exactly
@@ -188,13 +188,22 @@ maintainer elects to enable it later, an administrator can use this optional set
    must be active, target `main`, require the same check/source and strict update
    policy, and have no bypass that defeats the gate. Replace obsolete
    `integration`/`foundation` checks only after the aggregate check is available.
-3. Read the saved protection/ruleset back. For classic protection, use
-   `gh api repos/Roklion/Project_Tabula_Rasa/branches/main/protection` and confirm
-   `required_status_checks.strict` is true and the required check context is
-   `Full test suite` with the GitHub Actions app identity. For a ruleset, use
-   `gh api repos/Roklion/Project_Tabula_Rasa/rulesets`, inspect the active rule's
-   detail and confirm its `main` target, status-check source, strict policy and
-   bypass list. Do not treat HTTP 403 or absent checks as verification.
+3. Read back the saved configuration. Use the endpoint that matches the
+   protection mechanism:
+
+   ```powershell
+   gh api repos/heathcote-advisory/Project_Tabula_Rasa/branches/main/protection
+   gh api 'repos/heathcote-advisory/Project_Tabula_Rasa/rulesets?includes_parents=true'
+   gh api repos/heathcote-advisory/Project_Tabula_Rasa/rules/branches/main
+   ```
+
+   For classic protection, confirm `required_status_checks.strict` and the
+   `Full test suite` context with the GitHub Actions app identity. For rulesets,
+   inspect the active rule's details for the target, status-check source, strict
+   policy and bypass list. Use the branch rules endpoint to check which rulesets
+   apply to `main`, including inherited rules. A 404 from the classic endpoint
+   can coexist with active rulesets. Treat unavailable readback or missing
+   checks as unverified.
 4. On a controlled synthetic PR, confirm CI and advisory review start without a
    full local run; handle feedback while CI is pending. Commit a deliberately
    failing test and verify the current candidate's gate fails and merging is

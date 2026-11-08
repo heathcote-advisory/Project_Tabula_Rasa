@@ -102,6 +102,41 @@ only after complete enumeration of those dependencies and owner review. This is
 an attestation, not automatic cloud discovery or authorization. Missing resources
 cannot be detected by an offline tool; retain `unverified` if access is incomplete.
 
+## Retire legacy provider access and bindings
+
+Use [provider custody and transfer](SECRETS.md#provider-account-custody-and-transfer)
+before retiring a legacy provider account, access grant, credential, registry
+package or service binding. The inventory preview below covers its listed resource
+kinds. Review account, access and package retirement separately in the authorized
+provider consoles.
+
+1. Verify business administrators and independent recovery access to the new
+   provider accounts. Inspect the old and replacement bindings, including
+   federated sign-in and OAuth clients or grants, billing and subscriptions,
+   notification and backup routing, jobs, release automation and retained
+   recovery procedures. Check who can administer, pay for and recover each
+   retained resource after the old identity leaves.
+2. Transfer or securely export retained assets and records into approved custody.
+   Verify they are accessible and meet retention, privacy and hold obligations.
+   For registry changes, follow the [registry procedure](DEPLOYMENT.md#registry-ownership-changes)
+   and verify each affected environment's live binding, release path and pullable
+   compatible rollback digests. Test operation and recovery without using the old
+   identity. Retain the old resource while any dependency, retention obligation
+   or recovery check remains unresolved.
+3. Prefer a reversible archive or quarantine where the provider supports it.
+   Obtain separate approval for each exact retirement and its effects. Delete an
+   account only after clearing its dependencies and retention obligations and
+   obtaining explicit approval for that account and any cascaded effects.
+   Record irreversible effects and preserve a reviewed return path where feasible.
+4. Check current state immediately before the approved action. Verify the result
+   and recheck retained service health, access, release bindings, backups and
+   recovery. Stop on uncertainty or regression and follow [incident response](INCIDENT_RESPONSE.md).
+   Use the reviewed return path only while it is safe and available.
+
+Record the approved scope, observed results and remaining dependencies in the
+[platform ownership record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/413).
+Keep credentials, private inventory and recovery details in protected storage.
+
 ## Inventory JSON schema
 
 The top-level object has exactly five required keys: `version` (integer `1`),

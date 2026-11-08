@@ -187,8 +187,9 @@ Explicit verified isolated copies are implemented. Scheduled/off-account/ NAS by
 archives and monitoring remain **pending**, separate from NAS backup and restore SQL
 backup scheduling/indefinite retention. Preserve orphan files on uncertainty.
 
-1. Name authorized primary/alternate recovery operators (Roklion is primary in
-   commercial recovery agreement). Approve exact source/target, costs, grants, recovery keys and retention.
+1. Confirm the authorized primary and alternate recovery operators in the
+   private handoff using the [operator handoff procedure](../operations/INCIDENT_RESPONSE.md#ownership-severity-and-alert-intake).
+   Approve the exact source/target, costs, grants, recovery keys and retention.
    Select a retained metadata/byte point; measure actual loss/time against the
    stage's approved RPO/RTO. Plan pricing and fake tests supply no recovery guarantee.
 2. Restore DB to an isolated target with writers disabled using

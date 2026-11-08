@@ -13,11 +13,14 @@ separately authorized administrator and human incident handoff.
 
 ## Ownership, severity and alert intake
 
-The deployment owner (currently Roklion) is incident commander until an explicitly
-named alternate accepts handoff. Before enabling a stage, privately record the
-primary/alternate, actual notification destinations, availability window and
-provider/secret-store access. No staffed 24-hour on-call or response SLA is
-claimed. If the primary does not acknowledge within the stage's agreed window,
+The primary incident commander is the authorized deployment operator named in
+the business's private handoff for that environment. An alternate takes command
+after explicitly accepting handoff. Before enabling a stage or transferring
+custody, verify the named operators, notification destinations, availability
+window and independent access to the relevant providers and secret store. The
+[custody procedure](SECRETS.md#provider-account-custody-and-transfer) covers
+provider access. No staffed 24-hour on-call or response SLA is claimed. If the
+primary does not acknowledge within the stage's agreed window,
 escalate to the alternate through the approved private channel. If no authorized
 operator is available, keep the affected service restricted and record that gap.
 
@@ -100,8 +103,8 @@ try {
 
 # Metadata only. Inspect specific steps privately; never publish complete logs.
 
-gh run list --repo Roklion/Project_Tabula_Rasa --workflow commercial-staging.yml --limit 5 --json databaseId,status,conclusion,url
-gh run view $promotionRun --repo Roklion/Project_Tabula_Rasa --json jobs
+gh run list --repo heathcote-advisory/Project_Tabula_Rasa --workflow commercial-staging.yml --limit 5 --json databaseId,status,conclusion,url
+gh run view $promotionRun --repo heathcote-advisory/Project_Tabula_Rasa --json jobs
 
 # Explicit recovery URL only; no .env.local/live/test fallback.
 
@@ -143,7 +146,11 @@ and [named rollback](../identity/HOSTED_ROLLOUT.md#compatible-application-rollba
 Reserve the existing `commercial-deploy-staging` window; check no deployment is
 active/queued and pause overlapping operator promotion. Retain the current image
 and a pullable prior immutable digest, their release/schema labels and successful
-main-push `Full test suite` evidence. Compare Render `image.ref`/`image.sha` with
+main-push `Full test suite` evidence. Verify that the rollback digest can be
+pulled from the private package bound to the target Render service using its
+configured registry credential. If the retained digest is only available in an
+earlier namespace, use the [registry ownership procedure](DEPLOYMENT.md#registry-ownership-changes)
+before dispatching a rollback. Compare Render `image.ref`/`image.sha` with
 the registry's index-to-linux/amd64-manifest relationship. A tag or matching
 `/version` alone is insufficient.
 
@@ -159,16 +166,16 @@ Verify the live revision, then dispatch the existing workflow on main.
 # $rollbackImage is the reviewed repository@sha256 digest, never a mutable tag.
 # $liveRelease is the full commit SHA confirmed live after pausing promotion.
 
-gh workflow run commercial-staging.yml --repo Roklion/Project_Tabula_Rasa --ref main -f "image=$rollbackImage" -f "rollback_from=$liveRelease"
+gh workflow run commercial-staging.yml --repo heathcote-advisory/Project_Tabula_Rasa --ref main -f "image=$rollbackImage" -f "rollback_from=$liveRelease"
 # Use the dispatch URL when supplied, or list candidate runs if it is absent.
 
-gh run list --repo Roklion/Project_Tabula_Rasa --workflow commercial-staging.yml --branch main --event workflow_dispatch --limit 5 --json databaseId,createdAt,status,url
+gh run list --repo heathcote-advisory/Project_Tabula_Rasa --workflow commercial-staging.yml --branch main --event workflow_dispatch --limit 5 --json databaseId,createdAt,status,url
 # Verify the dispatch time/actor and requested image in the run's Actions details.
 
 # Select that exact run, not merely the newest run; stop if it is ambiguous.
 
 $rollbackRun = Read-Host 'Verified rollback run ID'
-gh run view $rollbackRun --repo Roklion/Project_Tabula_Rasa --json status,conclusion,jobs,url
+gh run view $rollbackRun --repo heathcote-advisory/Project_Tabula_Rasa --json status,conclusion,jobs,url
 ```
 
 Workflow source HEAD and the selected image release can differ; record both.
