@@ -134,9 +134,11 @@ not required. Live verification and the recovery destination require valid grant
 ## Isolated Drive and PostgreSQL restore
 
 1. Obtain exact recovery-target/access/cost approval. Select the retained byte
-   generation and corresponding DB point. Name the primary and alternate recovery
-   operators; Roklion is currently primary under commercial recovery agreement. Preserve original grants,
-   folders, exports and archives; no source deletion follows from recovery.
+   generation and corresponding DB point. Confirm the authorized primary and
+   alternate recovery operators in the private handoff using the [operator handoff
+   procedure](../operations/INCIDENT_RESPONSE.md#ownership-severity-and-alert-intake).
+   Preserve the original grants, folders, exports and archives. Source deletion
+   requires separate approval.
 2. Restore DB into a separate staging target using
    [the canonical DB recovery guide](../operations/DATABASE_RECOVERY.md). Keep app/job writers
    disabled and production callbacks/browser access blocked. Verify schema/audit

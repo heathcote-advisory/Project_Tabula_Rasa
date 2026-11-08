@@ -25,7 +25,7 @@ Do not claim a working alternate merely because the inventory has a blank field.
 | Migration URL | DB owner; separately held schema/function-owner credential, explicit bound maintenance/Actions migration step only. | Revoke/replace separately; remove from operator process after use. Never inject into Render runtime. |
 | Audit inspector/recovery access | Recovery/security owner; separately provisioned inspector SELECT and target-scoped restore role, temporary elevation only where needed. | Revoke temporary grants/access after evidence acceptance; preserve audit/history and retained artifacts. |
 | Render API key | Release owner; narrowest available service/workspace administration boundary, restrict custody independently from app runtime. | Replace in exact deployment environment, revoke old token at provider; verify old token refusal without recording its value. If provider scope is broader than one service, record that blast radius. |
-| GHCR pull / GitHub automation | Release owner; Render registry credential `read:packages`; workflow uses its short-lived `GITHUB_TOKEN` with declared permissions. | Replace registry credential at consumer, then revoke old credential. Human GitHub/provider administration uses separate MFA-protected accounts; no long-lived admin token in the image. |
+| GHCR pull / GitHub automation | Release owner; Render uses an authorized `read:packages` credential for the [private commercial release package](DEPLOYMENT.md#registry-ownership-changes). GitHub Actions uses its short-lived `GITHUB_TOKEN` with declared permissions and package access. | Replace and verify the registry credential at each bound service before revoking the old credential. Human GitHub/provider administration uses separate MFA-protected accounts. Keep long-lived admin tokens out of the image. |
 | OIDC client secret/configuration | Identity owner; environment-specific confidential ZITADEL client and exact issuer/callback; no browser secret. | Provider secret rotation plus durable app epoch rotation; resetting provider credentials alone leaves local sessions valid. |
 | Session generation | Identity owner; independent random value of at least 32 characters per environment in runtime secret store. Cookies are opaque; there is no cookie signing key. | New generation plus compare-and-swap configuration epoch invalidates issued sessions and pending logins. Never restore an old generation to recover sessions. |
 | Google OAuth grants / connection key and directory | Connection owner with affected business Owner approval; environment/entity-bound encrypted grants in private storage; operator mounts may be read-only, customer OAuth requires persistent writable shared custody; Fernet key held separately. Narrow existing scopes; ZITADEL tokens grant no Drive access. | Disconnect locally first, coordinate shared consent impact before provider revocation. Reconnect through configured [customer consent](../identity/GOOGLE_DRIVE.md) or retained operator provisioning; key rotation stages grants in a new directory/key coherently. Preserve old protected recovery material until separately approved disposition. |
@@ -40,6 +40,38 @@ functions. Confirm effective privileges rather than trusting a role name. Broad
 provider/project scope, shared capacity and lack of finer provider controls are
 private accepted-stage limitations; do not assert technical tenant isolation at
 the provider administrator boundary. Commercial acceptance must evaluate them.
+
+## Provider account custody and transfer
+
+Use business-controlled provider accounts, organizations and workspaces for
+production and shared operational resources. Prefer a supported transfer of
+existing resources into business custody when it removes reliance on personal
+accounts and preserves access, service and recovery. If transfer is unavailable
+or unsafe, plan an approved migration or replacement. Document any development
+or staging exception privately with its owner, scope, cost, isolation or risk
+rationale, and review condition.
+
+Provider custody covers administrative access, infrastructure, credentials,
+billing and recovery. Application [tenant membership and Owner roles](../identity/WORKSPACES.md)
+govern access to business data. Preserve customer identities, application roles
+and [customer Google grants](../identity/GOOGLE_DRIVE.md) during provider transfers.
+Use the applicable identity or connection procedure for separately approved changes
+to those bindings.
+
+Before an approved transfer, inventory the current and destination accounts,
+resources and consumers. Record primary and independent alternate administrators,
+effective permissions, MFA and recovery custody, billing responsibility, and
+alert destinations. Verify each independently through authorized access and keep
+unverified items open in the private handoff. For GitHub, check organization and
+repository access, effective rules, Actions/environment permissions and package
+access. For Render, check workspace administration, service access, image binding,
+registry credentials and release access for each environment.
+
+Keep the original access and recovery route available until the replacement is
+verified. Follow the [registry procedure](DEPLOYMENT.md#registry-ownership-changes)
+for package and service changes, and the [retirement procedure](RESOURCE_RETIREMENT.md#retire-legacy-provider-access-and-bindings)
+before removing legacy access or bindings. Keep dated transfer decisions, evidence
+and gaps in the [platform ownership record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/413).
 
 ## Break-glass access
 

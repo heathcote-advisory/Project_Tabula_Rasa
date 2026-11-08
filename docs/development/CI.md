@@ -132,7 +132,7 @@ artifact into a directory matching its artifact name, then include both JUnit
 reports when summarizing the native partition:
 
 ```powershell
-gh api repos/Roklion/Project_Tabula_Rasa/actions/runs/RUN_ID/jobs?per_page=100 > jobs.json
+gh api 'repos/heathcote-advisory/Project_Tabula_Rasa/actions/runs/RUN_ID/jobs?per_page=100' > jobs.json
 python scripts/summarize_ci_timings.py --jobs jobs.json --junit native-browser-results-1/native-browser-results.xml native-browser-results-2/native-browser-results.xml
 ```
 

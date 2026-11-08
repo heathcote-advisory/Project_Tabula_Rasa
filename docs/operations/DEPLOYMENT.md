@@ -419,6 +419,14 @@ acceptance stay with platform operations and commercial recovery agreement.
 
 ## Registry ownership changes
 
+The canonical GitHub repository is `heathcote-advisory/Project_Tabula_Rasa`.
+Render development, staging and production use the private package
+`ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-release`. Verify the
+effective image binding and registry access for each service before promotion
+or recovery. Development and staging can promote automatically. Production uses
+the separately authorized manual workflow. Follow [provider custody and transfer](SECRETS.md#provider-account-custody-and-transfer)
+for account and credential ownership.
+
 The image workflow, promotion checks and staging job probe use the same GHCR
 repository derived from `GITHUB_REPOSITORY` with the `/commercial-release` suffix.
 Verify that the destination package is private and that GitHub Actions can publish
@@ -452,8 +460,14 @@ new-namespace release. The Blueprint is a setup template, not an instruction to 
 live services. Historical schema-maintenance tooling retains its original transition
 boundary. Registry relocation does not authorize schema changes, credential rotation,
 production promotion or deletion. Production needs its own exact window and approval.
-After setup, capture fresh CI, publication and automatic staging evidence in the new
-namespace; an old-namespace staging artifact is not new-namespace promotion proof.
+After setup, verify fresh CI and image publication, automatic promotion for each
+development or staging service where it is enabled, and the pullable compatible
+rollback path in the destination namespace. A same-release rebind verifies that
+binding. Use a fresh eligible
+release and its own staging evidence for normal production promotion. Record
+registry transfer results in the [registry migration record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/455)
+and use [resource retirement](RESOURCE_RETIREMENT.md#retire-legacy-provider-access-and-bindings)
+before removing any previous package, credential or reference.
 
 ## Manual production promotion
 
@@ -464,8 +478,8 @@ development and staging. Production dispatch is reserved for release operators
 with repository write access. Keep write access limited to operators authorized
 to release, use the available main-branch protections, and restrict the GitHub
 `production` environment to `main` where supported. This workflow requires no
-paid environment reviewer. Coordinate ownership and credential custody with
-the [platform ownership handoff](https://github.com/Roklion/Project_Tabula_Rasa/issues/413).
+paid environment reviewer. Follow the [provider custody procedure](SECRETS.md#provider-account-custody-and-transfer)
+for ownership and credential handoff.
 
 ### Production setup and recovery evidence
 
