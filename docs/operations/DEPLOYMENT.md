@@ -514,6 +514,37 @@ verified by the operator under the [database recovery procedure](DATABASE_RECOVE
 Avoid concurrent Render configuration changes, manual deploys, or other migrators
 during the release window.
 
+### Plan a forward schema maintenance window
+
+Before interrupting service, use the actual operator terminal and existing
+maintenance credential for a read-only check. Confirm the direct database
+fingerprint, connected role, expected source revision and required migration
+privileges. A successful query in the provider's console verifies the console
+session. The operator still needs a successful check from the terminal that
+will run the migration. Resolve connection or input failures while the current
+release is serving traffic.
+
+The approved plan must name the staging-verified digest, the new schema grants,
+all application and worker writers, and the way ingress stays restricted during
+the image switch. Drain the writers, verify a fresh recovery point, and confirm
+the current revision again before running the locked forward upgrade. Afterward,
+check the committed revision, effective runtime and worker grants, and continued
+separation of the promotion role before serving traffic on the new image.
+
+On Render, saving an image URL and resuming a service are separate from verifying
+the image currently serving traffic. A resumed service can still show the prior
+deployment as live. Plan a way to keep traffic restricted until the approved
+digest is actually live. If the plan cannot prevent an incompatible image from
+serving, stop and use a reviewed compatibility bridge or another approved
+cutover procedure. Verify the exact digest, readiness, version and mode-specific
+smoke before reopening ingress.
+
+If a migration attempt stops, read back the database revision and grants before
+deciding how to recover. With the original compatible state confirmed, follow
+the approved fallback to restore the prior image and verify its health. Once the
+new schema has committed, keep incompatible images out of service and use the
+reviewed forward-repair or isolated-restore procedure.
+
 ### Select and promote a release
 
 1. In **Commercial release image**, select the completed automatic run whose
