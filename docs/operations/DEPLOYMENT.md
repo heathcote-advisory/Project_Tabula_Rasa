@@ -462,9 +462,9 @@ boundary. Registry relocation does not authorize schema changes, credential rota
 production promotion or deletion. Production needs its own exact window and approval.
 After setup, verify fresh CI and image publication, automatic promotion for each
 development or staging service where it is enabled, and the pullable compatible
-rollback path in the destination namespace. A same-release rebind verifies that
-binding. Use a fresh eligible
-release and its own staging evidence for normal production promotion. Record
+rollback path in the destination namespace. A same-release rebind verifies the
+registry binding. Use a fresh eligible release and its own staging evidence
+for normal production promotion. Record
 registry transfer results in the [registry migration record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/455)
 and use [resource retirement](RESOURCE_RETIREMENT.md#retire-legacy-provider-access-and-bindings)
 before removing any previous package, credential or reference.
