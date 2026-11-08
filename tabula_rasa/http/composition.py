@@ -95,9 +95,14 @@ class PostgresRuntime:
                 raise StorageConflictError(code='concurrent_write')
             yield
 
-    def ready(self):
+    def readiness_error(self):
         health = self.database.health()
-        return health.get("connected") is True and health.get("revision") == head_revision()
+        if health.get("connected") is True and health.get("revision") == head_revision():
+            return None
+        return health.get("code") or "unavailable"
+
+    def ready(self):
+        return self.readiness_error() is None
 
     def close(self):
         try:

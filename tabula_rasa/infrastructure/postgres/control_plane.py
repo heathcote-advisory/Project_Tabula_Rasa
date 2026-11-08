@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
-from tabula_rasa.application.identity import EntityAccess, IdentityError, ROLE_CAPABILITIES, User
+from tabula_rasa.application.identity import EntityAccess, IdentityError, IdentityStorageUnavailable, ROLE_CAPABILITIES, User
 from .runtime import DatabaseError
 
 
@@ -15,10 +15,12 @@ def identity_operation(database, *, read_only=False):
         with database.transaction(read_only=read_only) as connection:
             yield connection
     except DatabaseError as error:
-        code = error.code if error.code in {'duplicate', 'reference', 'invariant', 'required', 'concurrent_write'} else 'unavailable'
+        code = error.code
     else:
         return
-    raise IdentityError(code) from None
+    if code in {'duplicate', 'reference', 'invariant', 'required', 'concurrent_write'}:
+        raise IdentityError(code) from None
+    raise IdentityStorageUnavailable(exhausted=code == 'database_exhausted') from None
 
 
 ENTITY_ACCESS_SQL = '''SELECT e.entity_id, e.organization_id, b.name, b.currency_code, m.role,

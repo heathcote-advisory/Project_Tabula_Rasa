@@ -1,7 +1,10 @@
+import json
 from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError
 
 from tabula_rasa.application.identity import IdentityError
 from tabula_rasa.http.app import create_app
@@ -23,6 +26,67 @@ def client_for(database):
     runtime = PostgresRuntime(database, auth, service_factory=factory, identity=auth)
     app = create_app(settings=settings, runtime_factory=lambda _: runtime)
     return TestClient(app, base_url=settings.public_origin), auth, factory
+
+
+
+def test_real_pool_exhaustion_labels_named_session_and_readiness(database, caplog, monkeypatch):
+    setup(database)
+    # A short fixture timeout makes the real checkout failure deterministic.
+    pool_engine = create_engine(database.engine.url, pool_size=2, max_overflow=0,
+                                pool_timeout=0.1, pool_pre_ping=True, hide_parameters=True)
+    original_engine = database.engine
+    database.engine = pool_engine
+    caplog.set_level("INFO", logger="tabula_rasa.http")
+    monkeypatch.setenv('TABULA_RASA_TELEMETRY_SCOPE_KEY', 'synthetic-identity-telemetry-key-32-chars')
+    try:
+        client, auth, factory = client_for(database)
+        raw, session = auth.sessions.issue(verified())
+        with client:
+            client.cookies.set(auth.session_cookie, raw, domain='127.0.0.1', path='/')
+            client.cookies.set(auth.csrf_cookie, session.csrf_token, domain='127.0.0.1', path='/')
+            assert client.get('/api/v1/session').status_code == 200
+            assert client.get('/health/ready').status_code == 200
+            with pool_engine.connect(), pool_engine.connect():
+                denied = client.get('/api/v1/session')
+                assert denied.status_code == 503 and denied.json()['error']['code'] == 'unavailable'
+                readiness = client.get('/health/ready')
+                assert readiness.status_code == 503 and readiness.json() == {'status': 'unavailable'}
+                login = client.get('/api/v1/auth/login', follow_redirects=False)
+                assert login.headers['location'].startswith('/signed-out?reason=unavailable')
+                logout = client.post('/api/v1/auth/logout', headers={
+                    'origin': auth.settings.public_origin, 'x-csrf-token': session.csrf_token,
+                })
+                assert logout.status_code == 503
+                assert auth.session_cookie not in client.cookies and auth.csrf_cookie not in client.cookies
+            assert client.get('/health/ready').status_code == 200
+            client.cookies.set(auth.session_cookie, raw, domain='127.0.0.1', path='/')
+            assert client.get('/api/v1/session').status_code == 200
+            auth.provider.authorization_url.assert_not_called()
+
+            with monkeypatch.context() as unavailable:
+                unavailable.setattr(pool_engine, 'connect', Mock(side_effect=OperationalError(None, None, OSError())))
+                assert client.get('/api/v1/session').status_code == 503
+            auth.provider.authorization_url.side_effect = IdentityError('unavailable')
+            login = client.get('/api/v1/auth/login', follow_redirects=False)
+            assert login.headers['location'].startswith('/signed-out?reason=unavailable')
+        factory.assert_not_called()
+    finally:
+        pool_engine.dispose()
+        database.engine = original_engine
+
+    events = [json.loads(record.message) for record in caplog.records
+              if record.name == 'tabula_rasa.http' and '"http_request"' in record.message]
+    failures = [event for event in events if event['failure_code'] == 'unavailable']
+    assert [(event['operation'], event['status']) for event in failures] == [
+        ('get_session', 503), ('readiness', 503), ('begin_login', 303), ('logout', 503),
+        ('get_session', 503), ('begin_login', 303),
+    ]
+    assert [(event['provider'], event['provider_status']) for event in failures] == [
+        ('postgresql', 'exhausted'), ('postgresql', 'exhausted'),
+        ('postgresql', 'exhausted'), ('postgresql', 'exhausted'),
+        ('postgresql', 'unavailable'), ('identity', 'unavailable'),
+    ]
+    assert raw not in caplog.text and session.csrf_token not in caplog.text
 
 
 def test_logout_bootstrap_during_outage_preserves_origin_csrf_and_cookie_isolation():
@@ -59,7 +123,6 @@ def test_logout_bootstrap_during_outage_preserves_origin_csrf_and_cookie_isolati
 @pytest.mark.parametrize('entry', ['login', 'register'])
 @pytest.mark.parametrize('return_path', ['/', '/onboarding', '/invitations'])
 def test_login_callback_cookie_contract_and_no_entity_setup(database, return_path, caplog, monkeypatch, entry):
-    import json
     monkeypatch.setenv('TABULA_RASA_TELEMETRY_SCOPE_KEY', 'synthetic-identity-telemetry-key-32-chars')
     caplog.set_level('INFO', logger='tabula_rasa.http')
     client, auth, factory = client_for(database)

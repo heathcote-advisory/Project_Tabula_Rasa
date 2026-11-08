@@ -173,6 +173,11 @@ validate and tune, not claimed SLOs:
 | Recurring/job failure (durable job queue and recurring job execution) | On terminal failure; explicit successful run resolves | The explicit CLI tick emits `job_run`/`job_execute` after confirmed success or terminal failure, with pseudonymous entity/job/worker references. Retryable attempts are not terminal failures. Inspect durable history for attempts and unconfirmed operations; this does not activate a worker. |
 | Missing backup (NAS backup and restore) | `wrapper status` runs every 3 hours in production and every 6 hours in UAT; failed/missing/stale/capacity/overdue states exit nonzero. The existing 2-hour grace still controls stale/overdue classification; detection after a state becomes unhealthy can take up to the check interval plus execution/runtime latency. Verified healthy status resolves | NAS operator registers abnormal-exit notification using DSM's separate email sender plus an independent missing-NAS check-in or recorded operator check. Preserve Sunday/Wednesday 22:00 production and 22:30 UAT America/New_York, DST, and the [staggered catch-up/health phases](NAS_BACKUP.md#nas-command-and-schedule); both runner due slots remain 22:00. API startup never stands in for a backup. |
 
+Connection exhaustion retains the PostgreSQL classification through named session
+checks, login/logout and readiness. Client responses keep their ordinary safe
+unavailable shape. A connectivity outage and identity-provider unavailability
+are distinct from exhausted database slots.
+
 Free Render cold starts/suspension and Neon idle compute can exceed probe thresholds.
 Record those accepted limitations or choose approved continuous capacity; monitoring
 itself can consume free compute hours. Do not mask an outage or claim paid availability

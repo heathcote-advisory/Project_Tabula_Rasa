@@ -20,11 +20,12 @@ from tabula_rasa.errors import StorageError
 from tabula_rasa.application.mileage import MileageValidationError
 from tabula_rasa.application.documents import DocumentError
 from tabula_rasa.application.identity import IdentityError
-from .composition import open_runtime
+from .composition import PostgresRuntime, open_runtime
 from .config import HttpSettings
 from .authorization import PUBLIC_ROUTES, ROUTE_POLICIES, authorize_request, validate_routes
 from .errors import (
     ERRORS, TransportError, error_response, handle_error, handle_http_error, handle_validation,
+    mark_identity_storage_failure, mark_postgres_failure,
 )
 from .models.common import Health, Version
 from .routes import accounting, accounts, auth, documents, financial_csv, imports, mileage, mileage_imports, references, reporting, secondary, session
@@ -83,6 +84,7 @@ def create_app(*, settings=None, runtime_factory=None, schema_only=False, static
     app.add_exception_handler(MileageValidationError, handle_error)
     app.add_exception_handler(DocumentError, handle_error)
     async def identity_error(request, error):
+        mark_identity_storage_failure(request, error)
         response = error_response(request, error.code)
         request.state.security_event = getattr(request.state, "security_event", None) or "identity_denied"
         request.state.security_reason = getattr(request.state, "security_reason", None) or "identity"
@@ -168,7 +170,14 @@ def create_app(*, settings=None, runtime_factory=None, schema_only=False, static
     def ready(request: Request):
         from starlette.responses import JSONResponse
         try:
-            healthy = request.app.state.runtime.ready()
+            runtime = request.app.state.runtime
+            if isinstance(runtime, PostgresRuntime):
+                failure = runtime.readiness_error()
+                healthy = failure is None
+                if failure == "database_exhausted":
+                    mark_postgres_failure(request, exhausted=True)
+            else:
+                healthy = runtime.ready()
         except Exception:
             healthy = False
         return JSONResponse({"status": "ready" if healthy else "unavailable"}, status_code=200 if healthy else 503)

@@ -10,6 +10,7 @@ from tabula_rasa.errors import (
 from .models.common import ErrorCode, ErrorDetail, ErrorEnvelope, FieldError
 from tabula_rasa.application.mileage import MileageValidationError
 from tabula_rasa.application.documents import DocumentError, DocumentNotFoundError, DocumentValidationError
+from tabula_rasa.application.identity import IdentityStorageUnavailable
 
 
 ERRORS = {
@@ -82,13 +83,21 @@ def failure_code(error):
     return "unexpected"
 
 
+def mark_postgres_failure(request, *, exhausted):
+    request.state.telemetry_provider = "postgresql"
+    request.state.provider_status = "exhausted" if exhausted else "unavailable"
+
+
+def mark_identity_storage_failure(request, error):
+    if isinstance(error, IdentityStorageUnavailable):
+        mark_postgres_failure(request, exhausted=error.exhausted)
+
+
 async def handle_error(request, error):
     if isinstance(error, DocumentError):
         request.state.telemetry_provider = "documents"
     elif isinstance(error, StorageError) and not isinstance(error, (StorageValidationError, StorageConflictError, StorageNotFoundError)):
-        request.state.telemetry_provider = "postgresql"
-        if error.code == "database_exhausted":
-            request.state.provider_status = "exhausted"
+        mark_postgres_failure(request, exhausted=error.code == "database_exhausted")
     return error_response(request, failure_code(error))
 
 

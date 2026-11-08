@@ -5,13 +5,14 @@ from tabula_rasa.application.identity import (
     IdentityError, LOGIN_FAILURE_REASONS, LOGIN_TRANSACTION_SECONDS, REGISTRATION_TRANSACTION_SECONDS,
 )
 from ..context import require_csrf
-from ..errors import ERROR_RESPONSES, TransportError, error_response
+from ..errors import ERROR_RESPONSES, TransportError, error_response, mark_identity_storage_failure
 from ..models.common import LogoutContext
 
 router = APIRouter(responses=ERROR_RESPONSES, tags=["Authentication"])
 
 
 def login_failure(request, error, reason):
+    mark_identity_storage_failure(request, error)
     # Only server-owned classifications and a fresh request reference reach the
     # browser. Never reflect provider errors, descriptions or callback values.
     reason = error.login_reason or reason
@@ -114,6 +115,7 @@ def logout(request: Request):
         response = Response(status_code=204)
         request.state.security_event = "logout_succeeded"
     except IdentityError as error:
+        mark_identity_storage_failure(request, error)
         response = Response(status_code=204) if error.code == "unauthorized" else error_response(request, error.code)
         request.state.security_event = "logout_local" if error.code == "unauthorized" else "logout_failed"
     auth.clear(response)
