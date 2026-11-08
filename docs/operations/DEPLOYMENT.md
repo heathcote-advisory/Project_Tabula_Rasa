@@ -540,10 +540,12 @@ cutover procedure. Verify the exact digest, readiness, version and mode-specific
 smoke before reopening ingress.
 
 If a migration attempt stops, read back the database revision and grants before
-deciding how to recover. With the original compatible state confirmed, follow
-the approved fallback to restore the prior image and verify its health. Once the
-new schema has committed, keep incompatible images out of service and use the
-reviewed forward-repair or isolated-restore procedure.
+deciding how to recover. With the original compatible state confirmed, use the
+approved recovery steps to restore the prior image and apply the
+[compatible rollback verification checks](#promotion-failure-and-rollback).
+Once the new schema has committed, keep incompatible images out of service and
+use reviewed forward repair or the [isolated database restore
+procedure](DATABASE_RECOVERY.md).
 
 ### Select and promote a release
 
