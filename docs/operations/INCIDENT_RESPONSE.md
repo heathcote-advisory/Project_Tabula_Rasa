@@ -137,7 +137,38 @@ its process URL is absent: an explicitly injected URL is mandatory here.
 | POST/poll/timeout uncertain | Inspect exact Render service/deploy history and immutable image fields once authoritative state is available. Stop while uncertain; do not retry POST or race it with rollback. |
 | Live candidate, failed smoke | Restricted alpha may restore a verified compatible prior image through existing automation; the run still fails. Named mode stops for explicit reviewed rollback, preserving named guards and configuration epoch. |
 | Startup/readiness failure | Inspect safe startup event, explicit mode/origin, secret completeness, TLS/endpoint binding, pool capacity and DB revision with separate role custody. Correct the specific setting or deploy a compatible fix; readiness/startup never migrates or seeds. |
-| Schema mismatch | Stop ordinary promotion. Drain writers, preserve recovery point and review the immutable forward chain under PostgreSQL persistence. Head-only automation cannot bridge old/new revisions. Never stamp, downgrade, bootstrap retained data or restore merely to silence readiness. |
+| Schema mismatch | Stop ordinary promotion. Check the reviewed [forward release window](DEPLOYMENT.md#schedule-an-approved-forward-release) or plan a separate compatible bridge or forward repair. Preserve recovery evidence and use the confirmed schema to decide which images can serve. |
+
+### Scheduled schema window failure
+
+Use the failed GitHub Actions phase and any Render deployment ID from the
+summary. Page the release operator through the configured workflow failure
+notification. A runner cancellation or timeout after the ingress phase needs
+the same investigation. Pause new promotions and keep external writers
+stopped. Privately verify Render maintenance, suspension, instances and live
+digest, then read the bound database revision and runtime grants once the
+provider operation has settled.
+
+- **Preflight or drain failure.** If ingress was never restricted, resolve the
+  input, queue, provider or writer issue with the prior release serving. If
+  restriction began, confirm the migration never ran and the approved source
+  and prior compatible image are still intact. Resume and verify that release
+  through the private path before opening traffic.
+- **Migration failure or uncertain result.** Keep ingress restricted while
+  checking the committed revision and grants. If the original schema is
+  confirmed, use the compatible recovery procedure. If the schema advanced,
+  retain the private recovery point and use a reviewed forward fix or
+  [isolated database recovery](DATABASE_RECOVERY.md).
+- **Deploy, smoke or reopen failure.** Inspect the exact deploy and any
+  pending operation before requesting another. Confirm or re-establish
+  maintenance if ingress state is uncertain. With an advanced schema, keep
+  the incompatible prior image out of service. Reopen after the reviewed
+  compatible digest passes private readiness, version and named smoke, then
+  confirm public readiness and version before releasing external writers.
+
+Record the confirmed schema, digest, ingress state, outcome and recovery
+decision in the release evidence. A database downgrade requires a separate
+recovery decision.
 
 ### Compatible immutable-image rollback
 

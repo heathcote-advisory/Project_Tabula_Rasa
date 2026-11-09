@@ -90,3 +90,39 @@ def test_production_gate_runs_on_native_current_head_and_rejects_a_pending_revis
         tooling.migrate(configured)
     with database.engine.connect() as connection:
         assert current_revision(connection) == "0014_document_locations"
+
+
+def test_bound_maintenance_migrates_real_source_once_and_checks_runtime_role(empty_database, monkeypatch):
+    from uuid import uuid4
+
+    from alembic import command
+
+    from tabula_rasa.deployment import schema_migration
+    from tabula_rasa.infrastructure.postgres.migrations import migration_config
+
+    runtime = "window_" + uuid4().hex
+    source, target = "0020_book_currency", "0021_customer_lifecycle"
+    with empty_database.engine.begin() as connection:
+        command.upgrade(migration_config(connection), source)
+        connection.exec_driver_sql(f'CREATE ROLE "{runtime}" NOLOGIN')
+        connection.exec_driver_sql(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO "{runtime}"')
+        connection.exec_driver_sql(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO "{runtime}"')
+        migration_role = connection.exec_driver_sql("SELECT current_user").scalar_one()
+    monkeypatch.setattr(schema_migration, "open_bound_neon_database", lambda _: empty_database)
+    environ = {
+        "TABULA_RASA_ENVIRONMENT": "staging", "TABULA_RASA_RELEASE_ID": "a" * 40, "WINDOW_RELEASE": "a" * 40,
+        "WINDOW_SOURCE_SCHEMA": source, "WINDOW_TARGET_SCHEMA": target, "WINDOW_RUNTIME_ROLE": runtime,
+    }
+    try:
+        with pytest.raises(ValueError, match="separate migration owner"):
+            schema_migration.execute({**environ, "WINDOW_RUNTIME_ROLE": migration_role}, apply=True)
+        schema_migration.execute(environ, apply=False)
+        assert empty_database.health()["revision"] == source
+        schema_migration.execute(environ, apply=True)
+        assert empty_database.health()["revision"] == target
+        with pytest.raises(ValueError, match="approved source revision"):
+            schema_migration.execute(environ, apply=True)
+    finally:
+        with empty_database.engine.begin() as connection:
+            connection.exec_driver_sql(f'DROP OWNED BY "{runtime}"')
+            connection.exec_driver_sql(f'DROP ROLE "{runtime}"')
