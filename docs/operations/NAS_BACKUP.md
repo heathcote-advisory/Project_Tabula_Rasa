@@ -381,11 +381,12 @@ The private point specification has exactly these fields:
   One encrypted bundle may contain multiple enrolled archives; the operator
   explicitly attests that correspondence after verified durable readback.
 
-With existing private files prepared, run from the reviewed checkout/environment:
+With the private files prepared, publish from an app-capable operator
+environment with the reviewed application package and canonical receipt
+archives available:
 
 ```sh
 python -m scripts.recovery_point_health publish --config /private/coordinated.json --point /private/point.json --attest-quiesced-point
-python -m scripts.recovery_point_health status --config /private/coordinated.json
 ```
 
 Publication uses the existing local lock and atomic JSON publication. A failed
@@ -394,6 +395,19 @@ complete point and all partial artifacts. Setup/argument failures and concurrent
 lock rejection stop before starting an attempt. An abandoned lock/running state
 requires operator inspection; there is no automatic lock removal or retry.
 The new tool never relabels an existing one-time archive as recurring protection.
+
+For NAS inspection, use the existing reviewed client-only image. Stage
+`recovery_point_health.py`, `nas_postgres_backup.py` and
+`operational_heartbeat.py` from the same reviewed revision in a dedicated host
+directory. Bind-mount it read-only at `/opt/coordinated/scripts` as the Python
+`scripts` package. Set the container working directory to `/opt/coordinated`
+and override the entrypoint with `python3` for this invocation. Mount the
+protected configuration, coordinated state and retained artifacts read-only
+at the paths referenced by the configuration and point.
+
+```sh
+python3 -m scripts.recovery_point_health status --config /private/coordinated.json
+```
 
 Status checks the pinned SQL generations and receipt ciphertexts, component
 failure/capacity state, exact enrollment and point chronology. Later individual
