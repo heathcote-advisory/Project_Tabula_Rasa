@@ -15,6 +15,10 @@ OPERATIONS = frozenset({
     'receipt_unlink', 'receipt_relink', 'receipt_final_unlink', 'income_create',
     'transfer_create', 'journal_create', 'journal_edit', 'ledger', 'reports',
     'transaction_delete', 'journal_delete', 'page_close',
+} | {
+    f'reference_{resource}_{step}'
+    for resource in ('accounts', 'categories', 'payees', 'tags')
+    for step in ('prepare', 'submit', 'confirm')
 })
 
 
@@ -39,7 +43,7 @@ def operation(name):
             failed_operation = error.operation
     else:
         return
-    raise JourneyError('Browser journey operation failed; inspect the disposable fixture.',
+    raise JourneyError(f'Browser journey operation failed at {failed_operation}. Inspect the disposable fixture.',
                      operation=failed_operation) from None
 
 
@@ -68,17 +72,20 @@ def preflight(context, expected_entity, origin):
 def create_reference(page, resource, name, *, kind=None):
     from playwright.sync_api import expect
 
-    page.goto('/' + resource + '/new')
-    page.get_by_label('Account name' if resource == 'accounts' else 'Category name' if resource == 'categories' else 'Name', exact=True).fill(name)
-    if kind:
-        page.get_by_label('Kind', exact=True).select_option(kind)
-    noun = 'category' if resource == 'categories' else resource[:-1]
-    with page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/' + resource)) as created:
-        page.get_by_role('button', name='Create ' + noun, exact=True).click()
-    row = checked(created.value, 201).json()
-    # A response event precedes the app's form reset and dirty-guard cleanup.
-    expect(page.get_by_role('status').filter(has_text='Record created.')).to_be_visible()
-    return row['id']
+    with operation(f'reference_{resource}_prepare'):
+        page.goto('/' + resource + '/new')
+        page.get_by_label('Account name' if resource == 'accounts' else 'Category name' if resource == 'categories' else 'Name', exact=True).fill(name)
+        if kind:
+            page.get_by_label('Kind', exact=True).select_option(kind)
+    with operation(f'reference_{resource}_submit'):
+        noun = 'category' if resource == 'categories' else resource[:-1]
+        with page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/' + resource)) as created:
+            page.get_by_role('button', name='Create ' + noun, exact=True).click()
+        row = checked(created.value, 201).json()
+    with operation(f'reference_{resource}_confirm'):
+        # A response event precedes the app's form reset and dirty-guard cleanup.
+        expect(page.get_by_role('status').filter(has_text='Record created.')).to_be_visible()
+        return row['id']
 
 
 def create_transaction(page, marker, kind, amount, account, category='', *, destination='', payee='', tag=''):
