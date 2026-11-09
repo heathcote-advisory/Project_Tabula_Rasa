@@ -71,6 +71,8 @@ def test_reference_create_rejects_failed_response_before_accepting_success_ui(mo
     page.expect_response.return_value.__enter__.return_value.value = SimpleNamespace(status=422)
     success = Mock()
     monkeypatch.setattr('playwright.sync_api.expect', success)
-    with pytest.raises(journey_support.JourneyError):
-        journey_support.create_reference(page, 'accounts', 'Synthetic account')
+    with pytest.raises(journey_support.JourneyError, match='reference_accounts_submit') as failure:
+        with journey_support.operation('reference_setup'):
+            journey_support.create_reference(page, 'accounts', 'Synthetic account')
+    assert failure.value.operation == 'reference_accounts_submit'
     success.assert_not_called()
