@@ -112,12 +112,12 @@ def test_independent_roles_flat_navigation_and_shared_invitee(named_server, engi
         assert_accessible(owner)
         for index, invitation in enumerate(invitations):
             invitee.goto(origin + '/invitations')
-            # Settle WebKit's page/input focus before pasting into the password field.
+            # WebKit can leave this password field empty after a bulk fill.
             invitee.bring_to_front()
             credential_field = invitee.get_by_label('Invitation credential', exact=True)
             credential_field.focus()
             expect(credential_field).to_be_focused()
-            credential_field.fill(invitation.credential)
+            credential_field.press_sequentially(invitation.credential)
             expect(credential_field).not_to_be_empty()
             invitee.get_by_role('button', name='Review invitation').click()
             offer = invitee.get_by_role('region', name='Invited business')
