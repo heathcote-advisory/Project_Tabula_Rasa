@@ -89,8 +89,10 @@ def verify_no_jobs(read, service, token):
         raise release.ReleaseError("Pending or running Render jobs must be drained before migration.")
 
 
-def wait_drained(read, service, token, *, sleep=time.sleep):
-    for _ in range(12):
+def wait_drained(read, service, token, shutdown_delay, *, sleep=time.sleep):
+    # Give Render its configured graceful shutdown period plus time to report
+    # that the instances have gone away.
+    for _ in range(1 + (shutdown_delay + 30) // 5):
         state = service_state(read, service, token)
         if not maintenance_state(state)["enabled"]:
             raise release.ReleaseError("Render maintenance protection was lost.")
@@ -134,13 +136,21 @@ def resume_deployment(read, service, token, *, sleep=time.sleep):
     raise release.ReleaseError("Render did not report a new deployment after resume; inspect before any further deploy.")
 
 
-def public_closed(origin):
-    try:
-        with build_opener(release.NoRedirect).open(origin + "/version", timeout=10):
+def public_closed(origin, *, sleep=time.sleep):
+    opener = build_opener(release.NoRedirect)
+    for attempt in range(3):
+        try:
+            with opener.open(origin + "/version", timeout=5):
+                pass
+        except HTTPError as error:
+            if error.code == 503:
+                return
+            if 400 <= error.code < 500:
+                break
+        except OSError:
             pass
-    except HTTPError as error:
-        if error.code == 503:
-            return
+        if attempt < 2:
+            sleep(3)
     raise release.ReleaseError("Public Render ingress did not return maintenance status.")
 
 
@@ -235,6 +245,9 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
     if image == previous_image or candidate["schema"] == previous["schema"]:
         return {"status": "skipped", "reason": "schema_compatible_use_normal_promotion"}
     candidate_source = image_source(state, image)
+    shutdown_delay = details.get("maxShutdownDelaySeconds", 30)
+    if type(shutdown_delay) is not int or not 1 <= shutdown_delay <= 300:
+        raise release.ReleaseError("Render returned an invalid graceful shutdown delay.")
     source = previous["schema"]
     evidence = {
         "environment": environment, "image": image, **candidate, "source_schema": source,
@@ -273,7 +286,7 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
         evidence["maintenance_started_at"] = now().isoformat()
         emit({"status": "draining_service", "at": evidence["maintenance_started_at"]})
         read(f"/services/{service}/suspend", token, method="POST", no_content=True)
-        wait_drained(read, service, token)
+        wait_drained(read, service, token, shutdown_delay)
         verify_no_jobs(read, service, token)
         emit({"status": "configuring_suspended_image", "at": now().isoformat()})
         select_suspended_image(read, service, token, candidate_source)

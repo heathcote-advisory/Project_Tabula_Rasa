@@ -637,8 +637,10 @@ window through completion.
 
 The workflow verifies CI, release ancestry, live image, service and database
 identity, migration role, source revision and private smoke before restricting
-traffic. It enables Render maintenance, confirms public restriction, suspends
-the old web service and checks drain. While suspended, it saves and verifies
+traffic. It enables Render maintenance, confirms public restriction with a
+bounded probe, and suspends the old web service. The drain check allows the
+configured Render shutdown grace period plus time for instance status to
+update. While suspended, the workflow saves and verifies
 the approved digest as the service's configured image, preserving its registry
 credential. It runs the candidate image's locked forward migration once and
 resumes the service under maintenance. It verifies the new Render deployment

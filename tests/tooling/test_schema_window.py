@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock
+from urllib.error import HTTPError, URLError
 
 import pytest
 import yaml
@@ -199,6 +200,36 @@ def test_checks_the_direct_render_url_only_when_enabled(staging, policy):
     staging.details.update(url=direct, renderSubdomainPolicy=policy)
     assert staging.run()["status"] == "smoke_passed"
     assert direct in staging.closed_origins if policy == "enabled" else direct not in staging.closed_origins
+
+
+def test_public_ingress_waits_for_maintenance_and_stops_when_unconfirmed(monkeypatch):
+    maintenance = HTTPError(ORIGIN, 503, "maintenance", {}, None)
+    opener = Mock()
+    monkeypatch.setattr(schema_window, "build_opener", lambda _: opener)
+    opener.open.side_effect = [URLError("reset"), maintenance]
+    delay = Mock()
+    schema_window.public_closed(ORIGIN, sleep=delay)
+    delay.assert_called_once_with(3)
+    opener.open.reset_mock()
+    opener.open.side_effect = URLError("still unavailable")
+    with pytest.raises(release.ReleaseError, match="did not return maintenance status"):
+        schema_window.public_closed(ORIGIN, sleep=delay)
+    assert opener.open.call_count == 3
+
+
+def test_drain_honors_the_configured_grace_period():
+    state = {
+        "id": SERVICE, "suspended": "suspended",
+        "serviceDetails": {"maintenanceMode": {"enabled": True, "uri": ""}},
+    }
+    observations = iter([[{"id": "still-running"}]] * 24 + [[]])
+
+    def read(path, token):
+        return next(observations) if path.endswith("/instances") else state
+
+    delay = Mock()
+    schema_window.wait_drained(read, SERVICE, "fixture", 120, sleep=delay)
+    assert delay.call_count == 24
 
 
 @pytest.mark.parametrize(("failure", "last_action"), [
