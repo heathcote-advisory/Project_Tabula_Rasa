@@ -533,6 +533,20 @@ def test_production_requires_successful_build_and_staging_jobs(production_releas
     assert not any(call.kwargs.get("body") for call in fixture.prod.call_args_list)
 
 
+@pytest.mark.parametrize("restored", [True, False])
+def test_production_accepts_only_completed_scheduled_staging_evidence(production_release, restored):
+    fixture = production_release
+    fixture.run.update(path=".github/workflows/commercial-schema-window.yml", event="schedule")
+    fixture.jobs[:] = [{"name": "staging / schema-window", "conclusion": "success"}]
+    if restored:
+        fixture.proof["traffic_restored_at"] = fixture.proof["verified_at"]
+        assert fixture.promote()["staging_run"] == "123"
+    else:
+        with pytest.raises(release.ReleaseError, match="isolated staging target"):
+            fixture.promote()
+        assert not any(call.kwargs.get("body") for call in fixture.prod.call_args_list)
+
+
 def test_failed_production_smoke_keeps_failed_outcome_without_automatic_rollback(production_release, capsys):
     fixture = production_release
     fixture.smoke.side_effect = ValueError("synthetic smoke failure")

@@ -55,8 +55,9 @@ read-only check of the locally configured direct Neon target on that date confir
 unsupported `channel_binding`; remove that option when copying the URL into deployment
 secrets, as documented in PostgreSQL operations. The check normalized the URL in memory
 and changed no files or database records. Enable `COMMERCIAL_DEPLOY_ENABLED=true` only
-after the checkpoint below. Automatic workflows never deploy production or change
-entity authority. Production uses the separately authorized manual path below.
+after the checkpoint below. Production uses explicit release authorization for
+manual promotion or a scheduled schema window. Promotion leaves entity authority
+under its separate cutover procedure.
 
 ## Release matrix and operator handoff
 
@@ -70,7 +71,8 @@ hosted execution. Keep credentials and recovery contents in private custody.
 | Pull request | Current-head **Full test suite** succeeds and review findings are dispositioned under [Development](../DEVELOPMENT.md#authoritative-ci-and-required-check) | Missing, pending, skipped or failed required checks prevent merge readiness. |
 | Main CI and image publication | Successful main-push Repository CI; image build publishes an immutable GHCR digest with release SHA, schema and verified linux/amd64 runtime digest | Failed CI/build supplies no eligible release. Inspect the failed job; do not deploy a moving tag. |
 | Automatic staging | Enabled staging job verifies the candidate and prior live image, checks supersession, runs the bound compatible-head migration gate, deploys and passes mode-specific smoke | Inspect the exact failed step and live provider state. A successful build or healthy prior image does not prove candidate success. |
-| Staging handoff | Record release SHA, requested/runtime digests, schema, run ID/attempt, Render deployment, origin, verification time and successful staging artifact | Production requires successful build and staging jobs in the same automatic attempt, evidence no older than seven days, and that the deployment is still live. Manual staging or rollback is insufficient. |
+| Staging handoff | Record release SHA, requested/runtime digests, schema, run ID/attempt, Render deployment, origin, verification time and successful staging artifact | Production requires evidence from a successful automatic staging promotion or scheduled staging window, no older than seven days, with the same deployment still live. Manual staging or rollback is insufficient. |
+| Scheduled schema promotion | An approved window applies a reviewed forward transition after ingress is closed and writers are drained. The exact image must pass private smoke before public traffic reopens. | A missing approval or late start skips. Once maintenance starts, inspect the failed phase and use the incident procedure. |
 | Production authorization | Owner approves the specific release/window and privately reviewed recovery record; production bindings, permissions, schema and retained named-image compatibility are verified | Keep production disabled until authorized. Schema mismatch requires separate reviewed maintenance and approval, not an ordinary retry. |
 | Manual production promotion | Dispatch on protected main with the exact staged digest, automatic staging run, expected live production image and recovery-record hash | Preflight must pass again with the candidate's verified code before migration/deploy. Changed staging or production state requires fresh review. |
 | Production verification | Provider requested/runtime digest relationship, expected version, readiness and named-user smoke all pass; retain summary and timestamps | A live but unhealthy named candidate requires operator containment and the reviewed compatible rollback/forward-repair decision. No automatic schema downgrade. |
@@ -424,7 +426,7 @@ Render development, staging and production use the private package
 `ghcr.io/heathcote-advisory/project_tabula_rasa/commercial-release`. Verify the
 effective image binding and registry access for each service before promotion
 or recovery. Development and staging can promote automatically. Production uses
-the separately authorized manual workflow. Follow [provider custody and transfer](SECRETS.md#provider-account-custody-and-transfer)
+the explicitly authorized manual or scheduled path. Follow [provider custody and transfer](SECRETS.md#provider-account-custody-and-transfer)
 for account and credential ownership.
 
 The image workflow, promotion checks and staging job probe use the same GHCR
@@ -567,10 +569,97 @@ Once the new schema has committed, keep incompatible images out of service and
 use reviewed forward repair or the [isolated database restore
 procedure](DATABASE_RECOVERY.md).
 
+### Schedule an approved forward release
+
+**Commercial schema release window** checks daily at 3:00 a.m. in
+`America/New_York`. The GitHub timezone schedule follows daylight saving time.
+The staging and production jobs use the same per-environment queue as normal
+promotion. A job skips an empty queue, a missed window, a rerun, or a candidate
+whose schema matches the serving image. Use ordinary promotion for compatible
+images. The scheduler reserves 25 minutes at the point it would restrict
+ingress. A missed or delayed attempt needs a fresh record for the next approved
+date. The only automated transition is `0020_book_currency` to
+`0021_customer_lifecycle`. The head-only runtime has no reviewed online forward
+transition. Other transitions need separate review and migration validation.
+
+Before enabling staging, approve an isolated hosted rehearsal with a paid
+Render image-backed web service that supports maintenance mode. Use the existing
+environment bindings, turn off Render automatic deploys, and verify the
+following operator prerequisites.
+
+- Restrict an ephemeral x64 Linux runner with the `commercial-schema-window`
+  label to trusted release workflows. It needs Docker, GitHub CLI, Chromium
+  system dependencies, public probe access and access to the selected service's
+  private smoke route. Set `WINDOW_PRIVATE_ORIGIN` to the exact HTTPS origin of
+  a private gateway that routes only to the selected Render service over its
+  private network and forwards its configured public `Host`. Restrict the
+  gateway to the release runner, including during maintenance. Rehearse this
+  path with the production-equivalent routing and smoke configuration.
+- Set the environment secret `WINDOW_MIGRATION_DATABASE_URL` to the separate
+  scoped owner for the approved direct Neon TLS database. Confirm it owns the
+  public ledger relations and can run this transition. Configure reviewed
+  default privileges for the new lifecycle tables and identity sequence for the
+  runtime role. Keep normal promotion on its separate compatible-head gate.
+- Pause external timers and drain their workers, private writers and one-off
+  job operators before approving the window. Keep them paused through verified
+  recovery or promotion. The workflow checks pending/running jobs on the exact
+  Render service and confirms web instances are gone before applying Alembic.
+  Inventory and pause writers outside that service through their own operating
+  procedures. Reserve the window against direct provider changes.
+- Privately verify a usable backup or PITR point for the approved service,
+  database and source schema, including retention and a tested restore path.
+  The approval record carries its SHA-256 and a timezone-qualified capture
+  time. The workflow checks binding, format and a maximum age of 24 hours.
+  Apply any stricter recovery-point objective during operator review.
+
+After the build publishes the immutable image, queue it in the protected
+GitHub environment variable `COMMERCIAL_SCHEMA_WINDOW`. Enter a JSON object
+with these fields. Limit write access to authorized release operators.
+
+| Field | Approved value |
+| --- | --- |
+| `date`, `minutes` | Exact Eastern date in YYYY-MM-DD format and approved duration from 30 to 60 minutes |
+| `image`, `previous_image` | Exact candidate and expected live immutable GHCR references |
+| `render_service`, `database_sha256` | Exact Render service ID and bound database fingerprint |
+| `recovery_sha256`, `checkpoint_at` | Private recovery record hash and ISO 8601 checkpoint timestamp with offset |
+| `writers_paused` | JSON boolean `true` after the operator verifies external writer drain |
+| `staging_run` | Production only. Run ID for the same digest's current, successful staging verification |
+
+Staging requires both `COMMERCIAL_DEPLOY_ENABLED` and
+`COMMERCIAL_STAGING_SCHEMA_WINDOWS_ENABLED` at repository level. For production,
+confirm the window length, customer notice, allowable downtime and recovery
+ownership, and obtain explicit approval for the exact staging-verified digest
+and window before enabling `COMMERCIAL_PRODUCTION_SCHEMA_WINDOWS_ENABLED` and
+`COMMERCIAL_PRODUCTION_ENABLED`. The approved production record authorizes one
+scheduled attempt. Remove the record after the attempt. Confirm the GitHub
+Actions failure notification reaches the named on-call operator and monitor the
+window through completion.
+
+The workflow verifies CI, release ancestry, live image, service and database
+identity, migration role, source revision and private smoke before restricting
+traffic. It enables Render maintenance, confirms public restriction with a
+bounded probe, and suspends the old web service. The drain check allows the
+configured Render shutdown grace period plus time for instance status to
+update. While suspended, the workflow saves and verifies
+the approved digest as the service's configured image, preserving its registry
+credential. It runs the candidate image's locked forward migration once and
+resumes the service under maintenance. It verifies the new Render deployment
+uses the same digest. Successful private smoke precedes reopening. Public
+readiness and version confirm the restored path. A staging success retains the
+same attempt-specific staging artifact used by production preflight.
+
+The summary includes the selected image, source and target schema, recovery
+reference, phase timestamps and outcome. Use the
+[scheduled maintenance incident procedure](INCIDENT_RESPONSE.md#scheduled-schema-window-failure)
+for failures and interruptions. A failed or skipped run supplies no staging
+promotion evidence.
+
 ### Select and promote a release
 
 1. In **Commercial release image**, select the completed automatic run whose
-   **build** and **staging / deploy** jobs succeeded in the same attempt. The
+   **build** and **staging / deploy** jobs succeeded in the same attempt. For a
+   schema-window release, use the completed **Commercial schema release window**
+   run with a successful **staging / schema-window** job and restored traffic. The
    staging job summary lists the immutable image and its release/schema metadata.
    Use the run ID from its URL. The named-user staging evidence expires after
    seven days and must still name the live staging deployment. A staging

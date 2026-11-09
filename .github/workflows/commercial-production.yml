@@ -3,11 +3,11 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: Exact immutable GHCR image from the successful automatic staging run
+        description: Exact immutable GHCR image from successful staging verification
         required: true
         type: string
       staging_run:
-        description: Commercial release image workflow run ID that verified staging
+        description: Automatic staging or scheduled schema window run ID that verified the image
         required: true
         type: string
       previous_image:

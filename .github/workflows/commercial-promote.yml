@@ -6,8 +6,9 @@ on:
         required: true
         type: string
       image:
-        required: true
         type: string
+      schema_window:
+        type: boolean
       rollback_from:
         required: false
         type: string
@@ -24,11 +25,11 @@ permissions:
 jobs:
   deploy:
     if: >-
-      inputs.environment == 'development' || inputs.environment == 'staging' ||
+      !inputs.schema_window && (inputs.environment == 'development' || inputs.environment == 'staging' ||
       (inputs.environment == 'production' && github.event_name == 'workflow_dispatch' &&
        github.ref == 'refs/heads/main' && github.workflow_ref ==
        format('{0}/.github/workflows/commercial-production.yml@refs/heads/main', github.repository) &&
-       vars.COMMERCIAL_PRODUCTION_ENABLED == 'true')
+       vars.COMMERCIAL_PRODUCTION_ENABLED == 'true'))
     environment: ${{ inputs.environment }}
     concurrency:
       group: commercial-deploy-${{ inputs.environment }}
@@ -153,3 +154,74 @@ jobs:
         run: |
           echo 'Production promotion failed. Inspect the failed step, release preflight and Render before retrying.' >> "$GITHUB_STEP_SUMMARY"
           echo 'For a live but unhealthy candidate, restrict ingress and use the reviewed compatible application rollback procedure.' >> "$GITHUB_STEP_SUMMARY"
+  schema-window:
+    if: >-
+      inputs.schema_window && github.event_name == 'schedule' && github.ref == 'refs/heads/main' &&
+      github.workflow_ref == format('{0}/.github/workflows/commercial-schema-window.yml@refs/heads/main', github.repository) &&
+      ((inputs.environment == 'staging' && vars.COMMERCIAL_DEPLOY_ENABLED == 'true' &&
+        vars.COMMERCIAL_STAGING_SCHEMA_WINDOWS_ENABLED == 'true') ||
+       (inputs.environment == 'production' && vars.COMMERCIAL_PRODUCTION_ENABLED == 'true' &&
+        vars.COMMERCIAL_PRODUCTION_SCHEMA_WINDOWS_ENABLED == 'true'))
+    environment:
+      name: ${{ inputs.environment }}
+      deployment: false
+    concurrency:
+      group: commercial-deploy-${{ inputs.environment }}
+      queue: max
+    runs-on: [self-hosted, linux, x64, commercial-schema-window]
+    timeout-minutes: 45
+    env:
+      TABULA_RASA_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check approved release window
+        id: select
+        env:
+          COMMERCIAL_SCHEMA_WINDOW: ${{ vars.COMMERCIAL_SCHEMA_WINDOW }}
+        run: python -m tabula_rasa.deployment.schema_window select
+      - uses: docker/setup-buildx-action@v3
+        if: steps.select.outputs.eligible == 'true'
+      - uses: docker/login-action@v3
+        if: steps.select.outputs.eligible == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install migration inspection and smoke dependencies
+        if: steps.select.outputs.eligible == 'true'
+        run: |
+          python -m pip install -r requirements-postgres.txt playwright==1.62.0
+          python -m playwright install chromium
+      - name: Drain, migrate, deploy and verify before restoring traffic
+        if: steps.select.outputs.eligible == 'true'
+        id: promote
+        env:
+          COMMERCIAL_SCHEMA_WINDOW: ${{ vars.COMMERCIAL_SCHEMA_WINDOW }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          STAGING_RENDER_SERVICE_ID: ${{ vars.STAGING_RENDER_SERVICE_ID }}
+          STAGING_RENDER_API_KEY: ${{ inputs.environment == 'production' && secrets.STAGING_RENDER_API_KEY || '' }}
+          PRODUCTION_OIDC_ISSUER: ${{ vars.PRODUCTION_OIDC_ISSUER }}
+          PRODUCTION_OIDC_CLIENT_ID: ${{ vars.PRODUCTION_OIDC_CLIENT_ID }}
+          TABULA_RASA_ACCESS_MODE: ${{ vars.TABULA_RASA_ACCESS_MODE }}
+          TABULA_RASA_PUBLIC_ORIGIN: ${{ vars.TABULA_RASA_PUBLIC_ORIGIN }}
+          TABULA_RASA_DEPLOY_DATABASE_SHA256: ${{ vars.TABULA_RASA_DEPLOY_DATABASE_SHA256 }}
+          WINDOW_PRIVATE_ORIGIN: ${{ vars.WINDOW_PRIVATE_ORIGIN }}
+          WINDOW_MIGRATION_DATABASE_URL: ${{ secrets.WINDOW_MIGRATION_DATABASE_URL }}
+        run: python -m tabula_rasa.deployment.schema_window run
+      - name: Retain scheduled staging verification
+        if: inputs.environment == 'staging' && steps.promote.outputs.promoted == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-release-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 7

@@ -23,16 +23,20 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api):
     run = github(path, token, github=True)
     attempt = run.get("run_attempt")
     head_repository = run.get("head_repository")
-    if (run.get("path") != ".github/workflows/commercial-image.yml"
-            or run.get("event") != "workflow_run" or run.get("head_branch") != "main"
+    provenance = (run.get("path"), run.get("event"))
+    if (provenance not in {
+            (".github/workflows/commercial-image.yml", "workflow_run"),
+            (".github/workflows/commercial-schema-window.yml", "schedule"),
+            } or run.get("head_branch") != "main"
             or not isinstance(head_repository, dict) or head_repository.get("full_name") != repo
             or run.get("status") != "completed" or type(attempt) is not int or attempt < 1):
         raise release.ReleaseError("Staging evidence must come from the completed main release workflow.")
     jobs = github(f"{path}/attempts/{attempt}/jobs?per_page=100", token, github=True)["jobs"]
-    for name in ("build", "staging / deploy"):
+    required_jobs = ("build", "staging / deploy") if provenance[1] == "workflow_run" else ("staging / schema-window",)
+    for name in required_jobs:
         matching = [job for job in jobs if job.get("name") == name]
         if len(matching) != 1 or matching[0].get("conclusion") != "success":
-            raise release.ReleaseError("Successful build and staging jobs from the same attempt are required.")
+            raise release.ReleaseError("Successful build and staging jobs from the same attempt are required for image runs; scheduled windows require a successful staging job.")
 
     with TemporaryDirectory() as directory:
         result = release.subprocess.run(
@@ -57,6 +61,7 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api):
                 "status": "smoke_passed", "access_mode": "named_user",
                 "render_service": service, "rollback_from": None}
     if (any(proof.get(key) != value for key, value in expected.items())
+            or (provenance[1] == "schedule" and not proof.get("traffic_restored_at"))
             or not timedelta(0) <= age <= timedelta(days=7)
             or not isinstance(staging_db, str) or not re.fullmatch(r"[0-9a-f]{64}", staging_db)
             or not re.fullmatch(r"[0-9a-f]{64}", production_db) or staging_db == production_db
@@ -140,9 +145,10 @@ def verify_render_database(service, token, expected_fingerprint, *, read):
             raise ValueError
     except ValueError:
         raise release.ReleaseError("Render runtime database does not match the intended direct Neon TLS endpoint.") from None
+    return settings.url.username
 
 
-def check_production_prior(image, previous_image, previous, candidate, environ):
+def check_production_prior(image, previous_image, previous, candidate, environ, *, maintenance=False):
     repository = release.commercial_image_repository(environ["GITHUB_REPOSITORY"])
     expected = environ.get("PRODUCTION_PREVIOUS_IMAGE", "")
     expected_digest = release.immutable_digest(expected, repository)
@@ -155,5 +161,5 @@ def check_production_prior(image, previous_image, previous, candidate, environ):
         raise release.ReleaseError("Production is no longer on the expected immutable release.")
     if previous["release"] == candidate["release"] or previous_image == image:
         raise release.ReleaseError("The requested production revision is already live.")
-    release.verify_prior_release(candidate, previous, "production")
+    release.verify_prior_release(candidate, previous, "production", maintenance=maintenance)
     return recovery

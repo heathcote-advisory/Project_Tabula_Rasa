@@ -67,13 +67,15 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def api(path, token, *, body=None, github=False):
+def api(path, token, *, body=None, github=False, method=None, no_content=False):
     base = "https://api.github.com" if github else "https://api.render.com/v1"
-    request = Request(base + path, data=json.dumps(body).encode() if body is not None else None,
+    request = Request(base + path, method=method, data=json.dumps(body).encode() if body is not None else None,
                       headers={"Authorization": "Bearer " + token, "Content-Type": "application/json",
                                "Accept": "application/json", "User-Agent": "tabula-release"})
     try:
         with build_opener(NoRedirect).open(request, timeout=30) as response:
+            if no_content:
+                return None
             return json.load(response)
     except Exception:
         raise ReleaseError("Provider request failed or its result is uncertain; inspect before retrying.") from None
@@ -136,20 +138,26 @@ def render_target(environ):
     return service, token
 
 
-def active_deployment(service, token, *, read):
+def render_deployments(service, token, *, read):
     deployments = read(f"/services/{service}/deploys?limit=100", token)
     if not isinstance(deployments, list):
         raise ReleaseError("Invalid Render deployment list; inspect provider state.")
     try:
         active = [item["deploy"] for item in deployments]
-        statuses = {item["status"] for item in active}
+        statuses = [item["status"] for item in active]
     except (KeyError, TypeError):
         raise ReleaseError("Invalid Render deployment list; inspect provider state.") from None
     if any(not isinstance(status, str) or not status for status in statuses):
         raise ReleaseError("Invalid Render deployment status; inspect provider state.")
+    return active
+
+
+def active_deployment(service, token, *, read):
+    deployments = render_deployments(service, token, read=read)
+    statuses = {item["status"] for item in deployments}
     if statuses & {"created", "queued", "build_in_progress", "update_in_progress", "pre_deploy_in_progress"}:
         raise ReleaseError("Another deployment is in progress; inspect before proceeding.")
-    live = [item for item in active if item["status"] == "live"]
+    live = [item for item in deployments if item["status"] == "live"]
     if len(live) > 1:
         raise ReleaseError("Ambiguous live deployment; inspect provider state.")
     return live[0] if live else None
@@ -169,7 +177,7 @@ def live_image(service, token, repository, *, read, metadata):
     return image, previous
 
 
-def verify_prior_release(candidate, previous, environment, rollback_from=""):
+def verify_prior_release(candidate, previous, environment, rollback_from="", *, maintenance=False):
     if rollback_from and (
         environment != "staging" or previous is None or rollback_from != previous["release"]
         or candidate["release"] == rollback_from
@@ -191,7 +199,7 @@ def verify_prior_release(candidate, previous, environment, rollback_from=""):
             if rollback_from:
                 raise ReleaseError("Staging rollback target must precede the expected live revision.")
             raise ReleaseError("Candidate does not advance the live revision; inspect for a superseded release.")
-    if previous["schema"] != candidate["schema"]:
+    if previous["schema"] != candidate["schema"] and not maintenance:
         raise ReleaseError("Prior image is schema-incompatible; use reviewed maintenance/bridge procedure.")
 
 
@@ -206,6 +214,20 @@ def wait_live(service, deploy, token, *, read=api, sleep=time.sleep):
             raise ReleaseError("Render deployment failed; inspect provider state and retained prior deployment.")
         sleep(10)
     raise ReleaseError("Deployment timed out; inspect before any further deployment.")
+
+
+def deploy_verified(service, token, image, candidate, repository, *, read, record_request=False):
+    started_at = datetime.now(timezone.utc).isoformat()
+    requested = read(f"/services/{service}/deploys", token, body={"imageUrl": image})
+    deploy_id = requested.get("id") if isinstance(requested, dict) else None
+    if not isinstance(deploy_id, str) or not re.fullmatch("dep-[a-z0-9]+", deploy_id):
+        raise ReleaseError("Invalid deployment identity; inspect Render before retrying.")
+    if record_request:
+        print(json.dumps({"deploy_id": deploy_id, "deploy_started_at": started_at,
+                          "status": "render_deploy_requested"}), file=sys.stderr, flush=True)
+    confirmed = wait_live(service, deploy_id, token, read=read)
+    deployed_image(confirmed, image, candidate, repository)
+    return deploy_id, started_at
 
 
 def promote(image, environ, *, read=api, metadata=image_metadata, verify=validated_main, smoke_check=None):
@@ -236,17 +258,10 @@ def promote(image, environ, *, read=api, metadata=image_metadata, verify=validat
         evidence = production_preflight(image, candidate, previous_image, previous, environ, read=read)
     else:
         verify_prior_release(candidate, previous, environment, rollback_from)
-    deploy_started_at = datetime.now(timezone.utc).isoformat()
-    deployed = read(f"/services/{service}/deploys", token, body={"imageUrl": image})
     # No rollback after an uncertain create/wait: it could race a still-running deploy.
-    if environment == "production":
-        deploy_id = deployed.get("id", "")
-        if not re.fullmatch("dep-[a-z0-9]+", deploy_id):
-            raise ReleaseError("Invalid production deployment identity; inspect Render before retrying.")
-        print(json.dumps({"deploy_id": deploy_id, "deploy_started_at": deploy_started_at,
-                          "status": "render_deploy_requested"}), file=sys.stderr, flush=True)
-    confirmed = wait_live(service, deployed["id"], token, read=read)
-    deployed_image(confirmed, image, candidate, repository)
+    deploy_id, deploy_started_at = deploy_verified(
+        service, token, image, candidate, repository, read=read, record_request=environment == "production",
+    )
     try:
         check_release(candidate['release'])
     except Exception:
@@ -263,7 +278,7 @@ def promote(image, environ, *, read=api, metadata=image_metadata, verify=validat
         raise ReleaseError("Initial smoke failed; no prior image exists. Restrict access and inspect.") from None
     return {
         "image": image, **candidate, "environment": environ["TABULA_RASA_ENVIRONMENT"],
-        "deploy_id": deployed["id"], "deploy_started_at": deploy_started_at, "rollback_from": rollback_from or None,
+        "deploy_id": deploy_id, "deploy_started_at": deploy_started_at, "rollback_from": rollback_from or None,
         "verified_at": datetime.now(timezone.utc).isoformat(), "access_mode": mode, "status": "smoke_passed",
         "render_service": service, "public_origin": origin, "database_sha256": environ.get("TABULA_RASA_DEPLOY_DATABASE_SHA256"),
         **evidence,
