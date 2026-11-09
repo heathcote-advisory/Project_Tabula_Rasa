@@ -14,7 +14,6 @@ import re
 from uuid import UUID, uuid4
 
 from scripts import nas_postgres_backup as nas
-from tabula_rasa.infrastructure.document_archive import DocumentArchive
 
 UTC = timezone.utc
 
@@ -89,6 +88,9 @@ def component(config, generation):
 
 
 def receipt(row, selected, *, start, end):
+    # Only publication needs the application's canonical receipt verifier.
+    from tabula_rasa.infrastructure.document_archive import DocumentArchive
+
     if set(row) != {'entity_id', 'archive', 'ciphertext'} or row['entity_id'] != selected['entity_id']:
         raise ValueError('Receipt enrollment differs.')
     archive = DocumentArchive(row['archive'], selected['entity_id'])

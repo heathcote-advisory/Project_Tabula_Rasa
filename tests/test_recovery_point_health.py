@@ -5,6 +5,9 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 from uuid import UUID
 
 import pytest
@@ -238,6 +241,24 @@ def test_protected_sources_cannot_be_swapped(point):
     private(config_path, raw)
     with pytest.raises(ValueError):
         health.load_config(config_path)
+
+
+def test_status_cli_runs_with_only_the_nas_status_modules(point):
+    _, _, config_path, parent = point
+    scripts = parent / 'scripts'
+    scripts.mkdir()
+    source = Path(health.__file__).parent
+    for name in ('recovery_point_health.py', 'nas_postgres_backup.py', 'operational_heartbeat.py'):
+        shutil.copyfile(source / name, scripts / name)
+
+    result = subprocess.run(
+        [sys.executable, '-E', '-S', '-m', 'scripts.recovery_point_health', 'status', '--config', str(config_path)],
+        cwd=parent, capture_output=True, text=True, timeout=30,
+    )
+
+    assert result.returncode == 1, result.stderr
+    assert result.stderr == ''
+    assert json.loads(result.stdout) == {'status': 'missing', 'codes': ['complete_point_missing']}
 
 
 def test_status_is_read_only_and_does_not_notify_by_default(point, monkeypatch, capsys):
