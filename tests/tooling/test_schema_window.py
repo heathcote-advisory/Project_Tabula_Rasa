@@ -61,9 +61,11 @@ def test_empty_queue_and_rerun_do_not_contact_providers(changes):
 class Staging:
     def __init__(self, monkeypatch):
         self.actions = []
+        self.closed_origins = []
         self.maintenance = False
         self.suspended = False
         self.live_image = PRIOR_IMAGE
+        self.configured_image = PRIOR_IMAGE
         self.schema = PRIOR["schema"]
         self.candidate = CANDIDATE.copy()
         self.failure = None
@@ -85,42 +87,58 @@ class Staging:
         assert token == "fixture"
         base = f"/services/{SERVICE}"
         if method == "PATCH":
-            self.maintenance = body["serviceDetails"]["maintenanceMode"]["enabled"]
-            self.actions.append("close" if self.maintenance else "open")
+            if "image" in body:
+                assert self.suspended and self.maintenance
+                assert body == {"image": {
+                    "imagePath": IMAGE, "ownerId": "tea-owner", "registryCredentialId": "rgc-private",
+                }}
+                self.actions.append("configure")
+                if self.failure != "configure":
+                    self.configured_image = IMAGE
+            else:
+                self.maintenance = body["serviceDetails"]["maintenanceMode"]["enabled"]
+                self.actions.append("close" if self.maintenance else "open")
         elif path == base + "/suspend":
             assert self.maintenance
             self.actions.append("suspend")
             self.suspended = True
         elif path == base + "/resume":
             assert self.maintenance and self.schema == CANDIDATE["schema"]
+            assert self.configured_image == IMAGE
             self.actions.append("resume")
             self.suspended = False
-        elif path == base + "/deploys" and body:
-            assert self.maintenance and not self.suspended and self.schema == CANDIDATE["schema"]
-            self.actions.append("deploy")
-            if self.failure == "deploy":
-                raise release.ReleaseError("Provider deploy failed.")
-            assert body == {"imageUrl": IMAGE}
             self.live_image = IMAGE
-            return {"id": "dep-candidate"}
         elif path == base:
             return {
                 "id": SERVICE, "type": "web_service", "autoDeployTrigger": "off",
+                "imagePath": self.configured_image, "ownerId": "tea-owner", "registryCredential": {"id": "rgc-private"},
                 "suspended": "suspended" if self.suspended else "not_suspended",
                 "serviceDetails": {**self.details, "maintenanceMode": {"enabled": self.maintenance, "uri": ""}},
             }
         elif path.startswith(base + "/env-vars/TABULA_RASA_"):
             key = path.rsplit("/", 1)[1]
             return {"key": key, "value": self.settings[key.removeprefix("TABULA_RASA_")]}
+        elif path == base + "/custom-domains/stage.example.test":
+            return {"name": "stage.example.test", "verificationStatus": "verified"}
         elif path == base + "/jobs?status=pending,running&limit=1":
             return [{}] if self.failure == "jobs" or (self.failure == "drain" and self.suspended) else []
         elif path == base + "/instances":
             assert self.suspended
             return []
         elif path == base + "/deploys?limit=100":
-            return [{"deploy": self.deploy()}]
+            assert body is None
+            deploy = self.deploy()
+            if self.live_image == IMAGE:
+                deploy.update(trigger="service_resumed", status="update_in_progress")
+            return [{"deploy": deploy}]
         elif path == base + "/deploys/dep-candidate":
-            return self.deploy()
+            self.actions.append("deploy")
+            deploy = self.deploy()
+            if self.failure == "deploy":
+                deploy["status"] = "update_failed"
+            elif self.failure == "old_image_resumed":
+                deploy["image"] = {"ref": PRIOR_IMAGE, "sha": PRIOR_IMAGE.split("@")[1]}
+            return deploy
         else:
             raise AssertionError(path)
 
@@ -146,7 +164,8 @@ class Staging:
                 raise RuntimeError("browser failed")
 
     def closed(self, origin):
-        assert origin == ORIGIN and self.maintenance
+        assert self.maintenance
+        self.closed_origins.append(origin)
 
     def reopened(self, origin, revision):
         assert origin == ORIGIN and revision == CANDIDATE["release"] and not self.maintenance
@@ -166,14 +185,25 @@ def staging(monkeypatch):
 
 def test_window_uses_one_migration_and_reopens_only_after_verified_deploy(staging):
     result = staging.run()
-    assert staging.actions == ["inspect", "smoke_old", "close", "suspend", "upgrade", "resume", "deploy", "smoke_new", "open"]
+    assert staging.actions == [
+        "inspect", "smoke_old", "close", "suspend", "configure", "upgrade", "resume", "deploy", "smoke_new", "open",
+    ]
     assert result["status"] == "smoke_passed"
     assert result["image"] == IMAGE and result["source_schema"] == PRIOR["schema"]
     assert result["deploy_id"] == "dep-candidate" and result["traffic_restored_at"]
 
 
+@pytest.mark.parametrize("policy", ["enabled", "disabled"])
+def test_checks_the_direct_render_url_only_when_enabled(staging, policy):
+    direct = "https://stage.onrender.com"
+    staging.details.update(url=direct, renderSubdomainPolicy=policy)
+    assert staging.run()["status"] == "smoke_passed"
+    assert direct in staging.closed_origins if policy == "enabled" else direct not in staging.closed_origins
+
+
 @pytest.mark.parametrize(("failure", "last_action"), [
-    ("drain", "suspend"), ("migration", "upgrade"), ("deploy", "deploy"), ("smoke", "smoke_new"),
+    ("drain", "suspend"), ("configure", "configure"), ("migration", "upgrade"), ("deploy", "deploy"),
+    ("old_image_resumed", "deploy"), ("smoke", "smoke_new"),
 ])
 def test_failure_never_reopens_or_retries_after_ingress_restriction(staging, failure, last_action):
     staging.failure = failure

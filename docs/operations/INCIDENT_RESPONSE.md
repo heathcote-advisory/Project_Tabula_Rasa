@@ -152,8 +152,9 @@ provider operation has settled.
 - **Preflight or drain failure.** If ingress was never restricted, resolve the
   input, queue, provider or writer issue with the prior release serving. If
   restriction began, confirm the migration never ran and the approved source
-  and prior compatible image are still intact. Resume and verify that release
-  through the private path before opening traffic.
+  and prior compatible image are still intact. If the configured image was
+  switched while suspended, set it back to the verified prior digest before
+  resuming. Verify that release through the private path before opening traffic.
 - **Migration failure or uncertain result.** Keep ingress restricted while
   checking the committed revision and grants. If the original schema is
   confirmed, use the compatible recovery procedure. If the schema advanced,

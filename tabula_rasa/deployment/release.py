@@ -138,29 +138,29 @@ def render_target(environ):
     return service, token
 
 
-def deployment_state(service, token, *, read):
+def render_deployments(service, token, *, read):
     deployments = read(f"/services/{service}/deploys?limit=100", token)
     if not isinstance(deployments, list):
         raise ReleaseError("Invalid Render deployment list; inspect provider state.")
     try:
         active = [item["deploy"] for item in deployments]
-        statuses = {item["status"] for item in active}
+        statuses = [item["status"] for item in active]
     except (KeyError, TypeError):
         raise ReleaseError("Invalid Render deployment list; inspect provider state.") from None
     if any(not isinstance(status, str) or not status for status in statuses):
         raise ReleaseError("Invalid Render deployment status; inspect provider state.")
-    live = [item for item in active if item["status"] == "live"]
-    if len(live) > 1:
-        raise ReleaseError("Ambiguous live deployment; inspect provider state.")
-    pending = statuses & {"created", "queued", "build_in_progress", "update_in_progress", "pre_deploy_in_progress"}
-    return live[0] if live else None, bool(pending)
+    return active
 
 
 def active_deployment(service, token, *, read):
-    live, pending = deployment_state(service, token, read=read)
-    if pending:
+    deployments = render_deployments(service, token, read=read)
+    statuses = {item["status"] for item in deployments}
+    if statuses & {"created", "queued", "build_in_progress", "update_in_progress", "pre_deploy_in_progress"}:
         raise ReleaseError("Another deployment is in progress; inspect before proceeding.")
-    return live
+    live = [item for item in deployments if item["status"] == "live"]
+    if len(live) > 1:
+        raise ReleaseError("Ambiguous live deployment; inspect provider state.")
+    return live[0] if live else None
 
 
 def live_image(service, token, repository, *, read, metadata):

@@ -89,21 +89,49 @@ def verify_no_jobs(read, service, token):
         raise release.ReleaseError("Pending or running Render jobs must be drained before migration.")
 
 
-def wait_service(read, service, token, *, suspended, sleep=time.sleep):
-    expected = "suspended" if suspended else "not_suspended"
+def wait_drained(read, service, token, *, sleep=time.sleep):
     for _ in range(12):
         state = service_state(read, service, token)
         if not maintenance_state(state)["enabled"]:
             raise release.ReleaseError("Render maintenance protection was lost.")
-        if state["suspended"] == expected:
-            if suspended and read(f"/services/{service}/instances", token) == []:
-                return
-            if not suspended:
-                live, pending = release.deployment_state(service, token, read=read)
-                if not pending:
-                    return live
+        if state["suspended"] == "suspended" and read(f"/services/{service}/instances", token) == []:
+            return
         sleep(5)
-    raise release.ReleaseError("Render did not confirm the service drain or resume within the wait budget.")
+    raise release.ReleaseError("Render did not confirm the service drain within the wait budget.")
+
+
+def image_source(state, image):
+    owner = state.get("ownerId")
+    credential = (state.get("registryCredential") or {}).get("id")
+    if not all(isinstance(value, str) and value for value in (owner, credential)):
+        raise release.ReleaseError("The Render service owner and private registry credential are required.")
+    return {"imagePath": image, "ownerId": owner, "registryCredentialId": credential}
+
+
+def select_suspended_image(read, service, token, source):
+    read(f"/services/{service}", token, method="PATCH", body={"image": source})
+    state = service_state(read, service, token)
+    if (state["suspended"] != "suspended" or not maintenance_state(state)["enabled"]
+            or image_source(state, state.get("imagePath")) != source):
+        raise release.ReleaseError("The suspended service did not confirm the exact configured image.")
+
+
+def resume_deployment(read, service, token, *, sleep=time.sleep):
+    prior_ids = {item["id"] for item in release.render_deployments(service, token, read=read)}
+    read(f"/services/{service}/resume", token, method="POST", no_content=True)
+    for _ in range(12):
+        state = service_state(read, service, token)
+        if not maintenance_state(state)["enabled"]:
+            raise release.ReleaseError("Render maintenance protection was lost.")
+        if state["suspended"] == "not_suspended":
+            new = [item for item in release.render_deployments(service, token, read=read)
+                   if item["id"] not in prior_ids]
+            if new:
+                if len(new) != 1 or new[0].get("trigger") != "service_resumed":
+                    raise release.ReleaseError("Unexpected deployment after service resume; inspect Render.")
+                return new[0]["id"]
+        sleep(5)
+    raise release.ReleaseError("Render did not report a new deployment after resume; inspect before any further deploy.")
 
 
 def public_closed(origin):
@@ -206,6 +234,7 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
         raise release.ReleaseError("An existing verified live release is required.")
     if image == previous_image or candidate["schema"] == previous["schema"]:
         return {"status": "skipped", "reason": "schema_compatible_use_normal_promotion"}
+    candidate_source = image_source(state, image)
     source = previous["schema"]
     evidence = {
         "environment": environment, "image": image, **candidate, "source_schema": source,
@@ -244,21 +273,21 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
         evidence["maintenance_started_at"] = now().isoformat()
         emit({"status": "draining_service", "at": evidence["maintenance_started_at"]})
         read(f"/services/{service}/suspend", token, method="POST", no_content=True)
-        wait_service(read, service, token, suspended=True)
+        wait_drained(read, service, token)
         verify_no_jobs(read, service, token)
+        emit({"status": "configuring_suspended_image", "at": now().isoformat()})
+        select_suspended_image(read, service, token, candidate_source)
         emit({"status": "applying_forward_migration", "at": now().isoformat()})
         check_database(image, candidate, source, runtime_role, environ, apply=True)
         evidence["schema_verified_at"] = now().isoformat()
         emit({"status": "schema_verified", "at": evidence["schema_verified_at"]})
-        read(f"/services/{service}/resume", token, method="POST", no_content=True)
-        resumed = wait_service(read, service, token, suspended=False)
-        if resumed is not None:
-            release.deployed_image(resumed, previous_image, previous, repository)
-        check_closed(origin)
-        deploy_id, started = release.deploy_verified(
-            service, token, image, candidate, repository, read=read, record_request=True,
-        )
+        started = now().isoformat()
+        emit({"status": "resuming_approved_image", "at": started})
+        deploy_id = resume_deployment(read, service, token)
         emit({"status": "verifying_deployment", "deploy_id": deploy_id, "at": now().isoformat()})
+        confirmed = release.wait_live(service, deploy_id, token, read=read)
+        release.deployed_image(confirmed, image, candidate, repository)
+        check_closed(origin)
         smoke(private_origin, candidate["release"])
         if not maintenance_state(service_state(read, service, token))["enabled"]:
             raise release.ReleaseError("Ingress protection was lost before verification.")
