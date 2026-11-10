@@ -51,8 +51,9 @@ def named_server(database, oidc, request):
     runtime.close = lambda: None  # Pool owned by disposable fixture.
     app = create_app(settings=settings, runtime_factory=lambda _: runtime,
                      static_dir=dist)
+    # The default keep-alive gives Playwright time to reuse its pooled API sockets.
     server = uvicorn.Server(uvicorn.Config(app, access_log=False, log_level='critical',
-                                         timeout_keep_alive=1, timeout_graceful_shutdown=2))
+                                         timeout_graceful_shutdown=2))
     thread = Thread(target=server.run, kwargs={'sockets': [listener]}, daemon=True)
     thread.start()
     try:
