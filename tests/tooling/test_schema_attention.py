@@ -127,7 +127,11 @@ def test_read_and_notification_jobs_have_separate_credentials():
     assert parent["needs"] == "build"
     assert parent["strategy"]["matrix"]["environment"] == ["staging", "production"]
     assert "SCHEMA_WINDOWS_ENABLED" not in parent["if"]
-    inspect, notify = load("commercial-schema-attention.yml")["jobs"].values()
+    called = load("commercial-schema-attention.yml")
+    names = {"SCHEMA_ATTENTION_DATABASE_URL", "TABULA_RASA_RUNTIME_DATABASE_URL"}
+    assert set(called["on"]["workflow_call"]["secrets"]) == names
+    assert parent["secrets"] == {name: "${{ secrets." + name + " }}" for name in names}
+    inspect, notify = called["jobs"].values()
     assert inspect["permissions"] == {"contents": "read"}
     assert inspect["environment"]["deployment"] == "false"
     assert "MIGRATION_DATABASE_URL" not in str(inspect)

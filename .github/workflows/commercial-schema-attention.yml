@@ -14,6 +14,11 @@ on:
       release:
         required: true
         type: string
+    secrets:
+      SCHEMA_ATTENTION_DATABASE_URL:
+        required: false
+      TABULA_RASA_RUNTIME_DATABASE_URL:
+        required: false
 jobs:
   inspect:
     if: inputs.environment == 'staging' || inputs.environment == 'production'
@@ -43,10 +48,14 @@ jobs:
           TABULA_RASA_DEPLOY_DATABASE_SHA256: ${{ vars.TABULA_RASA_DEPLOY_DATABASE_SHA256 }}
           TABULA_RASA_DATABASE_URL: ${{ secrets.SCHEMA_ATTENTION_DATABASE_URL || (inputs.environment == 'staging' && secrets.TABULA_RASA_RUNTIME_DATABASE_URL) || '' }}
         run: |
-          if [ -z "$TABULA_RASA_DATABASE_URL" ] && [ "$TARGET_ENVIRONMENT" = production ]; then
-            echo "::warning::Production schema detection requires a read-only SCHEMA_ATTENTION_DATABASE_URL."
-            echo "Production schema was not inspected. Configure SCHEMA_ATTENTION_DATABASE_URL." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [ -z "$TABULA_RASA_DATABASE_URL" ]; then
+            if [ "$TARGET_ENVIRONMENT" = production ]; then
+              echo "::warning::Production schema detection requires a read-only SCHEMA_ATTENTION_DATABASE_URL."
+              echo "Production schema was not inspected. Configure SCHEMA_ATTENTION_DATABASE_URL." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "::error::Staging schema detection requires its runtime or schema attention database secret."
+            exit 1
           fi
           python -m tabula_rasa.deployment.schema_attention inspect
   notify:
