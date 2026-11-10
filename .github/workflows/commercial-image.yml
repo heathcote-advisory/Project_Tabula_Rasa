@@ -101,3 +101,6 @@ jobs:
       image: ${{ needs.build.outputs.image }}
       schema: ${{ needs.build.outputs.schema }}
       release: ${{ github.event.workflow_run.head_sha }}
+    secrets:
+      SCHEMA_ATTENTION_DATABASE_URL: ${{ secrets.SCHEMA_ATTENTION_DATABASE_URL }}
+      TABULA_RASA_RUNTIME_DATABASE_URL: ${{ secrets.TABULA_RASA_RUNTIME_DATABASE_URL }}
