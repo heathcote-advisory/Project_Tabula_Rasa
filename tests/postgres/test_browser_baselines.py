@@ -48,7 +48,7 @@ def commercial_server(database, commercial, browser_resolver, document_store):
     origin = f'http://127.0.0.1:{listener.getsockname()[1]}'
     app = create_app(settings=HttpSettings('test', origin), runtime_factory=lambda settings: runtime, static_dir=DIST)
     server = uvicorn.Server(uvicorn.Config(app, access_log=False, log_level='critical',
-                                         timeout_keep_alive=1, timeout_graceful_shutdown=2))
+                                         timeout_graceful_shutdown=2))
     thread = Thread(target=server.run, kwargs={'sockets': [listener]}, daemon=True)
     thread.start()
     try:
