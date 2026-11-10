@@ -654,6 +654,14 @@ reference, phase timestamps and outcome. Use the
 for failures and interruptions. A failed or skipped run supplies no staging
 promotion evidence.
 
+Run **Simulated commercial schema window** in GitHub Actions to rehearse the
+release sequence with pinned app images, disposable PostgreSQL and local
+public and private HTTP routes. The exercise uses synthetic Render responses
+and validates private browser smoke, public reopening and compatible recovery
+after an injected migration failure. It uses no deployment environment
+credentials and supplies no staging promotion evidence. Verify Render
+maintenance mode and private routing separately in the hosted rehearsal.
+
 ### Select and promote a release
 
 1. In **Commercial release image**, select the completed automatic run whose

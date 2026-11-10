@@ -60,13 +60,15 @@ def test_empty_queue_and_rerun_do_not_contact_providers(changes):
 
 
 class Staging:
-    def __init__(self, monkeypatch):
+    def __init__(self, image=IMAGE, prior_image=PRIOR_IMAGE):
+        self.image = image
+        self.prior_image = prior_image
         self.actions = []
         self.closed_origins = []
         self.maintenance = False
         self.suspended = False
-        self.live_image = PRIOR_IMAGE
-        self.configured_image = PRIOR_IMAGE
+        self.live_image = prior_image
+        self.configured_image = prior_image
         self.schema = PRIOR["schema"]
         self.candidate = CANDIDATE.copy()
         self.failure = None
@@ -78,10 +80,9 @@ class Staging:
             "DATABASE_URL": "postgresql://runtime:fixture@ep-stage.neon.tech/ledger?sslmode=require",
         }
         self.emit = Mock()
-        monkeypatch.setattr(release.subprocess, "run", Mock(return_value=Mock(returncode=0)))
 
     def deploy(self):
-        return {"id": "dep-candidate" if self.live_image == IMAGE else "dep-prior", "status": "live",
+        return {"id": "dep-candidate" if self.live_image == self.image else "dep-prior", "status": "live",
                 "image": {"ref": self.live_image, "sha": self.live_image.split("@")[1]}}
 
     def read(self, path, token, *, body=None, method=None, no_content=False):
@@ -91,11 +92,11 @@ class Staging:
             if "image" in body:
                 assert self.suspended and self.maintenance
                 assert body == {"image": {
-                    "imagePath": IMAGE, "ownerId": "tea-owner", "registryCredentialId": "rgc-private",
+                    "imagePath": self.image, "ownerId": "tea-owner", "registryCredentialId": "rgc-private",
                 }}
                 self.actions.append("configure")
                 if self.failure != "configure":
-                    self.configured_image = IMAGE
+                    self.configured_image = self.image
             else:
                 self.maintenance = body["serviceDetails"]["maintenanceMode"]["enabled"]
                 self.actions.append("close" if self.maintenance else "open")
@@ -105,10 +106,10 @@ class Staging:
             self.suspended = True
         elif path == base + "/resume":
             assert self.maintenance and self.schema == CANDIDATE["schema"]
-            assert self.configured_image == IMAGE
+            assert self.configured_image == self.image
             self.actions.append("resume")
             self.suspended = False
-            self.live_image = IMAGE
+            self.live_image = self.image
         elif path == base:
             return {
                 "id": SERVICE, "type": "web_service", "autoDeployTrigger": "off",
@@ -129,7 +130,7 @@ class Staging:
         elif path == base + "/deploys?limit=100":
             assert body is None
             deploy = self.deploy()
-            if self.live_image == IMAGE:
+            if self.live_image == self.image:
                 deploy.update(trigger="service_resumed", status="update_in_progress")
             return [{"deploy": deploy}]
         elif path == base + "/deploys/dep-candidate":
@@ -138,7 +139,7 @@ class Staging:
             if self.failure == "deploy":
                 deploy["status"] = "update_failed"
             elif self.failure == "old_image_resumed":
-                deploy["image"] = {"ref": PRIOR_IMAGE, "sha": PRIOR_IMAGE.split("@")[1]}
+                deploy["image"] = {"ref": self.prior_image, "sha": self.prior_image.split("@")[1]}
             return deploy
         else:
             raise AssertionError(path)
@@ -181,7 +182,8 @@ class Staging:
 
 @pytest.fixture
 def staging(monkeypatch):
-    return Staging(monkeypatch)
+    monkeypatch.setattr(release.subprocess, "run", Mock(return_value=Mock(returncode=0)))
+    return Staging()
 
 
 def test_window_uses_one_migration_and_reopens_only_after_verified_deploy(staging):
