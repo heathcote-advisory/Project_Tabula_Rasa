@@ -571,6 +571,22 @@ procedure](DATABASE_RECOVERY.md).
 
 ### Schedule an approved forward release
 
+After the commercial image build, **Commercial schema attention** compares the
+candidate's required revision with the bound staging and production databases.
+A mismatch opens or updates one GitHub issue per environment and transition.
+The issue shows the exact image digest, both revisions, and the next operator
+action. Configure the repository variable `SCHEMA_ATTENTION_ASSIGNEE` with the
+release operator's GitHub login and confirm that assignment reaches their
+inbox. The operator closes the alert after verifying the transition or
+retiring the candidate.
+
+The comparison uses a read-only transaction and runs independently of the
+maintenance schedule. Staging can use its existing runtime database URL.
+Configure `SCHEMA_ATTENTION_DATABASE_URL` in the production environment with a
+direct Neon TLS connection for a role that can read `alembic_version`. The job
+uses the existing environment database fingerprint. A missing production
+credential produces a workflow warning and leaves production uninspected.
+
 **Commercial schema release window** checks daily at 3:00 a.m. in
 `America/New_York`. The GitHub timezone schedule follows daylight saving time.
 The staging and production jobs use the same per-environment queue as normal
