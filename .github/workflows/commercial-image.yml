@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       image: ${{ steps.release.outputs.repository }}@${{ steps.build.outputs.digest }}
+      schema: ${{ steps.release.outputs.schema }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,3 +85,19 @@ jobs:
       environment: staging
       image: ${{ needs.build.outputs.image }}
     secrets: inherit
+  schema-attention:
+    needs: build
+    if: vars.COMMERCIAL_DEPLOY_ENABLED == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/commercial-schema-attention.yml
+    with:
+      environment: ${{ matrix.environment }}
+      image: ${{ needs.build.outputs.image }}
+      schema: ${{ needs.build.outputs.schema }}
+      release: ${{ github.event.workflow_run.head_sha }}

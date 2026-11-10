@@ -1,0 +1,80 @@
+name: Commercial schema attention
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image:
+        required: true
+        type: string
+      schema:
+        required: true
+        type: string
+      release:
+        required: true
+        type: string
+jobs:
+  inspect:
+    if: inputs.environment == 'staging' || inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: ${{ inputs.environment }}
+      deployment: false
+    permissions:
+      contents: read
+    outputs:
+      current: ${{ steps.check.outputs.current }}
+      pending: ${{ steps.check.outputs.pending }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-postgres.txt
+      - name: Read bound database schema
+        id: check
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          REQUIRED_SCHEMA: ${{ inputs.schema }}
+          TABULA_RASA_DEPLOY_DATABASE_SHA256: ${{ vars.TABULA_RASA_DEPLOY_DATABASE_SHA256 }}
+          TABULA_RASA_DATABASE_URL: ${{ secrets.SCHEMA_ATTENTION_DATABASE_URL || (inputs.environment == 'staging' && secrets.TABULA_RASA_RUNTIME_DATABASE_URL) || '' }}
+        run: |
+          if [ -z "$TABULA_RASA_DATABASE_URL" ] && [ "$TARGET_ENVIRONMENT" = production ]; then
+            echo "::warning::Production schema detection requires a read-only SCHEMA_ATTENTION_DATABASE_URL."
+            echo "Production schema was not inspected. Configure SCHEMA_ATTENTION_DATABASE_URL." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python -m tabula_rasa.deployment.schema_attention inspect
+  notify:
+    needs: inspect
+    if: needs.inspect.outputs.pending == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: commercial-schema-attention-${{ inputs.environment }}
+      queue: max
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-postgres.txt
+      - name: Assign the pending transition to the release operator
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          CURRENT_SCHEMA: ${{ needs.inspect.outputs.current }}
+          REQUIRED_SCHEMA: ${{ inputs.schema }}
+          RELEASE_IMAGE: ${{ inputs.image }}
+          RELEASE_COMMIT: ${{ inputs.release }}
+          SCHEMA_ATTENTION_ASSIGNEE: ${{ vars.SCHEMA_ATTENTION_ASSIGNEE }}
+        run: python -m tabula_rasa.deployment.schema_attention notify
