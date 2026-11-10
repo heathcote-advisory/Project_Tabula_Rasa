@@ -70,6 +70,17 @@ def test_compatible_schema_never_writes_an_issue():
     api.assert_not_called()
 
 
+def test_matching_issue_with_no_author_does_not_block_the_bot_alert():
+    user_issue = {
+        "title": "Schema change needs attention in staging (0021_customer_lifecycle → 0022_new_schema)",
+        "user": None,
+        "body": f"<!-- commercial-schema-attention:{COMMIT} -->",
+    }
+    api = Mock(side_effect=[[user_issue], ASSIGNED])
+    schema_attention.notify(ENV, read=api)
+    assert api.call_args.kwargs["method"] == "POST"
+
+
 @pytest.mark.parametrize(("status", "write"), [("ahead", True), ("behind", False)])
 def test_only_a_newer_release_updates_the_open_alert(status, write):
     existing = {

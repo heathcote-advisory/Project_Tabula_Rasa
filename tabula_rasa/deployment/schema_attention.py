@@ -75,7 +75,7 @@ def notify(environ, *, read=release.api):
     while True:
         issues = read(f"{api}/issues?state=open&per_page=100&page={page}", token, github=True)
         existing = next((issue for issue in issues if issue.get("title") == title
-                         and issue.get("user", {}).get("login") == "github-actions[bot]"
+                         and (issue.get("user") or {}).get("login") == "github-actions[bot]"
                          and (issue.get("body") or "").startswith(marker)), None)
         if existing or len(issues) < 100:
             break
