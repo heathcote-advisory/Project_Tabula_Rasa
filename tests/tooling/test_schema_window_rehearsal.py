@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 from contextlib import ExitStack
-from http.client import HTTPConnection
+from http.client import HTTPConnection, HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from time import monotonic, sleep
@@ -169,15 +169,18 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO runtime;
                     upstream.request("GET", self.path, headers=headers)
                     response = upstream.getresponse()
                     payload = response.read()
-                    self.send_response(response.status)
-                    for header in ("Content-Type", "Cache-Control", "WWW-Authenticate"):
-                        if value := response.getheader(header):
-                            self.send_header(header, value)
-                    self.send_header("Content-Length", str(len(payload)))
-                    self.end_headers()
-                    self.wfile.write(payload)
+                except (OSError, HTTPException):
+                    self.send_error(502)
+                    return
                 finally:
                     upstream.close()
+                self.send_response(response.status)
+                for header in ("Content-Type", "Cache-Control", "WWW-Authenticate"):
+                    if value := response.getheader(header):
+                        self.send_header(header, value)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
 
             def log_message(self, *_):
                 pass
@@ -278,3 +281,10 @@ def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):
     lab.smoke_app(PRIVATE, prior)
     lab.maintenance = False
     schema_window.public_reopened(lab.public, prior)
+
+
+def test_private_ingress_reports_lost_upstream(lab):
+    docker("stop", lab.app)
+    with pytest.raises(HTTPError) as failure:
+        urlopen(lab.private + "/version", timeout=5)
+    assert failure.value.code == 502
