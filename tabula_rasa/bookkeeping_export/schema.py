@@ -26,12 +26,12 @@ FORMAT_VERSION = 1
 # 0019 adds program eligibility/history; canonical v1 stays unchanged.
 # 0020 permits CAD in the existing currency_code field; v1 encoding is unchanged.
 # 0021 adds lifecycle control-plane records only, excluded from financial exports.
-SUPPORTED_DATABASE_REVISION = "0021_customer_lifecycle"
+SUPPORTED_DATABASE_REVISION = "0022_drive_recovery_binding"
 SUPPORTED_DATABASE_REVISIONS = ("0004_mileage_order", "0005_bookkeeping_cutover",
                                 "0006_identity_control_plane", "0007_identity_sessions", "0008_owner_lock_scope",
                                 "0009_external_connections", "0010_workspace_lifecycle",
                                 "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls",
-                                '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', SUPPORTED_DATABASE_REVISION)
+                                '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', SUPPORTED_DATABASE_REVISION)
 ROOT = "id:text created_at:instant updated_at:instant incarnation_id:text version:integer"
 
 

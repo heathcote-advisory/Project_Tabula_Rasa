@@ -17,6 +17,7 @@ from tabula_rasa.infrastructure.postgres.control_plane import identity_operation
 from tabula_rasa.infrastructure.postgres.connections import authorized_entity, lock_connection_entity
 
 CALLBACK_PATH = '/api/v1/connections/google-drive/callback'
+MANAGED_FOLDERS = ('storage_root', 'receipt_folder', 'backup_folder')
 
 
 def load_customer_oauth(environment, origin):
@@ -61,8 +62,15 @@ class CustomerDriveOAuth:
         result['self_service_available'] = True
         row = self.manager.repository.grant(context, require_connected=False, action='connections_manage')
         if row:
-            payload = self.manager.secrets.get(row['secret_ref'], **self._scope(context))
-            result['authorized_account'] = payload.get('google_drive', {}).get('authorized_email')
+            try:
+                payload = self.manager.secrets.get(row['secret_ref'], **self._scope(context))
+            except IdentityError as error:
+                if error.code != 'unavailable':
+                    raise
+                if result['status'] == 'connected':
+                    result['status'] = 'reconnect_required'
+            else:
+                result['authorized_account'] = payload.get('google_drive', {}).get('authorized_email')
         result['authorization_status'] = (None if not attempt or attempt['outcome'] == 'complete' else
             'connecting' if attempt['outcome'] == 'connecting' and attempt['valid'] else 'failed')
         return result
@@ -117,18 +125,33 @@ class CustomerDriveOAuth:
             if latest != fingerprint(state):
                 raise IdentityError('concurrent_write')
             payload = self.manager.secrets.get(attempt['secret_ref'], **self._scope(context))
-            grant = self.exchange(self.config, code, self.redirect_uri, code_verifier=payload['verifier'])
-            if grant['scopes'] != [DRIVE_SCOPE]:
+            grant = self.exchange(self.config, code, self.redirect_uri,
+                                  code_verifier=payload['verifier'], include_account_id=True)
+            account_id = grant.pop('authorized_account_id', None)
+            if grant['scopes'] != [DRIVE_SCOPE] or not grant.get('authorized_email') or not account_id:
                 return False
             profile = current['profile_key'] if current else 'business_' + fingerprint(context.entity_id)[:32]
             if current:
-                old = self.manager.secrets.get(current['secret_ref'], **self._scope(context))
-                previous = old['google_drive']
-                if (not previous.get('authorized_email') or
-                        previous['authorized_email'].casefold() != grant['authorized_email'].casefold()):
+                binding = current['drive_recovery_binding']
+                if binding is None:
+                    # Existing rows enroll only from their original readable grant.
+                    try:
+                        old = self.manager.secrets.get(current['secret_ref'], **self._scope(context))
+                    except IdentityError as error:
+                        if error.code != 'unavailable':
+                            raise
+                        return False
+                    previous = old['google_drive']
+                    if (previous.get('authorized_email') or '').casefold() != grant['authorized_email'].casefold():
+                        return False
+                    folders = {key: previous[key] for key in MANAGED_FOLDERS}
+                else:
+                    if binding['account_fingerprint'] != fingerprint(account_id):
+                        return False
+                    folders = binding['folders']
+                if folders['receipt_folder']['id'] != current['store_scope_key']:
                     return False
-                for key in ('storage_root', 'receipt_folder', 'backup_folder'):
-                    grant[key] = previous[key]
+                grant.update(folders)
             client = self.client_factory(self.config, grant)
             if not current:
                 root = client.create_storage_root(profile, 'Tabula Rasa receipts ' + profile[-8:])
@@ -144,6 +167,9 @@ class CustomerDriveOAuth:
                 raise IdentityError('forbidden')
             authorized_entity(connection, context, 'connections_manage')
             scope = grant['receipt_folder']['id']
+            binding = {'account_fingerprint': fingerprint(account_id),
+                       'folders': {key: {field: grant[key][field] for field in ('id', 'name')}
+                                   for key in MANAGED_FOLDERS}}
             config = dict(client_id=self.config.client_id, client_secret=self.config.client_secret,
                           redirect_uris=list(self.config.redirect_uris))
             reference = self.manager.secrets.put(dict(self._scope(context), profile_key=profile,
@@ -151,8 +177,11 @@ class CustomerDriveOAuth:
             self.manager.repository._stage(connection, organization_id=context.organization_id,
                 entity_id=context.entity_id, profile_key=profile, scope_key=scope, secret_ref=reference,
                 expected_revision=attempt['expected_revision'])
-            connection.execute(text("UPDATE external_connections SET status='connected' WHERE entity_id=:entity AND provider='google_drive'"),
-                               {'entity': context.entity_id})
+            connection.execute(text('''UPDATE external_connections
+                SET status='connected', drive_recovery_binding=CAST(:binding AS jsonb)
+                WHERE entity_id=:entity AND provider='google_drive'
+            '''),
+                {'entity': context.entity_id, 'binding': json.dumps(binding)})
             connection.execute(text("UPDATE drive_oauth_requests SET outcome='complete' WHERE entity_id=:entity"),
                                {'entity': context.entity_id})
         return True

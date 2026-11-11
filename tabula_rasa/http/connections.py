@@ -33,9 +33,12 @@ class TenantConnections:
         return None if row is None else AuthorizedDocumentStore(self, context, row['store_scope_key'], row['provider'])
 
     def validate_migrated_binding(self, **binding):
-        """Require connected scoped metadata and readable grant without provider I/O."""
+        """Check the exact startup binding without provider I/O."""
         row = self.repository.validate_migrated_binding(**binding)
-        self._store(row)
+        # Enrolled Drive bindings keep bookkeeping available during a grant outage.
+        # Each document operation still requires fresh authorization and readable custody.
+        if row['provider'] != 'google_drive' or not row['drive_recovery_binding']:
+            self._store(row)
 
     def change(self, context, session, *, revision, connect):
         return self.repository.change(context, authenticated_at=session.authenticated_at,

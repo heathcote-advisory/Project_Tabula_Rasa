@@ -125,7 +125,7 @@ def test_manifest_rejects_unsupported_versions_dates_and_byte_boundary():
 
 @pytest.mark.parametrize("revision", ["0004_mileage_order", "0005_bookkeeping_cutover",
                                       "0006_identity_control_plane", "0007_identity_sessions", "0008_owner_lock_scope",
-                                      "0009_external_connections", "0010_workspace_lifecycle", "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls", "0014_document_locations", "0015_support_controls", "0016_business_tenancy", "0017_customer_exports", "0018_drive_oauth", "0019_beta_admission", "0020_book_currency", "0021_customer_lifecycle"])
+                                      "0009_external_connections", "0010_workspace_lifecycle", "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls", "0014_document_locations", "0015_support_controls", "0016_business_tenancy", "0017_customer_exports", "0018_drive_oauth", "0019_beta_admission", "0020_book_currency", "0021_customer_lifecycle", "0022_drive_recovery_binding"])
 def test_control_plane_revision_preserves_the_existing_v1_portable_inventory(revision):
     from jsonschema import Draft202012Validator
     from tabula_rasa.bookkeeping_export.schema import json_schema

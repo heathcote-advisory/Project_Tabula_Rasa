@@ -82,9 +82,10 @@ class TestGoogleDriveOAuth:
             "http://localhost:8501/",
             session=session,
             code_verifier='synthetic-pkce-verifier',
+            include_account_id=True,
         )
 
-        assert settings == drive_settings()
+        assert settings == {**drive_settings(), 'authorized_account_id': 'synthetic-north-account'}
         assert session.posted is not None
         assert session.posted["data"]["grant_type"] == "authorization_code"
         assert session.posted['data']['code_verifier'] == 'synthetic-pkce-verifier'

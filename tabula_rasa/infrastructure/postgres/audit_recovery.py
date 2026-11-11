@@ -19,7 +19,7 @@ from .entity_export import PostgresEntityExportRepository
 from .migrations import MIGRATION_ROOT, current_revision
 
 FORMAT = 'tabula-rasa-audit-recovery-v1'
-SUPPORTED_REVISIONS = {'0013_accounting_controls', '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle'}
+SUPPORTED_REVISIONS = {'0013_accounting_controls', '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding'}
 AUDIT_TABLES = ('audit_events', 'audit_baseline', 'audit_activation')
 RECOVERY_FUNCTIONS = frozenset({'audit_immutable', 'audit_insert_guard', 'audit_summary',
                              'audit_row_digest', 'capture_bookkeeping_audit',
@@ -154,9 +154,9 @@ def _inventory(connection, revision):
         required[(table, 'action_history')] = (21, 'capture_period_action', False, False, '')
     for table in ('accounting_period_policy', 'accounting_periods', 'entry_corrections'):
         required[(table, 'immutable_truncate')] = (34, 'audit_immutable', False, False, '')
-    if revision in {'0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle'}:
+    if revision in {'0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding'}:
         required[('support_actions', 'immutable')] = (58, 'audit_immutable', False, False, '')
-    if revision in {'0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle'}:
+    if revision in {'0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding'}:
         required[('customer_export_actions', 'immutable')] = (58, 'audit_immutable', False, False, '')
     valid_triggers = all(
         key in triggers and triggers[key]['tgenabled'] == 'O' and triggers[key]['function_schema'] == 'public'
@@ -169,7 +169,7 @@ def _inventory(connection, revision):
         'qual': "(entity_id = current_setting('tabula.audit_reader_entity'::text, true))", 'with_check': None,
     } for table, name in [('accounting_period_actions','scoped_period_action_read'),
                          ('audit_baseline','scoped_baseline_read'), ('audit_events','scoped_audit_read')]]
-    if revision in {'0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle'}:
+    if revision in {'0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding'}:
         scoped_tables.add('support_actions')
         context = "(NULLIF(current_setting('tabula.audit_context'::text, true), ''::text))::jsonb"
         expected_policies.extend([

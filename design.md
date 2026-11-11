@@ -231,7 +231,9 @@ business. It shows safe status and explicit confirmed Connect/Reconnect/
 Disconnect actions and requires fresh login. With customer OAuth enabled, Connect
 redirects to Google consent, provisions a dedicated business folder and returns with
 connected account email. Connecting/incomplete setup has explicit retry guidance;
-reconnect preserves the same account/folders. Other deployments retain operator
+reconnect preserves the same account/folders. For enrolled connections with
+unreadable credential custody, the panel shows Reconnect required and bookkeeping
+remains available. Other deployments retain operator
 provisioning. Disconnect preserves files/links and explains separate Google revocation. No provider tokens, secret references,
 folder locators or credential-entry fields are displayed. Unavailable/stale
 commands remain visible failures and are not automatically retried.

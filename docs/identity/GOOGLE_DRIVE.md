@@ -24,6 +24,25 @@ to that same account. Arrange Google-account custody before departure; never sil
 substitute the successor's account. Lost-account recovery requires independently retained
 bytes and the approved recovery procedure. Membership never grants access to tokens.
 
+## Recover after loss of credential custody
+
+If the credential database is lost, provision an empty supported custody store with
+normal runtime access before reconnecting. Keep the bookkeeping database and the
+configured Google OAuth client. An enrolled business can still sign in and use
+its books, and receipt access returns unavailable until an Owner opens
+**Data & backup > Google Drive connection > Reconnect Google Drive** and authorizes
+the original account. The app checks the original Drive account identifier and
+validates the existing root and both managed folders before storing a fresh grant.
+Existing receipt files, links and ledger data stay in place.
+
+Customer connections enroll on successful consent. For a connection established
+before revision `0022_drive_recovery_binding`, an Owner must disconnect and
+reconnect while the original encrypted grant is readable. Complete that step
+for each business before relying on reconnect-only recovery. If an unenrolled
+business has already lost its grant, use the separately approved custody recovery
+procedure. Reconnection depends on the original account and Drive folders still
+being available.
+
 ## Security and persistence
 
 Google authorization is separate from login. Only active Owners can start or complete it.
@@ -36,6 +55,9 @@ replayed state and stale revisions deny access. Session selection/expiry and mem
 are checked again after Google I/O before registration. Starting again supersedes the
 prior attempt. Interrupted or expired attempts show incomplete setup and can be restarted.
 Credentials use the existing [encrypted grant custody](CONNECTIONS_AND_CLAIMS.md).
+The bookkeeping connection retains a hash of the verified Drive account identifier
+and the exact managed folder binding. Treat that metadata as private. It stays in
+full bookkeeping database backups and is excluded from portable customer exports.
 
 ## Google Cloud and deployment setup
 

@@ -274,6 +274,7 @@ def exchange_authorization_code(
     *,
     session: requests.Session | None = None,
     code_verifier: str | None = None,
+    include_account_id: bool = False,
 ) -> dict[str, Any]:
     """Exchange an authorization code and return sanitized persistent settings."""
     if not _clean_text(code):
@@ -315,13 +316,16 @@ def exchange_authorization_code(
             "Google Drive file access was not granted. Reconnect and approve access."
         )
     user = _authorized_user(access_token, session=client)
-    return {
+    settings = {
         "authorized_email": _clean_text(user.get("emailAddress"), maximum=320),
         "authorized_name": _clean_text(user.get("displayName"), maximum=200),
         "refresh_token": refresh_token,
         "token_uri": TOKEN_ENDPOINT,
         "scopes": sorted(set(granted_scopes)),
     }
+    if include_account_id:
+        settings["authorized_account_id"] = _clean_text(user.get("permissionId"), maximum=256)
+    return settings
 
 
 def validate_drive_profile_settings(value: object) -> dict[str, Any]:
