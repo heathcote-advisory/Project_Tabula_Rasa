@@ -32,6 +32,9 @@ can still obtain a handoff; closure requires acknowledgement that needed exports
 were saved. The [lifecycle guide](../operations/CUSTOMER_LIFECYCLE.md) defines access
 expiry and retention; customer exports do not include lifecycle or audit history.
 
+Revision `0022_drive_recovery_binding` retains private Drive recovery metadata
+on the connection record outside canonical v1.
+
 The application-owned export service reads one explicitly selected entity
 through a PostgreSQL adapter, without Sheets access, page initialization or
 document downloads. It does not activate PostgreSQL as a live ledger.

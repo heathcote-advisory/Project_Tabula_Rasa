@@ -121,7 +121,7 @@ def test_atomic_reconciliation_preserves_scope_provenance_and_upgrades(source, t
         assert service.bootstrap_status(owner, key) == result
     upgrade(db)
     assert service.bootstrap(owner, key, 'Org A', 'A2', a1['organization_id']) == result
-    assert db.health()['revision'] == '0021_customer_lifecycle'
+    assert db.health()['revision'] == '0022_drive_recovery_binding'
     assert service.bootstrap_status(owner, key) == result
     assert {p: p.read_bytes() for p in byte_files} == byte_files
     # Keep another active Owner in A1 so its original owner can legitimately

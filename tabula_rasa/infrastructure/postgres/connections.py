@@ -70,7 +70,10 @@ class PostgresConnections:
         context = SimpleNamespace(organization_id=organization_id, entity_id=entity_id)
         with identity_operation(self.database, read_only=True) as connection:
             row = self._document_row(connection, context)
-            if (row is None or row['status'] != 'connected'
+            if (row is None
+                    or (row['status'] != 'connected' and not (
+                        row['provider'] == 'google_drive' and row['drive_recovery_binding']
+                        and row['status'] in {'disconnected', 'reconnect_required'}))
                     or row['profile_key'] != profile_key
                     or row['provider'] == 'google_drive' and row['store_scope_key'] != scope_key):
                 raise IdentityError('unavailable')
@@ -167,6 +170,7 @@ class PostgresConnections:
             (entity_id,organization_id,provider,secret_ref,profile_key,store_scope_key,required_scopes,status)
             VALUES (:entity,:org,'google_drive',:secret,:profile,:scope,CAST(:scopes AS jsonb),'pending')
             ON CONFLICT (entity_id,provider) DO UPDATE SET secret_ref=EXCLUDED.secret_ref,
-            status='pending',revision=external_connections.revision+1,updated_at=CURRENT_TIMESTAMP"""),
+            drive_recovery_binding=NULL, status='pending',
+            revision=external_connections.revision+1,updated_at=CURRENT_TIMESTAMP"""),
             {'entity': entity_id, 'org': organization_id, 'secret': secret_ref, 'profile': profile_key,
              'scope': scope_key, 'scopes': json.dumps([DRIVE_SCOPE])})

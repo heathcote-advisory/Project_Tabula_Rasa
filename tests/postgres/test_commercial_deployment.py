@@ -108,6 +108,11 @@ def test_bound_maintenance_migrates_real_source_once_and_checks_runtime_role(emp
         connection.exec_driver_sql(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO "{runtime}"')
         connection.exec_driver_sql(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO "{runtime}"')
         migration_role = connection.exec_driver_sql("SELECT current_user").scalar_one()
+    # This allowlisted transition runs in the historical image ending at its target.
+    upgrade = command.upgrade
+    monkeypatch.setattr(command, "upgrade", lambda config, revision: upgrade(
+        config, target if revision == "head" else revision))
+    monkeypatch.setattr(schema_migration, "head_revision", lambda: target)
     monkeypatch.setattr(schema_migration, "open_bound_neon_database", lambda _: empty_database)
     environ = {
         "TABULA_RASA_ENVIRONMENT": "staging", "TABULA_RASA_RELEASE_ID": "a" * 40, "WINDOW_RELEASE": "a" * 40,

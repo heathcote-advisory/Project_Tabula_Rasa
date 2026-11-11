@@ -9,7 +9,7 @@ from tabula_rasa.infrastructure.postgres.runtime import DatabaseError
 def test_zero_to_head_repeated_upgrade_and_explicit_downgrade(empty_database):
     assert empty_database.health() == {"connected": True, "revision": None}
     upgrade(empty_database)
-    assert empty_database.health()["revision"] == head_revision() == "0021_customer_lifecycle"
+    assert empty_database.health()["revision"] == head_revision() == "0022_drive_recovery_binding"
     with empty_database.transaction() as connection:
         entity(connection)
     upgrade(empty_database)
@@ -41,7 +41,7 @@ def test_onboarding_forward_upgrade_preserves_pending_login_and_existing_ledger(
     assert sessions.consume_login(invite_raw, invite.state) == invite
     with empty_database.transaction(read_only=True) as connection:
         assert connection.scalar(text('SELECT count(*) FROM business_entities')) == 1
-        assert current_revision(connection) == '0021_customer_lifecycle'
+        assert current_revision(connection) == '0022_drive_recovery_binding'
         assert {'workspace_invitations', 'workspace_bootstraps', 'external_connections', 'drive_oauth_requests', 'legacy_entity_claims'} <= set(inspect(connection).get_table_names())
 
 
@@ -58,7 +58,7 @@ def test_workspace_upgrade_extends_published_connections_revision(empty_database
         assert 'workspace_bootstraps' not in inspect(connection).get_table_names()
     upgrade(empty_database)
     with empty_database.transaction(read_only=True) as connection:
-        assert current_revision(connection) == '0021_customer_lifecycle'
+        assert current_revision(connection) == '0022_drive_recovery_binding'
         assert dict(connection.execute(text('SELECT * FROM business_entities')).mappings().one()) == original
         assert {'external_connections', 'drive_oauth_requests', 'legacy_entity_claims', 'document_locations', 'workspace_bootstraps',
                 'workspace_invitations'} <= set(inspect(connection).get_table_names())

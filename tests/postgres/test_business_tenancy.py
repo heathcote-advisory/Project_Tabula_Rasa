@@ -106,7 +106,7 @@ def test_forward_upgrade_preserves_sessions_invitations_defaults_and_receipt_rep
     assert [item.entity_id for item in sessions.identity.allowed_entities(recipient.user_id)] == [business['entity_id']]
     assert other['organization_id'] != business['organization_id']
     with database.transaction(read_only=True) as connection:
-        assert current_revision(connection) == '0021_customer_lifecycle'
+        assert current_revision(connection) == '0022_drive_recovery_binding'
 
 
 def test_upgrade_preserves_two_claimed_ledgers_provenance_documents_and_provider_bindings(empty_database, monkeypatch):
@@ -143,7 +143,12 @@ def test_upgrade_preserves_two_claimed_ledgers_provenance_documents_and_provider
     monkeypatch.undo()
     before = snapshot(database)
     upgrade(database)
-    assert snapshot(database) == before
+    after = snapshot(database)
+    after_bindings = [json.loads(row) for row in after.pop('external_connections')]
+    for row in after_bindings:
+        assert row.pop('drive_recovery_binding') is None
+    assert after_bindings == [json.loads(row) for row in before.pop('external_connections')]
+    assert after == before
     assert tenancy_inventory(database)['counts']['external_connections'] == 2
     for profile in expected:
         assert create_postgres_export_service(database, profile).export()['domains'] == expected[profile]

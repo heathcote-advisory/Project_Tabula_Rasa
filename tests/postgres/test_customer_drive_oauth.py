@@ -30,7 +30,12 @@ def fixture(database, tmp_path):
     client.provision_storage_children.side_effect = lambda profile, root: {
         'receipts': {'id': 'receipts-' + profile, 'name': 'Receipts'},
         'ledger-backups': {'id': 'backups-' + profile, 'name': 'Ledger Backups'}}
-    exchange = Mock(side_effect=lambda config, code, uri, **kwargs: google_grant(code + '@example.test', 'synthetic-' + code))
+    def synthetic_exchange(config, code, uri, **kwargs):
+        account = 'alpha' if code == 'alpha-replacement' else code
+        return {**google_grant(account + '@example.test', 'synthetic-' + code),
+                'authorized_account_id': 'drive-account-' + code}
+
+    exchange = Mock(side_effect=synthetic_exchange)
     config = load_oauth_config({'google_drive_oauth': GOOGLE_OAUTH_CONFIG})
     manager.oauth = CustomerDriveOAuth(manager, config, 'http://127.0.0.1' + CALLBACK_PATH,
                                      exchange=exchange, client_factory=Mock(return_value=client))
@@ -363,3 +368,25 @@ def test_drive_quota_preserves_connected_grants_and_receipt_links(
     reconnect.assert_called_once()
     assert manager.repository.status(alpha).status == 'reconnect_required'
     assert manager.repository.grant(beta) == before['beta'][0]
+
+@pytest.mark.parametrize('grant_retained', [True, False])
+def test_legacy_binding_enrolls_only_with_readable_original_grant(database, tmp_path, grant_retained):
+    _, manager, client, _, alpha, _, sessions = fixture(database, tmp_path)
+    session = sessions[0]
+    assert finish(manager, alpha, session, begin(manager, alpha, session))
+    with database.transaction() as connection:
+        connection.execute(text("UPDATE external_connections SET drive_recovery_binding=NULL WHERE entity_id='alpha'"))
+    original = manager.repository.grant(alpha)
+    if not grant_retained:
+        (tmp_path / (original['secret_ref'] + '.grant')).unlink()
+
+    assert not finish(manager, alpha, session, begin(manager, alpha, session, 1), 'different')
+    assert manager.repository.grant(alpha) == original
+    assert finish(manager, alpha, session, begin(manager, alpha, session, 1)) is grant_retained
+    updated = manager.repository.grant(alpha)
+    if grant_retained:
+        assert updated['drive_recovery_binding']
+        assert updated['store_scope_key'] == original['store_scope_key']
+    else:
+        assert updated == original
+    assert client.create_storage_root.call_count == client.provision_storage_children.call_count == 1

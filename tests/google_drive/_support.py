@@ -58,6 +58,7 @@ class AuthorizationSession:
                 "user": {
                     "displayName": "North Owner",
                     "emailAddress": "north@example.test",
+                    "permissionId": "synthetic-north-account",
                 }
             },
         )

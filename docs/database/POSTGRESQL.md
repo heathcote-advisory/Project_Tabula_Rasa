@@ -792,3 +792,12 @@ the migration. Existing businesses stay active until an Owner explicitly confirm
 closure. Back up the full control plane with the ledger; restoring bookkeeping v1
 alone cannot restore closure/access decisions. See [customer lifecycle](../operations/CUSTOMER_LIFECYCLE.md)
 for exact access windows, support recovery, policy proposals and manual approval.
+
+## Google Drive recovery binding
+
+Forward revision `0022_drive_recovery_binding` adds nullable recovery metadata to
+the existing external connection row. The migration preserves connection references
+and performs no provider or custody calls. Successful customer consent records the
+original Drive account fingerprint and managed folders. Preserve these rows in full
+database backups. See [Google Drive recovery](../identity/GOOGLE_DRIVE.md#recover-after-loss-of-credential-custody)
+for enrolling existing connections and recovering from lost ciphertext.
