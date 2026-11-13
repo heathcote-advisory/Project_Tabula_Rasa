@@ -6,6 +6,7 @@ import subprocess
 from contextlib import ExitStack
 from http.client import HTTPConnection, HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError
@@ -25,8 +26,7 @@ pytestmark = pytest.mark.skipif(
     reason="Requires the explicit isolated Docker rehearsal",
 )
 
-BASELINE = "989854605508eb0e5f2691c99343ff4fb1ac155fe286d1bab20885be9fadf611"
-CANDIDATE = "f298f6c9f1d4a1c4bcfbbd79fade842f526b0f3c6674ac7d9a7d2f7765ec3dfd"
+BASELINE = "f298f6c9f1d4a1c4bcfbbd79fade842f526b0f3c6674ac7d9a7d2f7765ec3dfd"
 TLS_POSTGRES = (
     "openssl req -new -x509 -nodes -days 1 -subj /CN=disposable-postgres -newkey rsa:2048 "
     "-keyout /tmp/drill.key -out /tmp/drill.crt >/dev/null 2>&1 && "
@@ -38,10 +38,10 @@ TLS_POSTGRES = (
 
 def docker(*args, env=None, data=None, check=True):
     result = subprocess.run(
-        ["docker", *args], env=env, input=data, capture_output=True, text=True, timeout=180,
+        ["docker", *args], env=env, input=data, capture_output=True, encoding="utf-8", timeout=180,
     )
     if check and result.returncode:
-        raise RuntimeError(f"Disposable Docker operation failed: {args[0]}.")
+        raise RuntimeError(f"Disposable Docker operation failed: {args[0]}. {result.stderr}")
     return result
 
 
@@ -60,6 +60,7 @@ class Rehearsal(Staging):
         super().__init__(image, prior)
         self.stack = stack
         self.metadata = metadata
+        self.candidate = metadata[image]
         self.network = "schema-window-" + uuid4().hex[:12]
         self.database = self.network + "-db"
         self.app = self.network + "-app"
@@ -74,6 +75,7 @@ class Rehearsal(Staging):
         self.environ = {
             **ENV, "GITHUB_REPOSITORY": repository, "GH_TOKEN": os.environ["GH_TOKEN"],
             "TABULA_RASA_DEPLOY_DATABASE_SHA256": fingerprint,
+            "WINDOW_EXCLUSIVE_RENDER_WRITER": "true",
             "COMMERCIAL_SCHEMA_WINDOW": json.dumps({
                 **PLAN, "image": image, "previous_image": prior, "database_sha256": fingerprint,
             }),
@@ -105,7 +107,31 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO runtime;
             "upgrade(Database(DatabaseSettings.from_environment(required=True)))"
         ))
         assert result.returncode == 0, "Pinned baseline could not initialize the disposable database"
-        assert self.sql("SELECT version_num FROM alembic_version;") == "0020_book_currency"
+        self.schema = self.sql("SELECT version_num FROM alembic_version;")
+        assert self.schema == "0021_customer_lifecycle"
+        self.sql("CREATE DATABASE custody OWNER owner;", database="postgres")
+        self.sql(Path("deploy/commercial/connection-custody.sql").read_text(encoding="utf-8"), database="custody")
+        from cryptography.fernet import Fernet
+
+        ciphertext = Fernet(Fernet.generate_key()).encrypt(b"disposable Drive grant")
+        self.sql(f"INSERT INTO connection_custody.grants VALUES (repeat('a', 32), decode('{ciphertext.hex()}', 'hex'));",
+                 database="custody")
+        self.sql("""
+BEGIN;
+SET LOCAL tabula.audit_context =
+    '{"actor_type":"system","actor_id":"fixture","operation_id":"fixture","source":"schema-rehearsal"}';
+INSERT INTO business_entities(id,incarnation_id,name) VALUES ('fixture','fixture','Fixture');
+INSERT INTO identity_users(id,email) VALUES ('fixture-owner','owner@example.test');
+INSERT INTO organizations(id,name) VALUES ('fixture-org','Fixture');
+INSERT INTO memberships(organization_id,user_id,role) VALUES ('fixture-org','fixture-owner','owner');
+INSERT INTO organization_entities(entity_id,organization_id) VALUES ('fixture','fixture-org');
+INSERT INTO external_connections(entity_id,organization_id,provider,secret_ref,profile_key,
+    store_scope_key,required_scopes,status)
+VALUES ('fixture','fixture-org','google_drive',repeat('a',32),'fixture','fixture-folder','[]','connected');
+INSERT INTO documents(entity_id,id,incarnation_id,stored_filename,store_kind,store_scope_key,storage_key)
+VALUES ('fixture','receipt','receipt','fixture.pdf','google_drive','fixture-folder','fixture-file');
+COMMIT;
+""")
         self.start_app(prior)
         self.public = self.ingress(public=True)
         self.private = self.ingress(public=False)
@@ -119,9 +145,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO runtime;
     def image_python(self, image, settings, *args):
         return docker(
             "run", "--rm", "--pull", "never", "--network", self.network,
-            *(part for key in settings for part in ("-e", key)), image, "python", *args,
+            *(part for key in settings for part in ("-e", key)), self.container_image(image), "python", *args,
             env={**os.environ, **settings}, check=False,
         )
+
+    def container_image(self, image):
+        return image.split("@")[1] if image == self.image else image
 
     def start_app(self, image):
         settings = {
@@ -136,7 +165,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO runtime;
         }
         docker(
             "run", "--pull", "never", "-d", "--name", self.app, "--network", self.network,
-            "-p", "127.0.0.1::10000", *(part for key in settings for part in ("-e", key)), image,
+            "-p", "127.0.0.1::10000", *(part for key in settings for part in ("-e", key)),
+            self.container_image(image),
             env={**os.environ, **settings},
         )
         self.app_port = int(docker("port", self.app, "10000/tcp").stdout.rsplit(":", 1)[1])
@@ -222,13 +252,24 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO runtime;
             schema_window.public_closed(self.public)
         named_smoke(self.private, revision)
 
-    def rehearse(self, environ):
+    def rehearse(self, environ, *, immediate=False):
+        options = {}
+        if immediate:
+            options = {
+                "plan": {"image": self.image, "previous_image": self.prior_image,
+                         "render_service": SERVICE, "database_sha256": environ["TABULA_RASA_DEPLOY_DATABASE_SHA256"]},
+                "revalidate": lambda **_: {},
+                "checkpoint": lambda *_: {"checkpoint_at": NOW.isoformat()},
+            }
         return schema_window.run(
             environ, read=self.read, metadata=lambda image, _: self.metadata[image],
             check_database=self.migrate, smoke_check=self.smoke_app,
             check_closed=lambda _: schema_window.public_closed(self.public),
             check_reopened=lambda _, revision: schema_window.public_reopened(self.public, revision),
-            now=lambda: NOW, emit=lambda event: self.phases.append(event["status"]),
+            verify=lambda revision, _: subprocess.run(
+                ["git", "merge-base", "--is-ancestor", revision, "HEAD"], check=True,
+            ),
+            now=lambda: NOW, emit=lambda event: self.phases.append(event["status"]), **options,
         )
 
 
@@ -236,11 +277,20 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO runtime;
 def release_images():
     repository = os.environ["GITHUB_REPOSITORY"]
     registry = release.commercial_image_repository(repository)
-    images = [f"{registry}@sha256:{value}" for value in (CANDIDATE, BASELINE)]
-    metadata = {image: release.image_metadata(image, registry) for image in images}
-    for image in images:
-        docker("pull", "--platform", "linux/amd64", image)
-    assert [info["schema"] for info in metadata.values()] == ["0021_customer_lifecycle", "0020_book_currency"]
+    prior = f"{registry}@sha256:{os.environ.get('SCHEMA_REHEARSAL_BASELINE', BASELINE)}"
+    if not os.environ.get("SCHEMA_REHEARSAL_BASELINE"):
+        docker("pull", "--platform", "linux/amd64", prior)
+    labels = json.loads(docker("image", "inspect", "--format", "{{json .Config.Labels}}", prior).stdout)
+    assert labels["io.tabula.schema"] == "0021_customer_lifecycle"
+    prior_metadata = {"release": labels["org.opencontainers.image.revision"], "schema": labels["io.tabula.schema"],
+                      "manifest_digest": prior.split("@")[1]}
+    sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    docker("build", "-f", "deploy/commercial/Dockerfile", "-t", "schema-rehearsal:local",
+           "--build-arg", f"RELEASE_ID={sha}", "--build-arg", "SCHEMA_REVISION=0022_drive_recovery_binding", ".")
+    image_id = docker("image", "inspect", "--format", "{{.Id}}", "schema-rehearsal:local").stdout.strip()
+    image = f"{registry}@{image_id}"
+    metadata = {image: {"release": sha, "schema": "0022_drive_recovery_binding", "manifest_digest": image_id},
+                prior: prior_metadata}
     return repository, metadata
 
 
@@ -256,14 +306,25 @@ def test_schema_window_reopens_after_real_private_smoke(lab):
         lab.rehearse({**lab.environ, "RENDER_SERVICE_ID": "srv-wrong"})
     assert not lab.actions
     schema_window.public_reopened(lab.public, prior)
-    result = lab.rehearse(lab.environ)
+    rows = "SELECT to_jsonb(c) - 'drive_recovery_binding' FROM external_connections c;"
+    receipts = "SELECT to_jsonb(d) FROM documents d;"
+    custody = "SELECT reference || ':' || encode(ciphertext, 'hex') FROM connection_custody.grants;"
+    expected = lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")
+    lab.details["plan"] = "free"
+    with pytest.raises(release.ReleaseError, match="Render Free"):
+        lab.rehearse(lab.environ, immediate=True)
+    assert not lab.actions and lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
+    lab.details["plan"] = "starter"
+    result = lab.rehearse(lab.environ, immediate=True)
     assert result["status"] == "smoke_passed" and result["image"] == lab.image
-    assert lab.schema == "0021_customer_lifecycle"
+    assert lab.schema == "0022_drive_recovery_binding"
+    assert (lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")) == expected
+    assert lab.sql("SET ROLE runtime; SELECT drive_recovery_binding IS NULL FROM external_connections;") == "t"
     assert lab.phases.index("private_smoke_passed") < lab.phases.index("ingress_reopened")
 
 
 def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):
-    lab.sql("SET ROLE owner; CREATE TABLE customer_lifecycle_events (sentinel text);")
+    lab.sql("SET ROLE owner; ALTER TABLE external_connections ADD COLUMN drive_recovery_binding text;")
     with pytest.raises(release.ReleaseError, match="Packaged migration command failed.*Keep ingress restricted"):
         lab.rehearse(lab.environ)
     assert lab.phases[-1] == "maintenance_failed"
@@ -272,8 +333,7 @@ def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):
     schema_window.public_closed(lab.public)
     with pytest.raises(HTTPError, match="503"):
         urlopen(lab.private + "/version", timeout=5)
-    assert lab.sql("SELECT version_num FROM alembic_version;") == "0020_book_currency"
-    assert lab.sql("SELECT to_regclass('customer_lifecycle_requests') IS NULL;") == "t"
+    assert lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
 
     # Operator recovery keeps the verified compatible image private until smoke passes.
     lab.start_app(lab.prior_image)

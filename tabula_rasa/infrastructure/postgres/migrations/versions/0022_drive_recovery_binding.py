@@ -5,6 +5,15 @@ revision = '0022_drive_recovery_binding'
 down_revision = '0021_customer_lifecycle'
 branch_labels = None
 depends_on = None
+rollout = {
+    # The serving 0021 image gates readiness on its exact Alembic head.
+    "mode": "maintenance",
+    "data": "Takes an exclusive table lock. Existing connection rows and custody grants are not rewritten.",
+    "recovery": "forward_only",
+    "grants": (
+        ("column", "external_connections.drive_recovery_binding", ("SELECT", "INSERT", "UPDATE")),
+    ),
+}
 
 
 def upgrade():

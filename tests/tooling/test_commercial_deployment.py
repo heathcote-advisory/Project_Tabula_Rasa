@@ -362,10 +362,12 @@ def test_workflow_credential_separation_serialization_and_main_only_image_build(
         return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
     config = load("commercial-promote.yml")
     job = config["jobs"]["deploy"]
-    assert job["steps"][0]["with"] == {"ref": "${{ github.sha }}", "fetch-depth": "0"}
+    assert job["steps"][0]["with"] == {
+        "ref": "${{ github.sha }}", "fetch-depth": "0", "persist-credentials": "false",
+    }
     assert any(step.get("uses") == "docker/setup-buildx-action@v3" for step in job["steps"])
     assert job["concurrency"] == {"group": "commercial-deploy-${{ inputs.environment }}", "queue": "max"}
-    assert job["environment"] == "${{ inputs.environment }}"
+    assert job["environment"]["name"] == "${{ inputs.environment }}"
     migration = next(step for step in job["steps"] if "bound migration" in step.get("name", ""))
     assert migration["env"] == {"TABULA_RASA_DATABASE_URL": "${{ secrets.TABULA_RASA_MIGRATION_DATABASE_URL }}"}
     assert "--bootstrap" not in migration["run"] and "database migrate" in migration["run"]
@@ -379,7 +381,9 @@ def test_workflow_credential_separation_serialization_and_main_only_image_build(
         caller = image["jobs"][environment]
         assert caller["needs"] == "build"
         assert caller["uses"] == "./.github/workflows/commercial-promote.yml"
-        assert caller["with"] == {"environment": environment, "image": "${{ needs.build.outputs.image }}"}
+        assert caller["with"]["environment"] == environment
+        assert caller["with"]["image"] == "${{ needs.build.outputs.image }}"
+    assert image["jobs"]["staging"]["with"]["automatic"] == "true"
     assert image["jobs"]["development"]["if"] == "vars.COMMERCIAL_DEPLOY_ENABLED == 'true'"
     assert "vars.COMMERCIAL_AUTO_STAGING_ENABLED == 'true'" in image["jobs"]["staging"]["if"]
     manual = load("commercial-staging.yml")
@@ -451,14 +455,16 @@ def production_release(monkeypatch, release_ancestry):
 
     def command(args, **_):
         if args[0] == "gh":
-            assert args[2:4] == ["download", "123"] and args[7] == "staging-release-1"
+            assert args[2:4] == ["download", "123"]
+            expected_name = "staging-release-1" if run["event"] == "schedule" else f"staging-release-{'c' * 40}"
+            assert args[7] == expected_name
             (Path(args[-1]) / "release.json").write_text(json.dumps(proof), encoding="utf-8")
         return SimpleNamespace(returncode=0)
 
     release_ancestry.side_effect = command
     original = production.staging_evidence
     monkeypatch.setattr(production, "staging_evidence",
-                        lambda *args, **kwargs: original(*args, **kwargs, github=github))
+                        lambda *args, **kwargs: original(*args, **{"github": github, **kwargs}))
     pre_smoke, smoke = Mock(), Mock()
     monkeypatch.setattr(smoke_module, "named_smoke", pre_smoke)
 
@@ -467,7 +473,7 @@ def production_release(monkeypatch, release_ancestry):
 
     return SimpleNamespace(promote=promote, prod=prod, proof=proof, stage_live=stage_live,
                            target=target, settings=settings, stage_settings=stage_settings, environ=environ, run=run, jobs=jobs,
-                           smoke=smoke, pre_smoke=pre_smoke)
+                           smoke=smoke, pre_smoke=pre_smoke, render=render)
 
 
 def test_production_submits_only_the_live_staging_digest_and_records_success(production_release):
@@ -531,6 +537,28 @@ def test_production_requires_successful_build_and_staging_jobs(production_releas
     with pytest.raises(release.ReleaseError, match="Successful build and staging"):
         fixture.promote()
     assert not any(call.kwargs.get("body") for call in fixture.prod.call_args_list)
+
+
+@pytest.mark.parametrize("defect", [None, "no_restart", "late_smoke", "late_staging_job", "rerun", "superseded"])
+def test_automatic_production_requires_exact_current_pre_cutoff_restart(production_release, defect):
+    fixture = production_release
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+    before = (cutoff - timedelta(minutes=1)).isoformat()
+    after = (cutoff + timedelta(minutes=1)).isoformat()
+    fixture.proof.update(restarted=defect != "no_restart", run_attempt=2 if defect == "rerun" else 1,
+                         deploy_started_at=before, verified_at=after if defect == "late_smoke" else before)
+    for job in fixture.jobs:
+        job["completed_at"] = after if defect == "late_staging_job" else before
+    if defect == "superseded":
+        fixture.stage_live["id"] = "dep-newer"
+    if defect:
+        with pytest.raises(release.ReleaseError):
+            production.staging_evidence(None, metadata(IMAGE, REPOSITORY), fixture.environ,
+                                        read=fixture.render, cutoff=cutoff, metadata=metadata)
+    else:
+        proof = production.staging_evidence(None, metadata(IMAGE, REPOSITORY), fixture.environ,
+                                            read=fixture.render, cutoff=cutoff, metadata=metadata)
+        assert proof["staging_image"] == IMAGE and proof["staging_deploy_id"] == "dep-staging"
 
 
 @pytest.mark.parametrize("restored", [True, False])
@@ -615,7 +643,7 @@ def test_production_uses_verified_release_code_before_migration_and_deploy():
     assert [names.index(name) for name in ordered] == sorted(names.index(name) for name in ordered)
     select, checkout, recheck = [steps[names.index(name)] for name in ordered[1:4]]
     for step in (select, checkout, recheck):
-        assert step["if"] == "inputs.environment == 'production'"
+        assert step["if"] == "inputs.environment == 'production' && !inputs.automatic"
         assert "continue-on-error" not in step
     assert select["id"] == "tested-release"
     assert checkout["uses"] == "actions/checkout@v4"

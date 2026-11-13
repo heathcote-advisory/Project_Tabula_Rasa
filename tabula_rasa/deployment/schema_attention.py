@@ -33,7 +33,7 @@ def inspect_schema(environ):
 
 
 def notify(environ, *, read=release.api):
-    from .schema_migration import MAINTENANCE_TRANSITIONS
+    from .schema_migration import ContractError, rollout_path
 
     stage = environ["TARGET_ENVIRONMENT"]
     if stage not in ENVIRONMENTS:
@@ -50,13 +50,18 @@ def notify(environ, *, read=release.api):
     if (not re.fullmatch(r"[0-9a-f]{40}", commit) or not re.fullmatch(r"[0-9]+", run)
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}", assignee)):
         raise release.ReleaseError("Configure a release operator and verified release identity for schema alerts.")
-    next_step = (
-        "Review the candidate and queue an approved maintenance window."
-        if (current, required) in MAINTENANCE_TRANSITIONS
-        else "Review and validate this transition before adding it to the scheduled migration path."
-    )
-    if stage == "production":
-        next_step += " Obtain successful live staging evidence for this digest and explicit production approval."
+    try:
+        rollout_path(current, required)
+    except ContractError:
+        next_step = "Review and validate this transition before allowing automated migration."
+    else:
+        if stage == "staging" and environ.get("STAGING_RESULT") == "success":
+            return
+        if stage == "production" and environ.get("COMMERCIAL_AUTO_PRODUCTION_ENABLED") == "true":
+            return
+        next_step = ("Inspect the immediate staging run for blocked isolation, recovery or verification."
+                     if stage == "staging" else
+                     "Obtain successful live staging evidence and explicit production approval to enable automation.")
     title = f"Schema change needs attention in {stage} ({current} → {required})"
     marker = "<!-- commercial-schema-attention:"
     body = (

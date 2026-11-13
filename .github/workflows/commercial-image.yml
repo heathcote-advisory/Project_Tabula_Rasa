@@ -83,11 +83,13 @@ jobs:
     uses: ./.github/workflows/commercial-promote.yml
     with:
       environment: staging
+      automatic: true
       image: ${{ needs.build.outputs.image }}
     secrets: inherit
   schema-attention:
-    needs: build
-    if: vars.COMMERCIAL_DEPLOY_ENABLED == 'true'
+    needs: [build, staging]
+    if: >-
+      !cancelled() && needs.build.result == 'success' && vars.COMMERCIAL_DEPLOY_ENABLED == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +103,7 @@ jobs:
       image: ${{ needs.build.outputs.image }}
       schema: ${{ needs.build.outputs.schema }}
       release: ${{ github.event.workflow_run.head_sha }}
+      staging_result: ${{ needs.staging.result }}
     secrets:
       SCHEMA_ATTENTION_DATABASE_URL: ${{ secrets.SCHEMA_ATTENTION_DATABASE_URL }}
       TABULA_RASA_RUNTIME_DATABASE_URL: ${{ secrets.TABULA_RASA_RUNTIME_DATABASE_URL }}

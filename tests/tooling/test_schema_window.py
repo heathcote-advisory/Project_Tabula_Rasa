@@ -105,7 +105,7 @@ class Staging:
             self.actions.append("suspend")
             self.suspended = True
         elif path == base + "/resume":
-            assert self.maintenance and self.schema == CANDIDATE["schema"]
+            assert self.maintenance and self.schema == self.candidate["schema"]
             assert self.configured_image == self.image
             self.actions.append("resume")
             self.suspended = False
@@ -130,7 +130,7 @@ class Staging:
         elif path == base + "/deploys?limit=100":
             assert body is None
             deploy = self.deploy()
-            if self.live_image == self.image:
+            if self.live_image == self.image and not getattr(self, "deploy_finished", False):
                 deploy.update(trigger="service_resumed", status="update_in_progress")
             return [{"deploy": deploy}]
         elif path == base + "/deploys/dep-candidate":
@@ -140,11 +140,14 @@ class Staging:
                 deploy["status"] = "update_failed"
             elif self.failure == "old_image_resumed":
                 deploy["image"] = {"ref": self.prior_image, "sha": self.prior_image.split("@")[1]}
+            self.deploy_finished = True
             return deploy
         else:
             raise AssertionError(path)
 
     def db(self, image, candidate, source, role, environ, *, apply):
+        if candidate["schema"] != CANDIDATE["schema"]:
+            raise release.ReleaseError("The rollout contract is missing.")
         assert image == IMAGE and candidate == CANDIDATE and role == "runtime"
         if source != self.schema or self.failure == "database":
             raise release.ReleaseError("Wrong database revision.")
@@ -293,13 +296,15 @@ def test_production_requires_explicit_run_and_matching_staging_proof(staging, mo
     assert not staging.actions
 
 
-def test_schedule_and_both_promotion_jobs_share_one_environment_queue():
+def test_immediate_staging_and_scheduled_production_use_the_shared_environment_queue():
     workflows = Path(__file__).resolve().parents[2] / ".github" / "workflows"
     schedule = yaml.load((workflows / "commercial-schema-window.yml").read_text(), Loader=yaml.BaseLoader)
     shared = yaml.load((workflows / "commercial-promote.yml").read_text(), Loader=yaml.BaseLoader)["jobs"]
     assert schedule["on"] == {"schedule": [{"cron": "0 3 * * *", "timezone": "America/New_York"}]}
-    for environment in ("staging", "production"):
-        assert schedule["jobs"][environment]["uses"] == "./.github/workflows/commercial-promote.yml"
-        assert schedule["jobs"][environment]["with"] == {"environment": environment, "schema_window": "true"}
-    assert shared["deploy"]["concurrency"] == shared["schema-window"]["concurrency"]
-    assert "github.event_name == 'schedule'" in shared["schema-window"]["if"]
+    assert set(schedule["jobs"]) == {"production"}
+    assert schedule["jobs"]["production"]["uses"] == "./.github/workflows/commercial-promote.yml"
+    assert schedule["jobs"]["production"]["with"] == {"environment": "production", "automatic": "true"}
+    assert "COMMERCIAL_AUTO_PRODUCTION_ENABLED" in schedule["jobs"]["production"]["if"]
+    assert set(shared) == {"deploy"}
+    assert shared["deploy"]["concurrency"]["group"] == "commercial-deploy-${{ inputs.environment }}"
+    assert "github.event_name == 'schedule'" in shared["deploy"]["if"]
