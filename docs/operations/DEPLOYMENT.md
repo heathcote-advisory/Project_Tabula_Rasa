@@ -880,7 +880,8 @@ Do not fall back automatically to historical file-based credentials.
 3. Restore the required application configuration.
 4. Verify decryption and an existing receipt operation.
 
-Do not generate a replacement key for existing ciphertext or overwrite encrypted records.
+Do not generate a replacement key for existing ciphertext or overwrite encrypted records. If the encryption
+key is permanently lost, treat it as a permanent credential database loss and follow Scenario 4.
 
 **4. Credential database is permanently lost**
 
@@ -892,11 +893,13 @@ Recovery depends on the deployed application's recovery capabilities and the ava
 independently retained, verified original-account and managed-folder bindings.
 4. Verify that every affected connection was enrolled in that recovery mechanism before its grant 
 was lost.
-Connections established before the recovery-binding schema revision must complete the documented enrollment
+
+   Connections established before the recovery-binding schema revision must complete the documented enrollment
 procedure while their original encrypted grants remain readable. Deployment of the recovery feature does
 not automatically enroll historical connections.
-5. If supported, restore an empty compatible custody database and follow the documented recovery-
-authorization workflow using the original Google account.
+5. If supported, restore a compatible custody database with the schema and tables pre-provisioned (since
+the runtime role lacks DDL privileges) and follow the documented recovery-authorization workflow using the
+original Google account.
 6. Otherwise, use a separately approved credential restoration or technical remediation procedure.
 7. Verify original document bindings and receipt-byte access before restoring service.
 
@@ -914,6 +917,13 @@ Initial folder selection is not an existing-connection recovery mechanism.
 as separate recovery dependencies.
 - Preserve opaque credential references and environment/business/provider bindings during restoration.
 - Never restore an older credential store without reconciling references created after its recovery point.
+Compare the bookkeeping database's connection references against the restored credential records and
+identify missing or mismatched references.
+
+  For each affected connection, restore its original compatible grant or use the documented credential-loss
+recovery procedure if the deployed schema and connection enrollment support it. Otherwise, retain the
+connection as unavailable pending approved remediation. Never silently rebind or replace the original
+managed folders.
 - Do not revoke Google grants or delete Drive folders as an application rollback shortcut.
 - Do not treat a successful database restore as proof that receipt bytes or Google authorization have
 been recovered.
