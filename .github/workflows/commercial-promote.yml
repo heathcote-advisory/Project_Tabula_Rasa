@@ -39,10 +39,7 @@ jobs:
     concurrency:
       group: commercial-deploy-${{ inputs.environment }}
       queue: max
-    runs-on: >-
-      ${{ inputs.automatic && (inputs.environment == 'production' ||
-          vars.COMMERCIAL_STAGING_PRIVATE_RUNNER_ENABLED == 'true') &&
-          fromJSON('["self-hosted","linux","x64","commercial-schema-window"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       IMAGE: ${{ inputs.image }}
@@ -75,11 +72,7 @@ jobs:
       - name: Install smoke browser
         run: |
           python -m pip install playwright==1.62.0
-          if [ "${{ runner.environment }}" = "self-hosted" ]; then
-            python -m playwright install chromium
-          else
-            python -m playwright install --with-deps chromium
-          fi
+          python -m playwright install --with-deps chromium
       - name: Install production preflight database parser
         if: inputs.environment == 'production' || inputs.automatic
         run: python -m pip install -r requirements-postgres.txt
@@ -94,8 +87,8 @@ jobs:
           RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           STAGING_RENDER_API_KEY: ${{ inputs.environment == 'production' && secrets.STAGING_RENDER_API_KEY || '' }}
-          WINDOW_PRIVATE_ORIGIN: ${{ vars.WINDOW_PRIVATE_ORIGIN }}
           WINDOW_EXCLUSIVE_RENDER_WRITER: ${{ vars.WINDOW_EXCLUSIVE_RENDER_WRITER }}
+          WINDOW_VERIFIED_SUSPEND_SERVICE_ID: ${{ vars.WINDOW_VERIFIED_SUSPEND_SERVICE_ID }}
           WINDOW_MIGRATION_DATABASE_URL: ${{ secrets.WINDOW_MIGRATION_DATABASE_URL || secrets.TABULA_RASA_MIGRATION_DATABASE_URL }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}

@@ -131,16 +131,24 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
         status.assert_called_once_with("success")
 
 
-def test_immediate_staging_uses_shared_maintenance_and_free_fails_before_mutation(staging_release):
+def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     stage, invoke = staging_release
     stage.details["plan"] = "free"
-    with pytest.raises(release.ReleaseError, match="Render Free"):
-        invoke()
+    with pytest.raises(release.ReleaseError, match="Verify suspension"):
+        invoke(verified=False)
     assert stage.actions == []
-    stage.details["plan"] = "starter"
     result = invoke()
     assert result["restarted"] is True and result["image"] == IMAGE
     assert stage.actions.index("upgrade") < stage.actions.index("resume") < stage.actions.index("smoke_new")
+    assert "close" not in stage.actions and "open" not in stage.actions
+
+
+def test_failed_full_downtime_smoke_suspends_candidate(staging_release):
+    stage, invoke = staging_release
+    stage.failure = "smoke"
+    with pytest.raises(release.ReleaseError, match="Maintenance stopped"):
+        invoke()
+    assert stage.suspended and stage.actions[-1] == "suspend"
 
 
 @pytest.fixture
@@ -148,6 +156,7 @@ def staging_release(monkeypatch):
     from tests.tooling.test_schema_window import Staging
 
     stage = Staging()
+    stage.full_downtime = True
     monkeypatch.setattr(release.subprocess, "run", Mock(return_value=Mock(returncode=0)))
     monkeypatch.setattr(automatic_release, "verify_checkpoint", lambda point, *_: point)
     original = automatic_release.schema_window.run
@@ -160,9 +169,10 @@ def staging_release(monkeypatch):
             return {"checkpoint_at": NOW.isoformat()}
         return stage.db(*args, apply=apply)
 
-    def invoke():
+    def invoke(*, verified=True):
         return automatic_release.run(
-            {**ENV, "IMAGE": IMAGE, "RELEASE_COMMIT": CANDIDATE["release"], "WINDOW_EXCLUSIVE_RENDER_WRITER": "true"},
+            {**ENV, "IMAGE": IMAGE, "RELEASE_COMMIT": CANDIDATE["release"], "WINDOW_EXCLUSIVE_RENDER_WRITER": "true",
+             "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE if verified else ""},
             read=stage.read, metadata=lambda image, _: CANDIDATE if image == IMAGE else PRIOR,
             verify=Mock(), database=database, maintenance=maintenance, smoke=stage.smoke,
             now=lambda: NOW + timedelta(hours=12),

@@ -41,7 +41,7 @@ def docker(*args, env=None, data=None, check=True):
         ["docker", *args], env=env, input=data, capture_output=True, encoding="utf-8", timeout=180,
     )
     if check and result.returncode:
-        raise RuntimeError(f"Disposable Docker operation failed: {args[0]}. {result.stderr}")
+        raise RuntimeError(f"Disposable Docker operation failed: {args[0]}.")
     return result
 
 
@@ -61,6 +61,7 @@ class Rehearsal(Staging):
         self.stack = stack
         self.metadata = metadata
         self.candidate = metadata[image]
+        self.expected_schema = "0022_drive_recovery_binding"
         self.network = "schema-window-" + uuid4().hex[:12]
         self.database = self.network + "-db"
         self.app = self.network + "-app"
@@ -233,7 +234,7 @@ COMMIT;
 
     def migrate(self, image, candidate, source, role, environ, *, apply):
         if apply:
-            assert self.suspended and self.maintenance and self.app_port is None
+            assert self.suspended and (self.maintenance or self.full_downtime) and self.app_port is None
             schema_window.public_closed(self.public)
         result = self.image_python(image, {
             "TABULA_RASA_ENVIRONMENT": "staging",
@@ -247,12 +248,17 @@ COMMIT;
         self.schema = self.sql("SELECT version_num FROM alembic_version;")
 
     def smoke_app(self, origin, revision):
+        if self.full_downtime:
+            assert origin == ORIGIN
+            named_smoke(self.public, revision)
+            return
         assert origin == PRIVATE
         if self.maintenance:
             schema_window.public_closed(self.public)
         named_smoke(self.private, revision)
 
     def rehearse(self, environ, *, immediate=False):
+        self.full_downtime = immediate
         options = {}
         if immediate:
             options = {
@@ -311,16 +317,15 @@ def test_schema_window_reopens_after_real_private_smoke(lab):
     custody = "SELECT reference || ':' || encode(ciphertext, 'hex') FROM connection_custody.grants;"
     expected = lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")
     lab.details["plan"] = "free"
-    with pytest.raises(release.ReleaseError, match="Render Free"):
+    with pytest.raises(release.ReleaseError, match="Verify suspension"):
         lab.rehearse(lab.environ, immediate=True)
     assert not lab.actions and lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
-    lab.details["plan"] = "starter"
-    result = lab.rehearse(lab.environ, immediate=True)
+    result = lab.rehearse({**lab.environ, "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE}, immediate=True)
     assert result["status"] == "smoke_passed" and result["image"] == lab.image
     assert lab.schema == "0022_drive_recovery_binding"
     assert (lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")) == expected
     assert lab.sql("SET ROLE runtime; SELECT drive_recovery_binding IS NULL FROM external_connections;") == "t"
-    assert lab.phases.index("private_smoke_passed") < lab.phases.index("ingress_reopened")
+    assert lab.phases.index("schema_verified") < lab.phases.index("post_restart_smoke_passed")
 
 
 def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):

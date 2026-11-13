@@ -71,7 +71,9 @@ class Staging:
         self.configured_image = prior_image
         self.schema = PRIOR["schema"]
         self.candidate = CANDIDATE.copy()
+        self.expected_schema = "0021_customer_lifecycle"
         self.failure = None
+        self.full_downtime = False
         self.details = {
             "url": ORIGIN, "runtime": "image", "plan": "starter", "healthCheckPath": "/health/ready",
         }
@@ -90,7 +92,7 @@ class Staging:
         base = f"/services/{SERVICE}"
         if method == "PATCH":
             if "image" in body:
-                assert self.suspended and self.maintenance
+                assert self.suspended and (self.maintenance or self.full_downtime)
                 assert body == {"image": {
                     "imagePath": self.image, "ownerId": "tea-owner", "registryCredentialId": "rgc-private",
                 }}
@@ -101,11 +103,11 @@ class Staging:
                 self.maintenance = body["serviceDetails"]["maintenanceMode"]["enabled"]
                 self.actions.append("close" if self.maintenance else "open")
         elif path == base + "/suspend":
-            assert self.maintenance
+            assert self.maintenance or self.full_downtime
             self.actions.append("suspend")
             self.suspended = True
         elif path == base + "/resume":
-            assert self.maintenance and self.schema == self.candidate["schema"]
+            assert (self.maintenance or self.full_downtime) and self.schema == self.expected_schema
             assert self.configured_image == self.image
             self.actions.append("resume")
             self.suspended = False
@@ -153,23 +155,23 @@ class Staging:
             raise release.ReleaseError("Wrong database revision.")
         self.actions.append("upgrade" if apply else "inspect")
         if apply:
-            assert self.suspended and self.maintenance
+            assert self.suspended and (self.maintenance or self.full_downtime)
             if self.failure == "migration":
                 raise release.ReleaseError("Migration failed.")
             self.schema = candidate["schema"]
 
     def smoke(self, origin, revision):
-        assert origin == PRIVATE
+        assert origin == (ORIGIN if self.full_downtime else PRIVATE)
         if revision == PRIOR["release"]:
             self.actions.append("smoke_old")
         else:
-            assert revision == CANDIDATE["release"] and self.maintenance
+            assert revision == CANDIDATE["release"] and (self.maintenance or self.full_downtime)
             self.actions.append("smoke_new")
             if self.failure == "smoke":
                 raise RuntimeError("browser failed")
 
     def closed(self, origin):
-        assert self.maintenance
+        assert self.suspended if self.full_downtime else self.maintenance
         self.closed_origins.append(origin)
 
     def reopened(self, origin, revision):

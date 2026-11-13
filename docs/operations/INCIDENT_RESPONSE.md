@@ -150,6 +150,9 @@ digest, then read the bound database revision and runtime grants once the
 provider operation has settled.
 
 The same containment applies to immediate staging and scheduled production.
+Both suspend the service for schema changes and verify the pinned restart
+through public smoke. If containment after a failed resume is unconfirmed,
+verify and suspend the exact service from Render before proceeding.
 The production deployment record fences the attempted digest, including an
 interrupted run with no terminal status. Rearm through
 `PRODUCTION_RECOVERY_GENERATION` only after confirming recovery, current

@@ -589,18 +589,13 @@ environment.
   and direct Neon TLS database fingerprint. Use named-user access and a
   separately scoped migration owner. The production target also verifies
   Zitadel issuer and client settings and uses separate staging Render read access.
-- For schema changes, verify that Render supports maintenance isolation,
-  instance and job drain, selecting an immutable image while suspended, and
-  starting that image behind closed ingress. Render Free blocks this path
-  before any mutation. Same-schema staging deployment can use the hosted runner.
-  If staging maintenance needs private routing, enable
-  `COMMERCIAL_STAGING_PRIVATE_RUNNER_ENABLED` after validating the private runner.
-- Restrict the ephemeral x64 Linux runner with the `commercial-schema-window`
-  label to trusted release workflows. It needs Docker, GitHub CLI, Chromium
-  dependencies and access to the selected private smoke route. Set
-  `WINDOW_PRIVATE_ORIGIN` to the HTTPS gateway that routes exclusively to
-  the selected service and forwards its public Host. Verify this route in the
-  hosted rehearsal, including while public ingress is closed.
+- Schema changes use full service downtime in staging and production. Rehearse
+  suspension, empty instance and job lists, public 503 responses, updating the
+  pinned image while suspended, and resuming only the new image on an isolated
+  service with equivalent Render settings and tier. Record the approved target
+  in `WINDOW_VERIFIED_SUSPEND_SERVICE_ID` after verifying those capabilities.
+  Repeat verification when the provider tier or deployment behavior changes.
+  An unverified target blocks before suspension or database mutation.
 - Set `WINDOW_MIGRATION_DATABASE_URL` to the bound migration owner, or use
   the environment's existing scoped migration secret. The environment
   variable `WINDOW_EXCLUSIVE_RENDER_WRITER=true` records an inventory proving
@@ -623,11 +618,13 @@ environment to permit the trusted main schedule without a per-release reviewer
 gate. Preserve separate customer activation and commercial acceptance decisions.
 Manual production dispatch remains available for reviewed emergency use.
 
-The shared maintenance path closes public ingress, suspends the old image,
-checks instance and job drain, verifies recovery, selects the new pinned image,
-and applies the forward path in one locked transaction. It waits for the
-candidate deployment, runs private named-user smoke, reopens ingress and
-confirms public readiness/version. A failed migration or interrupted deploy
+The shared downtime path suspends the service, checks instance and job drain
+and public unavailability, verifies recovery, selects the new pinned image,
+and applies the forward path in one locked transaction. It resumes the pinned
+candidate and checks the exact new deployment and public readiness, version
+and named-user smoke. Render may restore public traffic on resume before
+smoke completes. A failed restart or smoke triggers containment by suspension.
+A failed migration or interrupted deploy
 supplies no success evidence. Follow the
 [incident procedure](INCIDENT_RESPONSE.md#scheduled-schema-window-failure).
 
