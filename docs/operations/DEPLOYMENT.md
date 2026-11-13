@@ -823,3 +823,130 @@ See [customer Google Drive setup](../identity/GOOGLE_DRIVE.md) for the optional
 persistent writable encrypted grant custody. Read-only secret-file mounts alone
 cannot support self-service customer grants. Configure and verify approved staging
 before customer admission; no production setup is implied.
+
+### Production credential custody and recovery
+
+Customer Google Drive OAuth requires durable, writable encrypted credential custody.
+The application supports a dedicated PostgreSQL credential database, separate from the
+ bookkeeping database.
+
+#### Required configuration
+
+| Setting | Purpose |
+|---|---|
+| `TABULA_RASA_CONNECTION_SECRETS_DATABASE_URL` | Dedicated PostgreSQL credential database connection |
+| `TABULA_RASA_CONNECTION_SECRETS_KEY` | Encryption and decryption of stored credentials |
+| `TABULA_RASA_CUSTOMER_DRIVE_OAUTH_FILE` | Server-side Google OAuth client configuration |
+
+The credential database must use a dedicated restricted runtime role with CONNECT on the
+credential database, USAGE on the connection_custody schema, and SELECT/INSERT on connection_custody.grants.
+Do not grant UPDATE, DELETE, DDL, role administration, or bookkeeping database access. Use a 
+TLS-verified connection. Runtime access must not include schema administration, credential 
+overwrites/deletion, or bookkeeping privileges.
+
+Use only one credential-storage backend. Do not configure the legacy file-directory backend
+alongside the PostgreSQL backend.
+
+The encryption key must remain available to the running application and be recoverable 
+separately from the hosting provider.
+
+#### Credential recovery scenarios
+
+**1. Google authorization expires or is revoked**
+
+When the existing encrypted grant and connection metadata remain intact:
+
+1. Have an authorized business Owner initiate Reconnect.
+2. Reauthorize using the original Google account.
+3. Verify the existing managed folder bindings.
+4. Confirm receipt access without modifying existing document links.
+
+Do not substitute another Google account or create replacement folders.
+
+**2. Credential database becomes temporarily unavailable**
+
+1. Preserve the bookkeeping database and document metadata.
+2. Diagnose database connectivity, TLS, permissions, and provider availability.
+3. Restore access to the existing credential database.
+4. Confirm connections can read their original encrypted grants.
+5. Validate an existing receipt download before declaring recovery complete.
+
+Do not fall back automatically to historical file-based credentials.
+
+**3. Encryption key becomes unavailable**
+
+1. Preserve all encrypted credential records.
+2. Recover the matching encryption key from approved separate custody.
+3. Restore the required application configuration.
+4. Verify decryption and an existing receipt operation.
+
+Do not generate a replacement key for existing ciphertext or overwrite encrypted records. If the encryption
+key is permanently lost, treat it as a permanent credential database loss and follow Scenario 4.
+
+**4. Credential database is permanently lost**
+
+Recovery depends on the deployed application's recovery capabilities and the available recovery artifacts.
+
+1. Preserve the bookkeeping database, connection metadata, original Drive folders, and receipt links.
+2. Inventory available ciphertext backups, historical grant files, and matching encryption keys.
+3. Determine whether the deployed schema and application support credential-loss reconnection using 
+independently retained, verified original-account and managed-folder bindings.
+4. Verify that every affected connection was enrolled in that recovery mechanism before its grant 
+was lost.
+
+   Connections established before the recovery-binding schema revision must complete the documented enrollment
+procedure while their original encrypted grants remain readable. Deployment of the recovery feature does
+not automatically enroll historical connections.
+5. If supported, restore a compatible custody database with the schema and tables pre-provisioned (since
+the runtime role lacks DDL privileges) and follow the documented recovery-authorization workflow using the
+original Google account.
+6. Otherwise, use a separately approved credential restoration or technical remediation procedure.
+7. Verify original document bindings and receipt-byte access before restoring service.
+
+Ordinary Reconnect must not be assumed to recover a connection whose encrypted grant has been permanently lost.
+
+Historical grant files may not contain credentials issued after migration to database-backed custody.
+Restoring an incomplete historical snapshot must not silently replace newer connection records.
+
+Initial folder selection is not an existing-connection recovery mechanism.
+
+#### Backup and rollback safeguards
+
+- Maintain the approved protection level for the applicable operating stage.
+- Evaluate credential ciphertext, the encryption key, bookkeeping metadata, and external receipt bytes
+as separate recovery dependencies.
+- Preserve opaque credential references and environment/business/provider bindings during restoration.
+- Never restore an older credential store without reconciling references created after its recovery point.
+Compare the bookkeeping database's connection references against the restored credential records and
+identify missing or mismatched references.
+
+  For each affected connection, restore its original compatible grant or use the documented credential-loss
+recovery procedure if the deployed schema and connection enrollment support it. Otherwise, retain the
+connection as unavailable pending approved remediation. Never silently rebind or replace the original
+managed folders.
+- Do not revoke Google grants or delete Drive folders as an application rollback shortcut.
+- Do not treat a successful database restore as proof that receipt bytes or Google authorization have
+been recovered.
+- Verify recovered access through an original-account connection and an existing receipt.
+
+For any operating stage that accepts reduced credential-backup protection, record the authorization,
+recovery limitations, and residual risk in the applicable operational acceptance record. Such an exception
+does not automatically extend to another stage.
+
+#### Recovery acceptance
+
+Before enabling a new operating stage, confirm:
+
+- The selected credential backend and restricted runtime role are correct.
+- The encryption key is separately recoverable.
+- Available credential and receipt recovery protections satisfy that stage's approved recovery objectives,
+or an explicitly permitted exception is recorded.
+- Current deployment and database schema support the intended recovery procedure.
+- Existing connected businesses retain their original document bindings.
+- Recovery and rollback responsibilities are assigned to authorized operators.
+
+A successful deployment, Connected status, or historical restore exercise alone does not establish full-
+service recovery readiness.
+
+External customer admission and commercial activation require their own stage-specific recovery and release
+approvals.
