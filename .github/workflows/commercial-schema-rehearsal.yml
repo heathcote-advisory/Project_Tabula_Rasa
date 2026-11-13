@@ -6,6 +6,9 @@ on:
       - .github/workflows/commercial-schema-rehearsal.yml
       - tabula_rasa/deployment/schema_window.py
       - tabula_rasa/deployment/schema_migration.py
+      - tabula_rasa/deployment/automatic_release.py
+      - tabula_rasa/deployment/release_checkpoint.py
+      - tabula_rasa/infrastructure/postgres/migrations/**
       - tests/tooling/test_schema_window*.py
 permissions:
   contents: read
@@ -42,5 +45,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_SCHEMA_WINDOW_REHEARSAL: '1'
         run: |
-          python -m pytest -v --tb=short tests/tooling/test_schema_window.py tests/tooling/test_schema_window_rehearsal.py
+          python -m pytest -v --tb=short tests/tooling/test_schema_window.py tests/tooling/test_schema_window_rehearsal.py tests/tooling/test_automatic_release.py
           echo 'Simulated Render controls with pinned app containers and disposable PostgreSQL passed. No hosted promotion evidence was produced.' >> "$GITHUB_STEP_SUMMARY"

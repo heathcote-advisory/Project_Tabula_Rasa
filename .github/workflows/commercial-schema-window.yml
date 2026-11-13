@@ -8,17 +8,15 @@ permissions:
   actions: read
   packages: read
 jobs:
-  staging:
-    if: vars.COMMERCIAL_DEPLOY_ENABLED == 'true' && vars.COMMERCIAL_STAGING_SCHEMA_WINDOWS_ENABLED == 'true'
-    uses: ./.github/workflows/commercial-promote.yml
-    with:
-      environment: staging
-      schema_window: true
-    secrets: inherit
   production:
-    if: vars.COMMERCIAL_PRODUCTION_ENABLED == 'true' && vars.COMMERCIAL_PRODUCTION_SCHEMA_WINDOWS_ENABLED == 'true'
+    if: vars.COMMERCIAL_PRODUCTION_ENABLED == 'true' && vars.COMMERCIAL_AUTO_PRODUCTION_ENABLED == 'true'
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+      deployments: write
     uses: ./.github/workflows/commercial-promote.yml
     with:
       environment: production
-      schema_window: true
+      automatic: true
     secrets: inherit

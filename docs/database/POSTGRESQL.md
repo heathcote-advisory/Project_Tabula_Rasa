@@ -281,7 +281,21 @@ asset, mileage and import application services for one explicit, existing busine
 entity. All adapters share the same `Database`.
 The caller supplies authorized entity context and owns the database lifecycle;
 this function neither authenticates users nor selects the production backend.
-Schema upgrades remain an explicit operator step.
+Schema upgrades run as a separate deployment operation. The
+[commercial rollout procedure](../operations/DEPLOYMENT.md#schedule-an-approved-forward-release)
+owns immediate staging and owner-enabled scheduled production.
+
+Each revision eligible for unattended migration declares its `rollout`
+contract beside the Alembic upgrade. The current exact-head runtime requires
+`mode = "maintenance"` for forward changes and `recovery = "forward_only"`.
+Describe data rewrites, backfills and locking in `data`, and list the required
+runtime `grants` as tuples of object kind, name and privileges. Supported kinds
+are `table`, `sequence` and `column` with a `table.column` name. Review the
+combined effect of sequential revisions. Destructive or unreviewed changes
+require a separate operator plan. The bound migration checks the source under
+the migration lock and verifies runtime grants before the transaction commits.
+Retain a verified recovery point and use forward repair or isolated restore
+after a committed migration. Application readiness still requires its exact head.
 
 For a migrated disposable development database:
 

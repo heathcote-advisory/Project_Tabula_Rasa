@@ -117,8 +117,11 @@ def test_workflow_selects_mode_before_migration_and_keeps_alpha_secrets_out_of_n
     assert steps[verify]['env']['TABULA_RASA_ACCESS_MODE'] == '${{ vars.TABULA_RASA_ACCESS_MODE }}'
     named = next(step for step in steps if 'named-user boundary' in step.get('name', ''))
     alpha = next(step for step in steps if 'recover prior' in step.get('name', ''))
-    assert named['if'] == "vars.TABULA_RASA_ACCESS_MODE == 'named_user'"
-    assert alpha['if'] == "vars.TABULA_RASA_ACCESS_MODE == 'restricted_alpha'"
+    assert named['if'] == "!inputs.automatic && vars.TABULA_RASA_ACCESS_MODE == 'named_user'"
+    assert alpha['if'] == "!inputs.automatic && vars.TABULA_RASA_ACCESS_MODE == 'restricted_alpha'"
+    automatic = next(step for step in steps if step.get('id') == 'automatic')
+    assert automatic['if'] == 'inputs.automatic'
+    assert not any('ALPHA' in key for key in automatic['env'])
     for step in (named, alpha):
         assert step['env']['TABULA_RASA_ACCESS_MODE'] == '${{ vars.TABULA_RASA_ACCESS_MODE }}'
     assert not any('ALPHA' in key for key in named['env'] | job['env'])

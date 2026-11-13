@@ -14,6 +14,8 @@ on:
       release:
         required: true
         type: string
+      staging_result:
+        type: string
     secrets:
       SCHEMA_ATTENTION_DATABASE_URL:
         required: false
@@ -72,6 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.release }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -86,4 +89,6 @@ jobs:
           RELEASE_IMAGE: ${{ inputs.image }}
           RELEASE_COMMIT: ${{ inputs.release }}
           SCHEMA_ATTENTION_ASSIGNEE: ${{ vars.SCHEMA_ATTENTION_ASSIGNEE }}
+          STAGING_RESULT: ${{ inputs.staging_result }}
+          COMMERCIAL_AUTO_PRODUCTION_ENABLED: ${{ vars.COMMERCIAL_AUTO_PRODUCTION_ENABLED }}
         run: python -m tabula_rasa.deployment.schema_attention notify

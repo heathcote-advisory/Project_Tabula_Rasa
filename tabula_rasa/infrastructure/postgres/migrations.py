@@ -37,6 +37,7 @@ def current_revision(connection: Connection) -> str | None:
 
 def upgrade(
     database: Database, *, require_current_head: bool = False, expected_source: str | None = None,
+    verify_upgrade=None,
 ) -> None:
     # Deployment calls this explicitly; neither app startup nor pool creation
     # changes the schema. Serializes concurrent migrators in this database.
@@ -51,6 +52,8 @@ def upgrade(
             if expected_source is not None and current_revision(connection) != expected_source:
                 raise ValueError("Maintenance source changed; inspect before retrying.")
             command.upgrade(migration_config(connection), "head")
+            if verify_upgrade is not None:
+                verify_upgrade(connection)
     except (SQLAlchemyError, PsycopgError) as error:
         failure = safe_database_error(error)
     else:

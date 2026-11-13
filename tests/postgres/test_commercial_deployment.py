@@ -108,7 +108,7 @@ def test_bound_maintenance_migrates_real_source_once_and_checks_runtime_role(emp
         connection.exec_driver_sql(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO "{runtime}"')
         connection.exec_driver_sql(f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO "{runtime}"')
         migration_role = connection.exec_driver_sql("SELECT current_user").scalar_one()
-    # This allowlisted transition runs in the historical image ending at its target.
+    # Simulate the historical image whose packaged head is the target.
     upgrade = command.upgrade
     monkeypatch.setattr(command, "upgrade", lambda config, revision: upgrade(
         config, target if revision == "head" else revision))
@@ -127,6 +127,76 @@ def test_bound_maintenance_migrates_real_source_once_and_checks_runtime_role(emp
         assert empty_database.health()["revision"] == target
         with pytest.raises(ValueError, match="approved source revision"):
             schema_migration.execute(environ, apply=True)
+    finally:
+        with empty_database.engine.begin() as connection:
+            connection.exec_driver_sql(f'DROP OWNED BY "{runtime}"')
+            connection.exec_driver_sql(f'DROP ROLE "{runtime}"')
+
+
+@pytest.mark.parametrize("failure", [None, "missing_grant", "lock"])
+def test_bound_multi_revision_rollout_uses_the_same_contract(empty_database, tmp_path, monkeypatch, failure):
+    from shutil import copytree
+    from uuid import uuid4
+
+    from alembic import command
+
+    from tabula_rasa.deployment import schema_migration
+    from tabula_rasa.infrastructure.postgres import migrations
+
+    source, target = "0021_customer_lifecycle", "0023_future"
+    root = tmp_path / "migrations"
+    copytree(migrations.MIGRATION_ROOT, root)
+    (root / "versions/0023_future.py").write_text(
+        """from alembic import op
+revision = "0023_future"
+down_revision = "0022_drive_recovery_binding"
+rollout = {
+    "mode": "maintenance",
+    "data": "Adds a nullable note without backfill.",
+    "recovery": "forward_only",
+    "grants": (("column", "external_connections.future_note", ("SELECT",)),),
+}
+def upgrade():
+    op.execute("ALTER TABLE external_connections ADD COLUMN future_note text")
+""", encoding="utf-8",
+    )
+    monkeypatch.setattr(migrations, "MIGRATION_ROOT", root)
+    monkeypatch.setattr(schema_migration, "open_bound_neon_database", lambda _: empty_database)
+    assert [step.revision for step in schema_migration.rollout_path(source, target)] == [
+        "0022_drive_recovery_binding", target,
+    ]
+    assert [step.revision for step in schema_migration.rollout_path("0022_drive_recovery_binding", target)] == [target]
+    runtime = "window_" + uuid4().hex
+    with empty_database.engine.begin() as connection:
+        command.upgrade(migrations.migration_config(connection), source)
+        connection.exec_driver_sql(f'CREATE ROLE "{runtime}" NOLOGIN')
+        if failure != "missing_grant":
+            connection.exec_driver_sql(f'GRANT SELECT, INSERT, UPDATE ON external_connections TO "{runtime}"')
+    environ = {
+        "TABULA_RASA_ENVIRONMENT": "staging", "TABULA_RASA_RELEASE_ID": "a" * 40, "WINDOW_RELEASE": "a" * 40,
+        "WINDOW_SOURCE_SCHEMA": source, "WINDOW_TARGET_SCHEMA": target, "WINDOW_RUNTIME_ROLE": runtime,
+    }
+    try:
+        schema_migration.execute(environ, apply=False)
+        if failure == "missing_grant":
+            with pytest.raises(schema_migration.ContractError, match="runtime grants"):
+                schema_migration.execute(environ, apply=True)
+        elif failure == "lock":
+            from tabula_rasa.infrastructure.postgres.runtime import DatabaseError
+
+            with empty_database.engine.begin() as competing:
+                competing.exec_driver_sql("SELECT pg_advisory_xact_lock(244, 1)")
+                with pytest.raises(DatabaseError):
+                    schema_migration.execute(environ, apply=True)
+        else:
+            schema_migration.execute(environ, apply=True)
+        assert empty_database.health()["revision"] == (source if failure else target)
+        with empty_database.engine.connect() as connection:
+            columns = connection.exec_driver_sql("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'external_connections' AND column_name IN ('drive_recovery_binding', 'future_note')
+            """).scalars().all()
+        assert set(columns) == (set() if failure else {"drive_recovery_binding", "future_note"})
     finally:
         with empty_database.engine.begin() as connection:
             connection.exec_driver_sql(f'DROP OWNED BY "{runtime}"')

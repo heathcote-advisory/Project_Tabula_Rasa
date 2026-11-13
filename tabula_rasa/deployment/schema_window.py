@@ -89,12 +89,12 @@ def verify_no_jobs(read, service, token):
         raise release.ReleaseError("Pending or running Render jobs must be drained before migration.")
 
 
-def wait_drained(read, service, token, shutdown_delay, *, sleep=time.sleep):
+def wait_drained(read, service, token, shutdown_delay, *, sleep=time.sleep, protected=True):
     # Give Render its configured graceful shutdown period plus time to report
     # that the instances have gone away.
     for _ in range(1 + (shutdown_delay + 30) // 5):
         state = service_state(read, service, token)
-        if not maintenance_state(state)["enabled"]:
+        if protected and not maintenance_state(state)["enabled"]:
             raise release.ReleaseError("Render maintenance protection was lost.")
         if state["suspended"] == "suspended" and read(f"/services/{service}/instances", token) == []:
             return
@@ -110,20 +110,20 @@ def image_source(state, image):
     return {"imagePath": image, "ownerId": owner, "registryCredentialId": credential}
 
 
-def select_suspended_image(read, service, token, source):
+def select_suspended_image(read, service, token, source, *, protected=True):
     read(f"/services/{service}", token, method="PATCH", body={"image": source})
     state = service_state(read, service, token)
-    if (state["suspended"] != "suspended" or not maintenance_state(state)["enabled"]
+    if (state["suspended"] != "suspended" or (protected and not maintenance_state(state)["enabled"])
             or image_source(state, state.get("imagePath")) != source):
         raise release.ReleaseError("The suspended service did not confirm the exact configured image.")
 
 
-def resume_deployment(read, service, token, *, sleep=time.sleep):
+def resume_deployment(read, service, token, *, sleep=time.sleep, protected=True):
     prior_ids = {item["id"] for item in release.render_deployments(service, token, read=read)}
     read(f"/services/{service}/resume", token, method="POST", no_content=True)
     for _ in range(12):
         state = service_state(read, service, token)
-        if not maintenance_state(state)["enabled"]:
+        if protected and not maintenance_state(state)["enabled"]:
             raise release.ReleaseError("Render maintenance protection was lost.")
         if state["suspended"] == "not_suspended":
             new = [item for item in release.render_deployments(service, token, read=read)
@@ -171,7 +171,7 @@ def public_reopened(origin, revision, *, sleep=time.sleep):
     raise release.ReleaseError("Public readiness could not be confirmed after reopening ingress.")
 
 
-def image_database(image, candidate, source, runtime_role, environ, *, apply):
+def image_database(image, candidate, source, runtime_role, environ, *, apply, checkpoint=False):
     names = {
         "TABULA_RASA_ENVIRONMENT": environ["TABULA_RASA_ENVIRONMENT"],
         "TABULA_RASA_DATABASE_URL": environ["WINDOW_MIGRATION_DATABASE_URL"],
@@ -185,37 +185,47 @@ def image_database(image, candidate, source, runtime_role, environ, *, apply):
     try:
         result = subprocess.run(
             ["docker", "run", "--rm", "--platform", "linux/amd64", *options, image, "python", "-m",
-             "tabula_rasa.deployment.schema_migration", "apply" if apply else "inspect"],
-            env={**os.environ, **names}, capture_output=True, check=False, timeout=180,
+             "tabula_rasa.deployment.schema_migration",
+             "checkpoint" if checkpoint else "apply" if apply else "inspect"],
+            env={**os.environ, **names}, capture_output=True, text=True, check=False, timeout=180,
         )
         if result.returncode == 0:
-            return
-    except (OSError, subprocess.TimeoutExpired):
+            return json.loads(result.stdout) if checkpoint else None
+        diagnostic = result.stderr.strip()
+        if diagnostic in {
+            "Source is not on a supported Alembic upgrade path.",
+            "Each revision needs a reviewed linear maintenance rollout contract.",
+            "A rollout contract has invalid runtime grants.",
+            "The migrated runtime grants could not be confirmed.",
+        }:
+            raise release.ReleaseError(diagnostic)
+    except (OSError, json.JSONDecodeError, subprocess.TimeoutExpired):
         pass
     raise release.ReleaseError("Bound database step failed. Inspect role and revision privately before any retry.")
 
 
 def run(environ, *, read=release.api, metadata=release.image_metadata, verify=release.validated_main,
         check_database=image_database, check_closed=public_closed, check_reopened=public_reopened,
-        smoke_check=None, now=utc_now, emit=lambda _: None):
+        smoke_check=None, now=utc_now, emit=lambda _: None, plan=None, revalidate=None, checkpoint=None):
     from .production import (
         check_production_prior, production_target, render_setting, staging_evidence,
         verify_render_database, verify_render_origin,
     )
-    from .schema_migration import MAINTENANCE_TRANSITIONS
     from .smoke import named_smoke
 
-    plan, reason = approval(environ, now())
-    if plan is None:
-        return {"status": "skipped", "reason": reason}
+    automatic = plan is not None
+    protected = not automatic
+    if not automatic:
+        plan, reason = approval(environ, now())
+        if plan is None:
+            return {"status": "skipped", "reason": reason}
     environment = environ["TABULA_RASA_ENVIRONMENT"]
     if environment not in {"staging", "production"} or release.promotion_mode(environ) != "named_user":
         raise release.ReleaseError("Scheduled maintenance requires an isolated named-user target.")
     smoke = smoke_check or named_smoke
     repository = release.commercial_image_repository(environ["GITHUB_REPOSITORY"])
     image = plan["image"]
-    emit({"status": "selected", "environment": environment, "image": image,
-          "checkpoint_sha256": plan["recovery_sha256"], "at": now().isoformat()})
+    emit({"status": "selected", "environment": environment, "image": image, "at": now().isoformat()})
     candidate = metadata(image, repository)
     verify(candidate["release"], environ)
     service, token = release.render_target(environ)
@@ -223,17 +233,23 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
     if service != plan["render_service"] or fingerprint != plan["database_sha256"]:
         raise release.ReleaseError("The approved service or database binding has changed.")
     origin = environ["TABULA_RASA_PUBLIC_ORIGIN"]
-    private_origin = environ.get("WINDOW_PRIVATE_ORIGIN", "")
-    if private_origin == origin or not re.fullmatch(r"https://[a-z0-9.-]+(?::[0-9]+)?", private_origin):
-        raise release.ReleaseError("A distinct, privately restricted smoke origin for this Render service is required.")
     state = service_state(read, service, token)
     details = state["serviceDetails"]
     verify_render_origin(state, service, origin, token, read=read)
+    if protected and details.get("plan") == "free":
+        raise release.ReleaseError("Render Free cannot prove private maintenance, writer drain and pinned restart. "
+                                   "Leave the serving image and database intact and review the staging isolation options.")
+    private_origin = environ.get("WINDOW_PRIVATE_ORIGIN", "") if protected else origin
+    if protected and (private_origin == origin or not re.fullmatch(r"https://[a-z0-9.-]+(?::[0-9]+)?", private_origin)):
+        raise release.ReleaseError("A distinct, privately restricted smoke origin for this Render service is required.")
     if (state["suspended"] != "not_suspended"
             or state.get("autoDeployTrigger", "off" if state.get("autoDeploy") == "no" else "") != "off"
             or details.get("runtime") != "image" or details.get("healthCheckPath") != "/health/ready"
-            or not details.get("plan") or details["plan"] == "free" or maintenance_state(state)["enabled"]):
-        raise release.ReleaseError("Maintenance requires an active paid image service with auto-deploy off and readiness configured.")
+            or not details.get("plan")
+            or ((protected or details["plan"] != "free") and maintenance_state(state)["enabled"])):
+        raise release.ReleaseError("Maintenance requires an active image service with auto-deploy off and readiness configured.")
+    if automatic and environ.get("WINDOW_VERIFIED_SUSPEND_SERVICE_ID") != service:
+        raise release.ReleaseError("Verify suspension, drain and pinned-image resume on this Render service before enabling schema changes.")
     if any(render_setting(service, token, name, read=read) != value for name, value in {
         "ENVIRONMENT": environment, "ACCESS_MODE": "named_user", "PUBLIC_ORIGIN": origin,
     }.items()):
@@ -251,73 +267,117 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
     source = previous["schema"]
     evidence = {
         "environment": environment, "image": image, **candidate, "source_schema": source,
-        "checkpoint_sha256": plan["recovery_sha256"], "checkpoint_at": plan["checkpoint_at"],
         "previous_image": previous_image, "previous_release": previous["release"],
         "render_service": service, "public_origin": origin, "database_sha256": fingerprint,
         "access_mode": "named_user", "rollback_from": None,
     }
     emit({**evidence, "status": "preflight_started"})
-    if ((source, candidate["schema"]) not in MAINTENANCE_TRANSITIONS
-            or candidate["release"] == previous["release"]):
+    if candidate["release"] == previous["release"]:
         raise release.ReleaseError("The forward schema transition has no reviewed maintenance path.")
-    preflight_env = {
-        **environ, "PRODUCTION_PREVIOUS_IMAGE": plan["previous_image"],
-        "PRODUCTION_RECOVERY_SHA256": plan["recovery_sha256"],
-        "PRODUCTION_STAGING_RUN": plan.get("staging_run", ""),
-    }
-    # Both environments use the same exact-live-image and forward ancestry guard.
-    check_production_prior(image, previous_image, previous, candidate, preflight_env, maintenance=True)
-    if environment == "production":
-        evidence.update(staging_evidence(image, candidate, preflight_env, read=read))
-        production_target(preflight_env, read=read)
+    if automatic:
+        if previous_image != plan["previous_image"]:
+            raise release.ReleaseError("Live release changed before maintenance.")
+        release.verify_prior_release(candidate, previous, environment, maintenance=True)
+        if environ.get("WINDOW_EXCLUSIVE_RENDER_WRITER") != "true":
+            raise release.ReleaseError("Verify that the bound Render service owns all runtime writes before automation.")
+    else:
+        evidence.update(checkpoint_sha256=plan["recovery_sha256"], checkpoint_at=plan["checkpoint_at"])
+        preflight_env = {
+            **environ, "PRODUCTION_PREVIOUS_IMAGE": plan["previous_image"],
+            "PRODUCTION_RECOVERY_SHA256": plan["recovery_sha256"],
+            "PRODUCTION_STAGING_RUN": plan.get("staging_run", ""),
+        }
+        check_production_prior(image, previous_image, previous, candidate, preflight_env, maintenance=True)
+        if environment == "production":
+            evidence.update(staging_evidence(image, candidate, preflight_env, read=read))
+            production_target(preflight_env, read=read)
     verify_no_jobs(read, service, token)
     check_database(image, candidate, source, runtime_role, environ, apply=False)
     smoke(private_origin, previous["release"])
-    if approval(environ, now())[0] is None:
+    if automatic:
+        # Prove retained history before downtime. Refresh the point after drain
+        # so it also covers writes committed during shutdown.
+        checkpoint(image, candidate, source, runtime_role, environ)
+        evidence.update(revalidate())
+        if release.live_image(service, token, repository, read=read, metadata=metadata) != (previous_image, previous):
+            raise release.ReleaseError("The live release changed during maintenance preflight.")
+    elif approval(environ, now())[0] is None:
         return {"status": "skipped", "reason": "preflight_exhausted_safe_start_budget"}
+    resuming = False
     try:
-        uri = maintenance_state(state)["uri"]
-        emit({"status": "restricting_ingress", "at": now().isoformat()})
-        set_maintenance(read, service, token, enabled=True, uri=uri)
-        check_closed(origin)
+        if protected:
+            uri = maintenance_state(state)["uri"]
+            emit({"status": "restricting_ingress", "at": now().isoformat()})
+            set_maintenance(read, service, token, enabled=True, uri=uri)
+            check_closed(origin)
         direct = details.get("url")
-        if direct and direct != origin and details.get("renderSubdomainPolicy") != "disabled":
+        if protected and direct and direct != origin and details.get("renderSubdomainPolicy") != "disabled":
             check_closed(direct)
         evidence["maintenance_started_at"] = now().isoformat()
         emit({"status": "draining_service", "at": evidence["maintenance_started_at"]})
         read(f"/services/{service}/suspend", token, method="POST", no_content=True)
-        wait_drained(read, service, token, shutdown_delay)
+        wait_drained(read, service, token, shutdown_delay, protected=protected)
+        if not protected:
+            check_closed(origin)
+            if direct and direct != origin and details.get("renderSubdomainPolicy") != "disabled":
+                check_closed(direct)
         verify_no_jobs(read, service, token)
+        if automatic:
+            point = checkpoint(image, candidate, source, runtime_role, environ)
+            evidence.update(point)
+            emit({"status": "checkpoint_verified", **point})
+        if automatic:
+            evidence.update(revalidate(check_start=False))
         emit({"status": "configuring_suspended_image", "at": now().isoformat()})
-        select_suspended_image(read, service, token, candidate_source)
+        select_suspended_image(read, service, token, candidate_source, protected=protected)
         emit({"status": "applying_forward_migration", "at": now().isoformat()})
         check_database(image, candidate, source, runtime_role, environ, apply=True)
         evidence["schema_verified_at"] = now().isoformat()
         emit({"status": "schema_verified", "at": evidence["schema_verified_at"]})
         started = now().isoformat()
         emit({"status": "resuming_approved_image", "at": started})
-        deploy_id = resume_deployment(read, service, token)
+        resuming = True
+        deploy_id = resume_deployment(read, service, token, protected=protected)
         emit({"status": "verifying_deployment", "deploy_id": deploy_id, "at": now().isoformat()})
         confirmed = release.wait_live(service, deploy_id, token, read=read)
         release.deployed_image(confirmed, image, candidate, repository)
-        check_closed(origin)
+        if protected:
+            check_closed(origin)
         smoke(private_origin, candidate["release"])
-        if not maintenance_state(service_state(read, service, token))["enabled"]:
+        if protected and not maintenance_state(service_state(read, service, token))["enabled"]:
             raise release.ReleaseError("Ingress protection was lost before verification.")
+        if automatic:
+            live = release.active_deployment(service, token, read=read)
+            if live is None or live["id"] != deploy_id:
+                raise release.ReleaseError("The restarted deployment is no longer active.")
         verified_at = now().isoformat()
-        emit({"status": "private_smoke_passed", "at": verified_at})
-        set_maintenance(read, service, token, enabled=False, uri=uri)
-        emit({"status": "ingress_reopened", "at": now().isoformat()})
-        check_reopened(origin, candidate["release"])
+        emit({"status": "private_smoke_passed" if protected else "post_restart_smoke_passed", "at": verified_at})
+        if protected:
+            set_maintenance(read, service, token, enabled=False, uri=uri)
+            emit({"status": "ingress_reopened", "at": now().isoformat()})
+        try:
+            check_reopened(origin, candidate["release"])
+        except Exception:
+            if protected:
+                set_maintenance(read, service, token, enabled=True, uri=uri)
+            raise
     except Exception as error:
+        if not protected and resuming:
+            try:
+                read(f"/services/{service}/suspend", token, method="POST", no_content=True)
+                wait_drained(read, service, token, shutdown_delay, protected=False)
+                check_closed(origin)
+            except Exception:
+                emit({"status": "suspension_unconfirmed", "at": now().isoformat()})
         emit({"status": "maintenance_failed", "at": now().isoformat()})
         detail = f"{error} " if isinstance(error, release.ReleaseError) else ""
         raise release.ReleaseError(
             detail + "Maintenance stopped. Inspect Render ingress and suspension, deployed digest and committed schema. "
             "Keep ingress restricted until verified; follow forward repair or compatible recovery. Do not rerun blindly."
         ) from None
-    return {**evidence, "deploy_id": deploy_id, "deploy_started_at": started, "verified_at": verified_at,
-            "traffic_restored_at": now().isoformat(), "status": "smoke_passed"}
+    finished = now().isoformat()
+    return {**evidence, "deploy_id": deploy_id, "deploy_started_at": started, "restarted": True,
+            "verified_at": finished, "traffic_restored_at": finished, "status": "smoke_passed"}
 
 
 def main():

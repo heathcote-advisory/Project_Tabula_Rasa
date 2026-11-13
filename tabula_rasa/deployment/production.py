@@ -13,7 +13,8 @@ from tabula_rasa.infrastructure.postgres.identity import database_url_identity
 from . import release
 
 
-def staging_evidence(image, candidate, environ, *, read, github=release.api):
+def staging_evidence(image, candidate, environ, *, read, github=release.api, cutoff=None,
+                     metadata=release.image_metadata):
     run_id = environ.get("PRODUCTION_STAGING_RUN", "")
     if not re.fullmatch(r"[1-9][0-9]{0,19}", run_id):
         raise release.ReleaseError("Select the automatic staging workflow run ID.")
@@ -29,27 +30,47 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api):
             (".github/workflows/commercial-schema-window.yml", "schedule"),
             } or run.get("head_branch") != "main"
             or not isinstance(head_repository, dict) or head_repository.get("full_name") != repo
-            or run.get("status") != "completed" or type(attempt) is not int or attempt < 1):
+            or run.get("status") not in ({"completed", "in_progress"} if cutoff is not None else {"completed"})
+            or type(attempt) is not int or attempt < 1):
         raise release.ReleaseError("Staging evidence must come from the completed main release workflow.")
     jobs = github(f"{path}/attempts/{attempt}/jobs?per_page=100", token, github=True)["jobs"]
     required_jobs = ("build", "staging / deploy") if provenance[1] == "workflow_run" else ("staging / schema-window",)
+    if cutoff is not None and provenance[1] != "workflow_run":
+        raise release.ReleaseError("Automatic production requires immediate staging evidence.")
     for name in required_jobs:
         matching = [job for job in jobs if job.get("name") == name]
         if len(matching) != 1 or matching[0].get("conclusion") != "success":
             raise release.ReleaseError("Successful build and staging jobs from the same attempt are required for image runs; scheduled windows require a successful staging job.")
 
     with TemporaryDirectory() as directory:
+        artifact_name = (f"staging-release-{candidate['release']}"
+                         if provenance[1] == "workflow_run" else f"staging-release-{attempt}")
         result = release.subprocess.run(
             ["gh", "run", "download", run_id, "--repo", repo,
-             "--name", f"staging-release-{attempt}", "--dir", directory],
+             "--name", artifact_name, "--dir", directory],
             env=dict(environ), capture_output=True, check=False, timeout=60,
         )
+        if result.returncode and cutoff is None and provenance[1] == "workflow_run":
+            result = release.subprocess.run(
+                ["gh", "run", "download", run_id, "--repo", repo,
+                 "--name", f"staging-release-{attempt}", "--dir", directory],
+                env=dict(environ), capture_output=True, check=False, timeout=60,
+            )
         try:
             artifact = Path(directory) / "release.json"
             if result.returncode or artifact.stat().st_size > 8192:
                 raise ValueError
             proof = json.loads(artifact.read_text(encoding="utf-8"))
-            age = datetime.now(timezone.utc) - datetime.fromisoformat(proof["verified_at"])
+            verified = datetime.fromisoformat(proof["verified_at"])
+            age = datetime.now(timezone.utc) - verified
+            if cutoff is not None and not (
+                datetime.fromisoformat(proof["deploy_started_at"]) <= verified <= cutoff
+                and proof.get("restarted") is True
+                and proof.get("run_attempt") == attempt
+                and all(datetime.fromisoformat(job["completed_at"]) <= cutoff
+                        for job in jobs if job.get("name") in required_jobs)
+            ):
+                raise ValueError
         except (OSError, ValueError, KeyError, TypeError):
             raise release.ReleaseError("Staging evidence is missing, expired or malformed.") from None
 
@@ -57,6 +78,10 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api):
     staging_db = proof.get("database_sha256")
     production_db = environ.get("TABULA_RASA_DEPLOY_DATABASE_SHA256", "")
     deploy = proof.get("deploy_id")
+    if image is None:
+        image = proof.get("image")
+        if metadata(image, release.commercial_image_repository(repo)) != candidate:
+            raise release.ReleaseError("The staged immutable image does not match the live platform manifest.")
     expected = {**candidate, "image": image, "environment": "staging",
                 "status": "smoke_passed", "access_mode": "named_user",
                 "render_service": service, "rollback_from": None}
@@ -80,7 +105,7 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api):
         raise release.ReleaseError("The verified staging deployment is no longer live.")
     repository = release.commercial_image_repository(repo)
     release.deployed_image(current, image, candidate, repository)
-    return {"staging_run": run_id, "staging_attempt": attempt,
+    return {"staging_run": run_id, "staging_attempt": attempt, "staging_image": image,
             "staging_run_url": f"https://github.com/{repo}/actions/runs/{run_id}",
             "staging_deploy_id": deploy, "staging_verified_at": proof["verified_at"]}
 

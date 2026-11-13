@@ -137,7 +137,7 @@ its process URL is absent: an explicitly injected URL is mandatory here.
 | POST/poll/timeout uncertain | Inspect exact Render service/deploy history and immutable image fields once authoritative state is available. Stop while uncertain; do not retry POST or race it with rollback. |
 | Live candidate, failed smoke | Restricted alpha may restore a verified compatible prior image through existing automation; the run still fails. Named mode stops for explicit reviewed rollback, preserving named guards and configuration epoch. |
 | Startup/readiness failure | Inspect safe startup event, explicit mode/origin, secret completeness, TLS/endpoint binding, pool capacity and DB revision with separate role custody. Correct the specific setting or deploy a compatible fix; readiness/startup never migrates or seeds. |
-| Schema mismatch | Stop ordinary promotion. Check the reviewed [forward release window](DEPLOYMENT.md#schedule-an-approved-forward-release) or plan a separate compatible bridge or forward repair. Preserve recovery evidence and use the confirmed schema to decide which images can serve. |
+| Schema mismatch | Check the [forward release contract](DEPLOYMENT.md#schedule-an-approved-forward-release). Automatic staging handles eligible changes immediately. Enabled production starts at 03:00 Eastern after staging verification. Preserve recovery evidence and use the confirmed schema to decide which images can serve. |
 
 ### Scheduled schema window failure
 
@@ -148,6 +148,16 @@ the same investigation. Pause new promotions and keep external writers
 stopped. Privately verify Render maintenance, suspension, instances and live
 digest, then read the bound database revision and runtime grants once the
 provider operation has settled.
+
+The same containment applies to immediate staging and scheduled production.
+Both suspend the service for schema changes and verify the pinned restart
+through public smoke. If containment after a failed resume is unconfirmed,
+verify and suspend the exact service from Render before proceeding.
+The production deployment record fences the attempted digest, including an
+interrupted run with no terminal status. Rearm through
+`PRODUCTION_RECOVERY_GENERATION` only after confirming recovery, current
+staging verification and the safe next action. Keep unattended promotion
+disabled during unresolved target-wide incidents.
 
 - **Preflight or drain failure.** If ingress was never restricted, resolve the
   input, queue, provider or writer issue with the prior release serving. If

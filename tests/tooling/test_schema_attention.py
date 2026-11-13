@@ -124,7 +124,7 @@ def test_read_and_notification_jobs_have_separate_credentials():
         return yaml.load((workflows / name).read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
 
     parent = load("commercial-image.yml")["jobs"]["schema-attention"]
-    assert parent["needs"] == "build"
+    assert parent["needs"] == ["build", "staging"]
     assert parent["strategy"]["matrix"]["environment"] == ["staging", "production"]
     assert "SCHEMA_WINDOWS_ENABLED" not in parent["if"]
     called = load("commercial-schema-attention.yml")

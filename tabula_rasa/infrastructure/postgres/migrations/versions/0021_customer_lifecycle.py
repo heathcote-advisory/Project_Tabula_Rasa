@@ -6,6 +6,16 @@ revision = '0021_customer_lifecycle'
 down_revision = '0020_book_currency'
 branch_labels = None
 depends_on = None
+rollout = {
+    "mode": "maintenance",
+    "data": "Adds lifecycle tables and closure triggers. Existing rows are not backfilled.",
+    "recovery": "forward_only",
+    "grants": (
+        ("table", "customer_lifecycle_requests", ("SELECT", "INSERT", "UPDATE")),
+        ("table", "customer_lifecycle_events", ("SELECT", "INSERT")),
+        ("sequence", "customer_lifecycle_events_sequence_seq", ("USAGE",)),
+    ),
+}
 
 
 def upgrade():
