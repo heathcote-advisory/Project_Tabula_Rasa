@@ -839,7 +839,7 @@ The application supports a dedicated PostgreSQL credential database, separate fr
 | `TABULA_RASA_CUSTOMER_DRIVE_OAUTH_FILE` | Server-side Google OAuth client configuration |
 
 The credential database must use a dedicated restricted runtime role with CONNECT on the
-credential database, USAGE on the credential schema, and SELECT/INSERT on connection_custody.grants.
+credential database, USAGE on the connection_custody schema, and SELECT/INSERT on connection_custody.grants.
 Do not grant UPDATE, DELETE, DDL, role administration, or bookkeeping database access. Use a 
 TLS-verified connection. Runtime access must not include schema administration, credential 
 overwrites/deletion, or bookkeeping privileges.
@@ -892,9 +892,9 @@ Recovery depends on the deployed application's recovery capabilities and the ava
 independently retained, verified original-account and managed-folder bindings.
 4. Verify that every affected connection was enrolled in that recovery mechanism before its grant 
 was lost.
-Connections established before the recovery-binding schema revision must complete the 
-documented enrollment procedure while their original encrypted grants remain readable. Deployment 
-of the recovery feature does not automatically enroll historical connections.
+Connections established before the recovery-binding schema revision must complete the documented enrollment
+procedure while their original encrypted grants remain readable. Deployment of the recovery feature does
+not automatically enroll historical connections.
 5. If supported, restore an empty compatible custody database and follow the documented recovery-
 authorization workflow using the original Google account.
 6. Otherwise, use a separately approved credential restoration or technical remediation procedure.
