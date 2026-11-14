@@ -118,9 +118,10 @@ def select_suspended_image(read, service, token, source, *, protected=True):
         raise release.ReleaseError("The suspended service did not confirm the exact configured image.")
 
 
-def resume_deployment(read, service, token, *, sleep=time.sleep, protected=True):
+def resume_deployment(read, service, token, *, sleep=time.sleep, protected=True, explicit_deploy=False):
     prior_ids = {item["id"] for item in release.render_deployments(service, token, read=read)}
     read(f"/services/{service}/resume", token, method="POST", no_content=True)
+    resumed_without_deploy = False
     for _ in range(12):
         state = service_state(read, service, token)
         if protected and not maintenance_state(state)["enabled"]:
@@ -132,6 +133,12 @@ def resume_deployment(read, service, token, *, sleep=time.sleep, protected=True)
                 if len(new) != 1 or new[0].get("trigger") != "service_resumed":
                     raise release.ReleaseError("Unexpected deployment after service resume; inspect Render.")
                 return new[0]["id"]
+            if explicit_deploy:
+                if resumed_without_deploy:
+                    return None
+                resumed_without_deploy = True
+        else:
+            resumed_without_deploy = False
         sleep(5)
     raise release.ReleaseError("Render did not report a new deployment after resume; inspect before any further deploy.")
 
@@ -337,10 +344,24 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
         started = now().isoformat()
         emit({"status": "resuming_approved_image", "at": started})
         resuming = True
-        deploy_id = resume_deployment(read, service, token, protected=protected)
-        emit({"status": "verifying_deployment", "deploy_id": deploy_id, "at": now().isoformat()})
-        confirmed = release.wait_live(service, deploy_id, token, read=read)
-        release.deployed_image(confirmed, image, candidate, repository)
+        deploy_id = resume_deployment(
+            read, service, token, protected=protected, explicit_deploy=automatic and details["plan"] == "free",
+        )
+        if deploy_id is None:
+            state = service_state(read, service, token)
+            if state["suspended"] != "not_suspended" or image_source(state, state.get("imagePath")) != candidate_source:
+                raise release.ReleaseError("The resumed service did not retain the pinned candidate.")
+            prior = release.active_deployment(service, token, read=read)
+            emit({"status": "requesting_pinned_deployment", "at": now().isoformat()})
+            deploy_id, started = release.deploy_verified(
+                service, token, image, candidate, repository, read=read, record_request=True,
+            )
+            if prior and deploy_id == prior["id"]:
+                raise release.ReleaseError("Render did not create a new deployment for the pinned candidate.")
+        else:
+            emit({"status": "verifying_deployment", "deploy_id": deploy_id, "at": now().isoformat()})
+            confirmed = release.wait_live(service, deploy_id, token, read=read)
+            release.deployed_image(confirmed, image, candidate, repository)
         if protected:
             check_closed(origin)
         smoke(private_origin, candidate["release"])
