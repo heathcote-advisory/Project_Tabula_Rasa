@@ -1,0 +1,71 @@
+name: Hosted commercial schema rehearsal
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Immutable commercial release image, including its sha256 digest
+        required: true
+        type: string
+      release:
+        description: Tested main commit for the candidate image
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+concurrency:
+  group: hosted-commercial-schema-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  rehearse:
+    if: github.ref == 'refs/heads/main'
+    environment: schema-rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install release checks
+        run: |
+          python -m pip install -r requirements-postgres.txt playwright==1.62.0
+          python -m playwright install --with-deps chromium
+      - name: Exercise automatic maintenance on the disposable target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ inputs.image }}
+          RELEASE_COMMIT: ${{ inputs.release }}
+          TABULA_RASA_ENVIRONMENT: staging
+          TABULA_RASA_ACCESS_MODE: named_user
+          TABULA_RASA_PUBLIC_ORIGIN: ${{ vars.REHEARSAL_PUBLIC_ORIGIN }}
+          TABULA_RASA_DEPLOY_DATABASE_SHA256: ${{ vars.REHEARSAL_DATABASE_SHA256 }}
+          RENDER_SERVICE_ID: ${{ vars.REHEARSAL_RENDER_SERVICE_ID }}
+          RENDER_API_KEY: ${{ secrets.REHEARSAL_RENDER_API_KEY }}
+          WINDOW_EXCLUSIVE_RENDER_WRITER: ${{ vars.REHEARSAL_EXCLUSIVE_RENDER_WRITER }}
+          WINDOW_VERIFIED_SUSPEND_SERVICE_ID: ${{ vars.REHEARSAL_VERIFIED_SUSPEND_SERVICE_ID }}
+          WINDOW_MIGRATION_DATABASE_URL: ${{ secrets.REHEARSAL_MIGRATION_DATABASE_URL }}
+          NEON_PROJECT_ID: ${{ vars.REHEARSAL_NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ vars.REHEARSAL_NEON_BRANCH_ID }}
+          NEON_ENDPOINT_ID: ${{ vars.REHEARSAL_NEON_ENDPOINT_ID }}
+          NEON_RELEASE_API_KEY: ${{ secrets.REHEARSAL_NEON_API_KEY }}
+        run: python -m tabula_rasa.deployment.automatic_release
+      - name: Retain disposable rehearsal evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-schema-rehearsal-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 7

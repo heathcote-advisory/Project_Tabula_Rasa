@@ -206,8 +206,37 @@ def test_recovery_checkpoint_requires_matching_neon_history():
     result = release_checkpoint.verify_checkpoint(point, environ, NOW, read=read)
     assert result["checkpoint_lsn"] == "0/ABC" and len(result["recovery_sha256"]) == 64
     assert "lsn=0%2FABC" in read.call_args.args[0]
+    history = [endpoint, project, branch, {"sql": "CREATE TABLE public.alembic_version ();"}]
+    release_checkpoint.verify_checkpoint(point, environ, NOW - timedelta(seconds=1), read=Mock(side_effect=history))
+    with pytest.raises(release.ReleaseError, match="retained history"):
+        release_checkpoint.verify_checkpoint(point, environ, NOW - timedelta(seconds=6), read=Mock())
     with pytest.raises(release.ReleaseError, match="retained history"):
         release_checkpoint.verify_checkpoint(point, environ, NOW, read=Mock(side_effect=[endpoint, project, branch, {}]))
     with pytest.raises(release.ReleaseError, match="retained history"):
         release_checkpoint.verify_checkpoint(point, {**environ, "TABULA_RASA_DEPLOY_DATABASE_SHA256": "a" * 64},
                                              NOW, read=Mock())
+
+
+@pytest.mark.parametrize(("fork_lsn", "accepted"), [("0/FF", True), ("0/ABC", False), ("0/1000", False), (None, False)])
+def test_child_branch_checkpoint_must_follow_fork(fork_lsn, accepted):
+    environ = {
+        **ENV, "NEON_PROJECT_ID": "project", "NEON_BRANCH_ID": "br-child",
+        "NEON_ENDPOINT_ID": "ep-stage", "NEON_RELEASE_API_KEY": "fixture",
+        "WINDOW_MIGRATION_DATABASE_URL": "postgresql://owner:fixture@ep-stage.neon.tech/ledger?sslmode=require",
+    }
+    responses = [
+        {"endpoint": {"id": "ep-stage", "host": "ep-stage.neon.tech", "branch_id": "br-child",
+                      "type": "read_write", "disabled": False}},
+        {"project": {"id": "project", "history_retention_seconds": 3600}},
+        {"branch": {"id": "br-child", "parent_id": "br-parent", "parent_lsn": fork_lsn}},
+        {"sql": "CREATE TABLE public.alembic_version ();"},
+    ]
+    read = Mock(side_effect=responses)
+    point = {"lsn": "0/ABC", "at": NOW.isoformat()}
+    if accepted:
+        assert release_checkpoint.verify_checkpoint(point, environ, NOW, read=read)["checkpoint_lsn"] == "0/ABC"
+        assert "/branches/br-child/schema?" in read.call_args.args[0]
+    else:
+        with pytest.raises(release.ReleaseError, match="retained history"):
+            release_checkpoint.verify_checkpoint(point, environ, NOW, read=read)
+        assert read.call_count == 3
