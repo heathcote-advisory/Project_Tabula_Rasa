@@ -1,0 +1,14 @@
+FROM python:3.12-slim-bookworm
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends age tzdata ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements-api.txt requirements-postgres.txt ./
+RUN pip install --no-cache-dir -r requirements-api.txt -r requirements-postgres.txt \
+    && groupadd --gid 1000 app \
+    && useradd --uid 10001 --gid 1000 --create-home app
+COPY tabula_rasa ./tabula_rasa
+COPY scripts/nas_receipt_backup.py scripts/nas_postgres_backup.py scripts/manage_document_storage.py scripts/drive_document_recovery.py ./scripts/
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 10001
+ENTRYPOINT ["python", "-m", "scripts.nas_receipt_backup"]
