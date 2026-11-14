@@ -73,7 +73,7 @@ additional Redis broker, scheduler daemon or application transaction manager.
    A workload owns actual domain catchup, rather than the scheduler inventing
    historical bookkeeping occurrences.
 2. A worker claims one due run using `FOR UPDATE SKIP LOCKED`, commits its lease
-   and records an attempt. Default lease is 60 seconds, configurable 1–3,600.
+   and records an attempt. Default lease is 60 seconds, configurable 1â€“3,600.
 3. Execution locks that run and checks the exact unexpired lease. That transaction
    lock is the exclusivity fence, including after the wall-clock lease expires.
    Reclaimers skip a live execution. Statement timeouts are 30 seconds. Atomic
@@ -135,7 +135,7 @@ python -m tabula_rasa.infrastructure.postgres.job_cli tick --entity SYNTHETIC_EN
 ```
 
 `pause`, `resume`, `cancel` and `retry` use the same explicit entity, service ID, `--id`
-and mutation flag. Each invocation exits after a bounded budget (1–100 ticks). Exit
+and mutation flag. Each invocation exits after a bounded budget (1â€“100 ticks). Exit
 failure instructs inspection of durable status before retrying. The flag is an execution
 guard, not proof of human approval or membership. No HTTP job-control route is added.
 Future member-triggered creation must use the existing server authorization
@@ -233,49 +233,14 @@ preserves application import resolution without adding legacy UI/Sheets packages
 After fixing a reported cause, use the existing explicit job recovery procedure;
 the monitor never cancels or recreates jobs to suppress an alert.
 
-### Bounded staging probe on Render Free
+### Retired one-off staging probe
 
-The manual **Inspect or run one synthetic staging job probe** Actions workflow
-supplies an operator path when the existing Free web service has no shell or
-one-off jobs. It is not a timer and never calls scheduler materialization or
-enables recurring authority. It reuses `ledger.probe`, the queue, exact hosted
-database binding and shared telemetry; the probe reads ledger metadata and
-retains only its queue/attempt records, with no bookkeeping mutation.
-
-Before use, approve the exact synthetic staging business and record its ID in
-the protected staging environment variable `STAGING_JOB_PROBE_ENTITY_ID`.
-Keep `TABULA_RASA_DEPLOY_DATABASE_SHA256` set to the approved staging database
-identity hash in that same environment; both inspect and probe require this
-existing exact database binding.
-The operator must separately approve allowing the Actions runner to use these
-protected **staging-only** environment secrets: `TABULA_RASA_RUNTIME_DATABASE_URL`
-(existing `tabula_staging_runtime` role), `TABULA_RASA_TELEMETRY_ENDPOINT`,
-`TABULA_RASA_TELEMETRY_TOKEN` and `TABULA_RASA_TELEMETRY_SCOPE_KEY`. Enter them
-privately in GitHub settings; never send their values in chat, commands, logs or
-evidence. Do not substitute migration/owner credentials, grant permissions,
-rotate credentials or read/copy Render secrets through an agent. The endpoint,
-source token and HMAC key must use the same staging source as the web service.
-This is an additional secret-custody checkpoint, not an automatic setup step.
-
-Merge/release the workflow revision, pass main CI and deploy its exact tested
-immutable image to named-user staging first. Run `inspect` with approval
-`not_approved`; it reads schema/effective role and queue metadata only. The
-target must have no definitions or other queued/running jobs. Then obtain the
-explicit no-other-job-operators window and run `probe` with approval
-`one_probe_no_other_job_operators`. Both operations require the exact live
-release, verified image and bound direct Neon TLS database. They share staging
-deployment concurrency. Production, arbitrary entities and owner DB roles are
-rejected. No application-job timer is activated.
-
-One invocation enqueues and executes at most one read-only `ledger.probe` with
-one attempt. A workflow rerun uses the same run-derived idempotency key; an
-already successful probe is not re-executed or re-emitted. Failure/uncertainty
-stops for durable inspection, without automatic retries or invented failures.
-External job operators must remain stopped during the approved window. Retain
-the probe history. A successful summary does not prove collector delivery:
-correlate the actual `job_run`/`job_execute`, staging release and success in the
-private source. Terminal-failure alerts require separate configuration and
-delivered-incident evidence; absence of a timer is not a failed-job event.
+The dedicated staging ledger-read probe workflow and launcher are retired.
+Normal queue/worker commands, recurring monitoring and sanitized job telemetry
+remain supported. Retain the earlier probe's durable history and collector
+acceptance evidence. A future job exercise requires its own explicit synthetic
+target/window approval and the existing worker/incident procedures; source
+cleanup does not run a worker, delete history or change installed NAS tasks.
 
 The explicit `tick` command composes the shared sanitized telemetry sink using the
 existing `TABULA_RASA_ENVIRONMENT`, image `TABULA_RASA_RELEASE_ID` and optional

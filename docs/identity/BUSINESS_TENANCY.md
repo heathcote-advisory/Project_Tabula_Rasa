@@ -111,92 +111,14 @@ can slip a second binding between preflight and constraint installation.
    independent access for at least two businesses. Keep the preserved source
    and recovery material; no automatic cleanup or downgrade follows success.
 
-### Bounded synthetic two-business reconciliation
+### Retired synthetic reconciliation tool
 
-`python -m tabula_rasa.deployment.tenancy_reconciliation` is a separately invoked operator
-tool for the reviewed source shape: schema `0015_support_controls`, two private
-containers/three active business bindings, with two businesses in the source
-container. That source has exactly one active Owner, one inactive Read-only
-member, one accepted invitation and no support grant. The moved business must
-have exactly one bootstrap receipt belonging to the Owner and no selected-session,
-external-connection or legacy-claim reference. Other shapes stop for a separate
-review; this is not a general tenant splitter. Production/development CLI
-targets are refused, and the database must contain only the staging identity
-environment. The migration credential must own the existing guard, while the
-known `tabula_staging_runtime` login role must not share that ownership.
-
-Approval must specify which business retains the source container, the new
-container's preallocated ID, the same existing Owner, continued inactive access,
-retained invitation history, and the historical-replay contract in
-[workspace retry behavior](WORKSPACES.md#backend-bootstrap-and-retry-contract).
-The operational receipt's organization reference changes; its original result
-is retained in the private plan/checkpoint. Do not claim byte-identical original
-operational receipt results. This compatibility decision needs explicit approval.
-
-Before any hosted use, obtain independent review/current-revision CI, exact
-database/service and window approval, a verified independent DB/document
-recovery checkpoint and private custody. Rehearse first on a separately approved
-isolated copy. Suspend the exact staging service and pause **all** other
-application, job, migration and operator writers. Keep it suspended through
-reconciliation, outcome inspection, forward migration and compatible backend
-deployment. The tool does not suspend/resume Render, stop jobs, create backups,
-rotate secrets, deploy, upgrade the schema or grant runtime privileges.
-
-Use the reviewed immutable commercial image (which includes this module) in a dedicated operator process. Inject only
-the separately held migration URL, `TABULA_RASA_ENVIRONMENT=staging` and the exact
-`TABULA_RASA_DEPLOY_DATABASE_SHA256` binding through approved private custody.
-Hosted binding requires a direct Neon TLS URL. Do not pass Render/API tokens,
-runtime grants, OAuth material or passwords as command-line arguments. Place the
-plan in an absolute operator-private directory with access restricted by the
-operator (including Windows ACLs); never commit it, publish its JSON or upload it
-to reviewer/CI logs. It contains private identities and original bootstrap records,
-but only hashes for financial, audit, session and provider tables. It is provenance,
-not a replacement database/document backup.
-
-```powershell
-python -m tabula_rasa.deployment.tenancy_reconciliation prepare --plan $privatePlanPath --source-org $sourceOrg --retained-entity $retainedBusiness --moved-entity $movedBusiness --owner $existingOwner --destination-org $allocatedContainer --recovery-sha256 $verifiedRecoveryRecordHash
-# Inspect the original record privately and approve the exact printed plan hash.
-python -m tabula_rasa.deployment.tenancy_reconciliation apply --plan $privatePlanPath --approval-sha256 $approvedPlanHash --writers-drained
-```
-
-All variables above are operator-selected non-secret references, not example
-approvals. `--writers-drained` is the operator's attestation of the independently
-verified service/writer pause; it does not perform or prove the provider action.
-Execution also refuses any connected session using the known runtime login role.
-The source is checked again under exclusive public-table locks and the existing
-migration advisory lock. State drift, changed guard/FK definitions, unexpected
-dependencies or a wrong target stop before the move. Preparation is read-only and
-creates a new file exclusively; it never overwrites the original provenance.
-
-One database transaction creates only the new private container and Owner
-membership and amends the chosen binding/receipt container references. The
-ownership guard gets an exact-tuple, migration-role-only exception inside that
-transaction; every unrelated move remains prohibited. Only the receipt FK is
-temporarily deferred, then all constraints are validated immediately. Its
-original definition and the full original guard definition are restored and
-verified before commit. A failed transaction restores rows and DDL together.
-No trigger is disabled and no reusable transfer function/permission is left.
-Unchanged-table hashes preserve the other business, ledger/audit, invitation,
-inactive membership, sessions, provider references and document metadata/links;
-the tool does not access receipt bytes or grant files.
-
-Success means the database transaction returned confirmation. If that response
-is lost, keep every writer paused and perform one fresh outcome inspection:
-
-```powershell
-python -m tabula_rasa.deployment.tenancy_reconciliation readback --plan $privatePlanPath --approval-sha256 $approvedPlanHash
-```
-
-`applied` confirms the exact expected state; `not_applied` confirms the unchanged
-source. Any other state or inspection failure stops for private investigation.
-Do not rerun `apply` blindly: an already-applied or changed source is rejected.
-Keep the plan and checkpoint. Readback is for schema 0015 before any subsequent
-upgrade/resumption; later activity deliberately invalidates its frozen-state
-comparison. After confirmed reconciliation, repeat tenancy inventory, then run
-the unchanged canonical forward upgrade in the separately approved maintenance
-sequence below. Never edit/stamp deployed migrations or weaken the uniqueness
-check. Any next image, hosted smoke, fault drill or stage acceptance remains a
-separate authorized operation.
+The schema-0015 two-business fixture reconciliation command is retired. Its
+private plans, checkpoints and historical execution evidence remain preserved;
+do not replay a historical image to reparent a current business. The read-only
+inventory and canonical forward migrations remain supported. Any newly found
+multi-business source still requires the separately reviewed, explicitly
+approved reconciliation procedure above; no automatic tenant splitter exists.
 
 ## Deploy and rollback sequencing
 
@@ -233,9 +155,9 @@ model. Hosted provider recovery/rollback and owner binding/authority activation
 remain separate; this UI neither changes approved historical entity/claim IDs nor
 executes the owner cutover.
 
-The existing narrowly scoped hosted support-schema maintenance command targets
-its original transition; it is not approval to upgrade business tenancy. Use
-an explicitly reviewed deployment migration for this revision. Owner source
+The former schema-specific maintenance command is retired. Use the current
+[forward-release procedure](../operations/DEPLOYMENT.md#schedule-an-approved-forward-release)
+and reviewed migration contracts for business-tenancy upgrades. Owner source
 claims and production authority still require their separate exact-target
 cutover and connection approvals. This foundation supplies no alpha bypass,
 live conversion, external-beta admission or commercial launch authorization.

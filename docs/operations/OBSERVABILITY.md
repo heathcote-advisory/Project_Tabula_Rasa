@@ -226,24 +226,13 @@ Local regression coverage uses synthetic services and a fake exporter:
 python -m pytest tests/http/test_observability.py tests/http/test_transport.py tests/http/test_authorization.py
 ```
 
-On restricted synthetic staging only, privately export its ordinary HTTP/alpha
-settings and smoke password as for the existing deployment smoke. Run:
-
-```powershell
-python -m tabula_rasa.deployment.observability_smoke --release EXPECTED_RELEASE
-```
-
-The command checks `/version`, triggers a controlled foreign-synthetic entity
-403, then reads the permitted synthetic accounts and readiness (200). It prints
-only release, statuses and generated request IDs. It never writes, dumps
-responses or adds a public crash endpoint. Temporarily set a **staging-only**
-alert to one `security_reason=cross_entity` event in a one-minute window,
-confirmation 0, recovery after one clear window. Confirm the incident arrives
-at the approved recipient, find its request/release, verify only the permitted
-scope pseudonym, then observe recovery and restore the normal threshold. Keep
-credentials out of evidence. Test 5xx grouping/readiness recovery locally;
-a real provider outage/deploy/backup failure rehearsal belongs to its owner and
-requires a separately controlled staging procedure, not breaking the live DB.
+The fixed-alpha observability smoke command and the dedicated one-off staging
+job-probe workflow are retired. Use the normal deployment smoke for readiness
+and release verification, and the authorized named-user and job procedures below
+for any new telemetry exercise. Earlier collector/delivery evidence remains in
+its owning operational discussion; removing a probe does not remove normal
+application or worker telemetry. Never add a public fault endpoint or run a
+worker merely to recreate an already accepted evidence record.
 
 For named-user staging, reuse named-user authentication and identity security testing's
 approved synthetic identity sessions and exercise a denied capability/cross-entity
