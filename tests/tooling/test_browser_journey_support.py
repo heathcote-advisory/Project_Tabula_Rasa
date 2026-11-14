@@ -71,8 +71,25 @@ def test_reference_create_rejects_failed_response_before_accepting_success_ui(mo
     page.expect_response.return_value.__enter__.return_value.value = SimpleNamespace(status=422)
     success = Mock()
     monkeypatch.setattr('playwright.sync_api.expect', success)
-    with pytest.raises(journey_support.JourneyError, match='reference_accounts_submit') as failure:
+    with pytest.raises(journey_support.JourneyError, match='reference_accounts_response') as failure:
         with journey_support.operation('reference_setup'):
             journey_support.create_reference(page, 'accounts', 'Synthetic account')
-    assert failure.value.operation == 'reference_accounts_submit'
+    assert failure.value.operation == 'reference_accounts_response'
     success.assert_not_called()
+
+
+def test_reference_click_failure_is_distinct_from_a_missing_response():
+    page = MagicMock()
+    page.get_by_role.return_value.click.side_effect = TimeoutError('private browser details')
+    with pytest.raises(journey_support.JourneyError, match='reference_payees_click') as failure:
+        journey_support.create_reference(page, 'payees', 'Synthetic payee')
+    assert 'private browser details' not in str(failure.value)
+
+
+def test_reference_missing_response_is_reported_after_the_click():
+    page = MagicMock()
+    page.expect_response.return_value.__exit__.side_effect = TimeoutError('private response details')
+    with pytest.raises(journey_support.JourneyError, match='reference_payees_response') as failure:
+        journey_support.create_reference(page, 'payees', 'Synthetic payee')
+    page.get_by_role.return_value.click.assert_called_once_with()
+    assert 'private response details' not in str(failure.value)

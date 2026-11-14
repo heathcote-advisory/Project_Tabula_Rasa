@@ -16,10 +16,10 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def workflow() -> dict:
+def workflow(filename: str = "ci.yml") -> dict:
     # BaseLoader preserves the Actions `on` key instead of YAML 1.1's boolean.
     return yaml.load(
-        (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"),
+        (PROJECT_ROOT / ".github/workflows" / filename).read_text(encoding="utf-8"),
         Loader=yaml.BaseLoader,
     )
 
@@ -75,7 +75,15 @@ def test_ci_preserves_complete_python_and_windows_coverage() -> None:
 
 
 def test_native_browser_shards_preserve_complete_disjoint_coverage() -> None:
-    native_job = workflow()["jobs"]["native-browser"]
+    reusable = workflow("native-browser.yml")
+    assert reusable["on"] == {"workflow_call": {"inputs": {
+        "shard": {"required": "true", "type": "string"},
+        "tests": {"required": "true", "type": "string"},
+    }}}
+    assert set(reusable["jobs"]) == {"test"}
+    native_job = reusable["jobs"]["test"]
+    assert "continue-on-error" not in native_job
+    assert all("continue-on-error" not in step for step in native_job["steps"])
     assert "if" not in native_job
     assert "postgres" in native_job["services"]
     assert native_job["env"]["TABULA_RASA_TEST_DATABASE_URL"].startswith("postgresql+psycopg://")
@@ -87,18 +95,28 @@ def test_native_browser_shards_preserve_complete_disjoint_coverage() -> None:
     assert command[:3] == ["python", "-m", "pytest"]
     assert command[3:] == ["$NATIVE_TEST_FILES", "-ra", "--durations=20",
                            "--junitxml=native-browser-results.xml"]
-    assert native["env"]["NATIVE_TEST_FILES"] == "${{ matrix.tests }}"
-    strategy = native_job["strategy"]
-    assert strategy["fail-fast"] == "false"
-    assert set(strategy["matrix"]) == {"include"}
-    shards = strategy["matrix"]["include"]
-    assert [shard["shard"] for shard in shards] == ["1", "2"]
-    assert "matrix.shard" in native_job["name"]
-    selected = []
-    for shard in shards:
-        files = shlex.split(shard["tests"])
+    assert native["env"]["NATIVE_TEST_FILES"] == "${{ inputs.tests }}"
+    shards = {
+        job_id: job for job_id, job in workflow()["jobs"].items()
+        if job_id.startswith("native-browser-")
+    }
+    assert set(shards) == {
+        "native-browser-journey", "native-browser-quality-workspace", "native-browser-workflows",
+    }
+    assert len({job["name"] for job in shards.values()}) == len(shards)
+    files_by_shard = {}
+    for job_id, job in shards.items():
+        assert "if" not in job and "strategy" not in job
+        assert job["uses"] == "./.github/workflows/native-browser.yml"
+        assert job["with"]["shard"] == job_id.removeprefix("native-browser-")
+        files = shlex.split(job["with"]["tests"])
         assert files, "Every native shard must execute tests"
-        selected.extend(files)
+        files_by_shard[job_id] = files
+    assert files_by_shard["native-browser-journey"] == ["tests/postgres/test_browser_journey.py"]
+    assert files_by_shard["native-browser-quality-workspace"] == [
+        "tests/postgres/test_browser_quality.py", "tests/postgres/test_workspace_browser.py",
+    ]
+    selected = [file for files in files_by_shard.values() for file in files]
     # Exact inventory comparison rejects omissions, duplicates and extra pytest
     # arguments that could filter cases. Newly added modules must get an owner.
     assert sorted(selected) == sorted(
@@ -108,7 +126,7 @@ def test_native_browser_shards_preserve_complete_disjoint_coverage() -> None:
     assert native_job["timeout-minutes"] == "20"
     artifact = next(step for step in native_job["steps"]
                     if step.get("uses", "").startswith("actions/upload-artifact@"))
-    assert artifact["with"]["name"] == "native-browser-results-${{ matrix.shard }}"
+    assert artifact["with"]["name"] == "native-browser-results-${{ inputs.shard }}"
     assert artifact["if"] == "${{ always() }}"
     assert "native-browser-results.xml" in artifact["with"]["path"].splitlines()
     assert "web/test-results/" in artifact["with"]["path"].splitlines()
@@ -203,7 +221,7 @@ def test_required_gate_waits_for_all_suites_even_when_a_dependency_fails() -> No
     assert "continue-on-error" not in gate
     for job in jobs.values():
         assert "continue-on-error" not in job
-        assert all("continue-on-error" not in step for step in job["steps"])
+        assert all("continue-on-error" not in step for step in job.get("steps", []))
     step = gate["steps"][0]
     assert step["shell"] == "bash"
     assert set(step["env"].values()) == {
@@ -241,4 +259,4 @@ def test_required_gate_rejects_failed_or_incomplete_suite(job: str, conclusion: 
     results = dict.fromkeys(workflow()["jobs"]["full-suite"]["steps"][0]["env"], "success")
     results[job] = conclusion
     result = run_gate(results)
-    assert result.returncode != 0
+    assert result.returncode == 1, result.stderr

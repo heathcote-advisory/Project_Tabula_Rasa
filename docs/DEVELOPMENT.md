@@ -134,12 +134,12 @@ and commercial-foundation workflows. Its stable merge-gate check name is
   all four existing browser/device projects. Both shards are required; fail-fast
   is disabled to retain diagnostics from both. No browser/viewport or assertion
   is removed. Each shard uploads a uniquely named JUnit/trace/screenshot artifact.
-- **Native browser (HTTP + PostgreSQL, shard 1/2 and 2/2)** partitions every
-  `tests/postgres/test*browser*.py` module between two parallel runners. Each
-  independently builds the SPA and uses its own disposable PostgreSQL service,
-  all three engines and required-browser mode. Both shards are required, with
-  fail-fast disabled and separate artifacts. The CI policy test verifies that
-  every module appears exactly once, so new modules cannot be silently omitted.
+- The three [native browser jobs](development/CI.md#required-execution-owners)
+  partition every `tests/postgres/test*browser*.py` module. Each job independently
+  builds the SPA and uses its own disposable PostgreSQL service, all three engines
+  and required-browser mode. All three jobs are required and upload separate
+  artifacts. The CI policy test verifies that every module appears exactly once,
+  so new modules cannot be silently omitted.
   The complete Python suite still discovers every test;
   native scenarios skip there because that isolated checkout has no SPA build.
   Native tests execute once across these required shards. Python lint and
