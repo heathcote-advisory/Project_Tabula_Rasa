@@ -2,11 +2,21 @@
 
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from scripts import nas_receipt_backup as receipts
+
+
+@pytest.fixture(autouse=True)
+def private_runner_umask():
+    previous = os.umask(0o077)
+    try:
+        yield
+    finally:
+        os.umask(previous)
 
 
 @pytest.fixture
@@ -120,6 +130,31 @@ def test_changed_enrollment_cannot_verify_another_business_archive(configured, m
     changed['bindings'][0]['scope_key'] = 'different-folder'
     with pytest.raises(FileNotFoundError):
         receipts.verify(changed, result['generation'])
+
+
+def test_storage_inside_temporary_directory_is_rejected(configured):
+    path, config = configured
+    storage = Path(config['temporary_directory']) / 'storage'
+    storage.mkdir(mode=0o700)
+    (storage / '.tabula-nas-storage').write_text('b' * 32)
+    config['storage'] = str(storage)
+    path.write_text(json.dumps(config))
+    with pytest.raises(receipts.nas.BackupError, match='configuration'):
+        receipts.load_config(path)
+
+
+def test_namespace_ancestors_are_synced_before_capture(configured, monkeypatch):
+    path, _ = configured
+    config = receipts.load_config(path)
+    root = receipts.namespace(config)
+    synced = []
+    monkeypatch.setattr(receipts.nas, 'sync_directory', synced.append)
+    def capture(*args):
+        assert synced[:3] == [root.parent, root.parent.parent, config['storage']]
+        return fake_capture(*args)
+    monkeypatch.setattr(receipts, 'capture', capture)
+    monkeypatch.setattr(receipts.nas, 'command', fake_age)
+    assert receipts.backup(config, object(), object())['status'] == 'complete'
 
 
 def test_cli_suppresses_private_failures(configured, monkeypatch, capsys):

@@ -60,7 +60,8 @@ def load_config(path):
         if any((parent / '.git').exists() for parent in (config[key], *config[key].parents)):
             raise nas.BackupError('configuration')
     if (config['storage'] == config['temporary_directory']
-            or config['temporary_directory'].is_relative_to(config['storage'])):
+            or config['temporary_directory'].is_relative_to(config['storage'])
+            or config['storage'].is_relative_to(config['temporary_directory'])):
         raise nas.BackupError('configuration')
     if (config['storage'] / '.tabula-nas-storage').read_text().strip() != config['storage_marker']:
         raise nas.BackupError('storage')
@@ -111,6 +112,8 @@ def backup(config, database, secrets):
     root = namespace(config)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     with nas.guard(root):
+        for directory in (root.parent, root.parent.parent, config['storage']):
+            nas.sync_directory(directory)
         nas.available_capacity(config)
         generation = nas.instant().strftime('%Y%m%dT%H%M%S%fZ') + '-' + uuid4().hex
         partial = root / ('incomplete-' + generation)
@@ -159,7 +162,7 @@ def verify(config, generation):
     root = namespace(config) / generation
     if root.is_symlink():
         raise nas.BackupError('integrity')
-    manifest = json.loads(nas.protected(root / 'manifest.json').read_text())
+    manifest = json.loads(nas.protected(root / 'manifest.json').read_text(encoding='utf-8'))
     ciphertext = nas.protected(root / 'receipts.tar.age')
     expected = [(binding['entity_id'], binding['scope_key']) for binding in config['bindings']]
     if (manifest.get('format') != 'tabula-receipt-capture-v1'
