@@ -60,6 +60,83 @@ copying, NAS replication, independent/off-account copies, missing-run alerts, ca
 monitoring and achieved recovery objectives remain pending until actually configured and
 verified. NAS backup and restore's SQL schedule/indefinite retention is unchanged.
 
+### Scheduled encrypted NAS captures
+
+`scripts.nas_receipt_backup` wraps the existing current-grant backup, canonical
+archive parser and exact-byte verifier for explicitly enrolled **staging**
+businesses. It does not add a live storage backend or change the SQL backup
+schedule. DSM owns scheduling and abnormal-termination email. Configure a
+separate Wednesday/Sunday task after the existing staging SQL slot; no daily
+RPO or coordinated SQL/custody capture is implied.
+
+Build `deploy/nas/Dockerfile.receipts` for `linux/arm64`, retain the source revision,
+image ID and transfer checksum, and verify native CLI startup on the selected
+NAS before activation. Its build-context allowlist excludes private files.
+Keep a separate private configuration JSON outside Git with exactly:
+
+| Field | Required value |
+| --- | --- |
+| `environment` | `staging`; production is refused |
+| `source_sha256` | Existing application database fingerprint from the approved staging source; this differs from the NAS SQL tool's endpoint-hash format |
+| `storage` / `storage_marker` | Owner-only absolute archive mount and its existing `.tabula-nas-storage` marker |
+| `temporary_directory` | Owner-only absolute **tmpfs** mount, separate from archive storage; other filesystems are refused |
+| `recipients_file` | Owner-only file containing approved age **public** recipients; decryption identity remains separately held |
+| `minimum_free_bytes` | Positive capacity floor |
+| `approval_sha256` | SHA-256 of the retained operator approval for ongoing captures of these exact sources/destination |
+| `bindings` | Nonempty list of existing private selector objects, each containing `environment`, `organization_id`, `entity_id`, `provider`, `profile_key`, `scope_key`, and empty `google_drive_oauth` / `google_drive` objects |
+
+Each business, profile and receipt folder must be distinct. Configure the
+existing PostgreSQL credential backend/key in a protected runtime env file;
+selectors contain no tokens. Use a TLS `verify-full` database URL and read-only
+ledger/custody roles with the needed canonical-export/current-grant permissions.
+Provisioning NAS access to that material requires the operator's explicit
+custody decision. Never copy production credentials into this task.
+
+Run the pinned image as UID 10001 with read-only root, `--cap-drop ALL`,
+`--security-opt no-new-privileges`, no host ports, protected read-only config
+mounts, a writable archive mount and a bounded private tmpfs. For example,
+after substituting independently verified private paths and the pinned image:
+
+```sh
+docker run --rm --user 10001:1000 --read-only --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --tmpfs /work:rw,nosuid,nodev,noexec,size=256m,mode=0700,uid=10001,gid=1000 \
+  --env-file /volume1/PRIVATE_CONFIG/receipt-runtime.env \
+  --mount type=bind,source=/volume1/PRIVATE_CONFIG,target=/secrets,readonly \
+  --mount type=bind,source=/volume1/PRIVATE_ARCHIVES,target=/backup \
+  PINNED_RECEIPT_IMAGE run --config /secrets/receipts.json
+```
+
+The task checks the database fingerprint before reading grants, captures only
+the enrolled original folders, and refuses changed canonical points, grant
+bindings, missing bytes or hash mismatches through the existing workflow. It
+uses one lock per database/enrollment; overlapping capture fails. Transient
+plaintext and copied public recipients stay in tmpfs. Only encrypted tar bytes
+and a private sanitized manifest reach persistent storage. A failed invocation
+retains its incomplete ciphertext directory, preserves earlier generations,
+prints a fixed failure code and exits nonzero for DSM notification. Interrupted
+containers need the existing stop-and-inspect lock recovery procedure. No
+automatic retries, original-file deletion or archive pruning are introduced.
+
+Verify a retained generation offline (no database/grant access):
+
+```sh
+python -m scripts.nas_receipt_backup verify --config /secrets/receipts.json \
+  --generation RETAINED_GENERATION_NAME
+```
+
+This checks ciphertext readback, enrollment and checksum, not decryptability.
+Before relying on the task, decrypt a retained `receipts.tar.age` using the
+separately held identity in a private recovery workspace, inspect/extract the
+trusted tar and verify every numbered business archive using `DocumentArchive`
+and its exact-byte checks. The manifest maps each numbered directory to its
+business/folder and canonical checksum. Use the existing separate-target Drive
+and PostgreSQL restore procedure below. Require an actual DSM scheduled-success
+record, both enrolled folders and original hashes, durable NAS readback and
+off-NAS-key decryption; a manual run or unit test alone is not schedule evidence.
+Record remaining capacity, missed-run monitoring and stage limitations in the
+owning operational discussion. Existing SQL tasks/cadence stay unchanged.
+
 ## Private binding and verification
 
 Use the existing external connections operator connection JSON format from [external
