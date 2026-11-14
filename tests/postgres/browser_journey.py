@@ -18,7 +18,7 @@ OPERATIONS = frozenset({
 } | {
     f'reference_{resource}_{step}'
     for resource in ('accounts', 'categories', 'payees', 'tags')
-    for step in ('prepare', 'submit', 'confirm')
+    for step in ('prepare', 'click', 'response', 'confirm')
 })
 
 
@@ -77,10 +77,11 @@ def create_reference(page, resource, name, *, kind=None):
         page.get_by_label('Account name' if resource == 'accounts' else 'Category name' if resource == 'categories' else 'Name', exact=True).fill(name)
         if kind:
             page.get_by_label('Kind', exact=True).select_option(kind)
-    with operation(f'reference_{resource}_submit'):
+    with operation(f'reference_{resource}_response'):
         noun = 'category' if resource == 'categories' else resource[:-1]
         with page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/' + resource)) as created:
-            page.get_by_role('button', name='Create ' + noun, exact=True).click()
+            with operation(f'reference_{resource}_click'):
+                page.get_by_role('button', name='Create ' + noun, exact=True).click()
         row = checked(created.value, 201).json()
     with operation(f'reference_{resource}_confirm'):
         # A response event precedes the app's form reset and dirty-guard cleanup.

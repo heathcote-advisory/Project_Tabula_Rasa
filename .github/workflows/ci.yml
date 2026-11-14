@@ -160,81 +160,51 @@ jobs:
           path: web/test-results/browser/
           if-no-files-found: ignore
 
-  native-browser:
-    name: Native browser (HTTP + PostgreSQL, shard ${{ matrix.shard }}/2)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - shard: 1
-            tests: >-
-              tests/postgres/test_browser_journey.py
-              tests/postgres/test_browser_quality.py
-              tests/postgres/test_workspace_browser.py
-          - shard: 2
-            tests: >-
-              tests/postgres/test_browser_baselines.py
-              tests/postgres/test_browser_copy_recurring.py
-              tests/postgres/test_browser_mileage_documents.py
-              tests/postgres/test_browser_mileage_imports.py
-              tests/postgres/test_browser_secondary.py
-              tests/postgres/test_browser_transaction_bulk_copy.py
-              tests/postgres/test_browser_transaction_imports.py
-              tests/postgres/test_browser_workflow_ports.py
-              tests/postgres/test_browser_workflows.py
-              tests/postgres/test_identity_browser.py
-    container:
-      image: mcr.microsoft.com/playwright/python:v1.62.0-noble
-      options: --init --ipc=host
-    services:
-      postgres:
-        image: postgres:18.6
-        env:
-          POSTGRES_USER: tabula_test
-          POSTGRES_DB: tabula_test
-          POSTGRES_HOST_AUTH_METHOD: trust
-        options: >-
-          --health-cmd "pg_isready -U tabula_test -d tabula_test"
-          --health-interval 2s --health-timeout 3s --health-retries 30
-    env:
-      HOME: /root
-      TABULA_RASA_TEST_DATABASE_URL: postgresql+psycopg://tabula_test@postgres:5432/tabula_test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify image Python runtime
-        run: python -c 'import ssl, sys; assert sys.version_info[:2] == (3, 12); print(sys.version); print(ssl.OPENSSL_VERSION)'
-      - name: Install development dependencies
-        run: python -m pip install -r requirements-dev.txt
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm --prefix web ci
-      - run: npm --prefix web run build
-      - name: Run native browser concurrency and core workflow tests
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          python -m pytest $NATIVE_TEST_FILES -ra --durations=20 --junitxml=native-browser-results.xml
-        env:
-          TABULA_RASA_REQUIRE_BROWSER_TESTS: '1'
-          NATIVE_TEST_FILES: ${{ matrix.tests }}
-      - name: Upload native browser results
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-browser-results-${{ matrix.shard }}
-          path: |
-            native-browser-results.xml
-            web/test-results/
-          if-no-files-found: ignore
+  native-browser-journey:
+    name: Native browser (Journey)
+    uses: ./.github/workflows/native-browser.yml
+    with:
+      shard: journey
+      tests: >-
+        tests/postgres/test_browser_journey.py
+
+  native-browser-quality-workspace:
+    name: Native browser (Quality and workspace)
+    uses: ./.github/workflows/native-browser.yml
+    with:
+      shard: quality-workspace
+      tests: >-
+        tests/postgres/test_browser_quality.py
+        tests/postgres/test_workspace_browser.py
+
+  native-browser-workflows:
+    name: Native browser (Other workflows)
+    uses: ./.github/workflows/native-browser.yml
+    with:
+      shard: workflows
+      tests: >-
+        tests/postgres/test_browser_baselines.py
+        tests/postgres/test_browser_copy_recurring.py
+        tests/postgres/test_browser_mileage_documents.py
+        tests/postgres/test_browser_mileage_imports.py
+        tests/postgres/test_browser_secondary.py
+        tests/postgres/test_browser_transaction_bulk_copy.py
+        tests/postgres/test_browser_transaction_imports.py
+        tests/postgres/test_browser_workflow_ports.py
+        tests/postgres/test_browser_workflows.py
+        tests/postgres/test_identity_browser.py
 
   full-suite:
     name: Full test suite
     if: ${{ always() }}
-    needs: [python-suite, windows-tooling, frontend-contract, browser, native-browser]
+    needs:
+      - python-suite
+      - windows-tooling
+      - frontend-contract
+      - browser
+      - native-browser-journey
+      - native-browser-quality-workspace
+      - native-browser-workflows
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -244,16 +214,22 @@ jobs:
           PYTHON_RESULT: ${{ needs.python-suite.result }}
           WINDOWS_RESULT: ${{ needs.windows-tooling.result }}
           FRONTEND_RESULT: ${{ needs.frontend-contract.result }}
-          NATIVE_RESULT: ${{ needs.native-browser.result }}
+          NATIVE_JOURNEY_RESULT: ${{ needs.native-browser-journey.result }}
+          NATIVE_QUALITY_WORKSPACE_RESULT: ${{ needs.native-browser-quality-workspace.result }}
+          NATIVE_WORKFLOWS_RESULT: ${{ needs.native-browser-workflows.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
         run: |
           echo "Python suite: $PYTHON_RESULT"
           echo "Windows setup: $WINDOWS_RESULT"
           echo "Browser UI shards: $BROWSER_RESULT"
           echo "Frontend/contracts/image: $FRONTEND_RESULT"
-          echo "Native browser: $NATIVE_RESULT"
+          echo "Native browser (Journey): $NATIVE_JOURNEY_RESULT"
+          echo "Native browser (Quality and workspace): $NATIVE_QUALITY_WORKSPACE_RESULT"
+          echo "Native browser (Other workflows): $NATIVE_WORKFLOWS_RESULT"
           test "$PYTHON_RESULT" = success
           test "$WINDOWS_RESULT" = success
           test "$BROWSER_RESULT" = success
           test "$FRONTEND_RESULT" = success
-          test "$NATIVE_RESULT" = success
+          test "$NATIVE_JOURNEY_RESULT" = success
+          test "$NATIVE_QUALITY_WORKSPACE_RESULT" = success
+          test "$NATIVE_WORKFLOWS_RESULT" = success

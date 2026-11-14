@@ -70,15 +70,18 @@ operation-specific safe errors, the beyond-default-wait delay, retained receipt
 bytes and other-business isolation without repeating unrelated reference setup,
 conflict editing, reports and cleanup flows.
 
-Repository CI separates **Frontend, contracts and runtime image**, two required
-**Browser UI** shards, and two required **Native browser (HTTP + PostgreSQL)**
-shards. Browser jobs use pinned images with all three engines preinstalled;
-each native shard builds its own SPA and uses its own disposable PostgreSQL
-service. The native matrix partitions modules exactly once and preserves all
-engine/viewport cases; fail-fast is disabled and each shard retains its own
-`native-browser-results-1` or `native-browser-results-2` artifact. **Full test suite**
-requires every partition on the current head/merge candidate. Failed runs retain per-shard Playwright JUnit,
-traces/screenshots and native JUnit results. The commercial release-image
+To rerun only the journey shard locally after the same setup, run:
+
+```powershell
+$env:TABULA_RASA_REQUIRE_BROWSER_TESTS = '1'
+python -m pytest tests/postgres/test_browser_journey.py -ra --durations=20 --junitxml=native-browser-results.xml
+```
+
+Each required [native browser shard](../development/CI.md#required-execution-owners)
+builds its own SPA and uses its own disposable PostgreSQL service. Each module
+runs in exactly one shard, with all its engine/viewport cases. **Full test suite**
+requires each shard to succeed on the current head/merge candidate. Shards
+retain separate results artifacts for diagnosis. The commercial release-image
 workflow consumes successful Repository CI on `main`. No external customer data,
 ledger files or customer credentials are required.
 
