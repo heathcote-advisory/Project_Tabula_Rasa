@@ -140,6 +140,8 @@ def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     result = invoke()
     assert result["restarted"] is True and result["image"] == IMAGE
     assert stage.actions.index("upgrade") < stage.actions.index("resume") < stage.actions.index("smoke_new")
+    assert stage.actions.count("request_deploy") == 1
+    assert stage.actions.index("resume") < stage.actions.index("request_deploy") < stage.actions.index("smoke_new")
     assert "close" not in stage.actions and "open" not in stage.actions
 
 
@@ -149,6 +151,16 @@ def test_failed_full_downtime_smoke_suspends_candidate(staging_release):
     with pytest.raises(release.ReleaseError, match="Maintenance stopped"):
         invoke()
     assert stage.suspended and stage.actions[-1] == "suspend"
+
+
+def test_failed_explicit_free_deploy_stops_without_retry(staging_release):
+    stage, invoke = staging_release
+    stage.details["plan"] = "free"
+    stage.failure = "deploy"
+    with pytest.raises(release.ReleaseError, match="Maintenance stopped"):
+        invoke()
+    assert stage.actions.count("request_deploy") == 1
+    assert stage.suspended and "smoke_new" not in stage.actions
 
 
 @pytest.fixture

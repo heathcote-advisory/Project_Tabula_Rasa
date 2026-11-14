@@ -111,7 +111,14 @@ class Staging:
             assert self.configured_image == self.image
             self.actions.append("resume")
             self.suspended = False
+            if self.details["plan"] != "free":
+                self.live_image = self.image
+        elif path == base + "/deploys":
+            assert not self.suspended and self.schema == self.expected_schema
+            assert body == {"imageUrl": self.image}
+            self.actions.append("request_deploy")
             self.live_image = self.image
+            return {"id": "dep-candidate"}
         elif path == base:
             return {
                 "id": SERVICE, "type": "web_service", "autoDeployTrigger": "off",

@@ -621,7 +621,10 @@ Manual production dispatch remains available for reviewed emergency use.
 The shared downtime path suspends the service, checks instance and job drain
 and public unavailability, verifies recovery, selects the new pinned image,
 and applies the forward path in one locked transaction. It resumes the pinned
-candidate and checks the exact new deployment and public readiness, version
+candidate. On Render Free, if resume leaves only the existing deployment and
+no deployment is in progress, the workflow confirms the configured digest and
+requests one explicit digest-pinned deployment. It checks the exact new
+deployment and public readiness, version
 and named-user smoke. Render may restore public traffic on resume before
 smoke completes. A failed restart or smoke triggers containment by suspension.
 A failed migration or interrupted deploy

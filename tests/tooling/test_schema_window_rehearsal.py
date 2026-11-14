@@ -228,7 +228,8 @@ COMMIT;
             docker("stop", self.app)
             docker("rm", self.app)
             self.app_port = None
-        elif path == f"/services/{SERVICE}/resume":
+        elif (path == f"/services/{SERVICE}/deploys"
+              or (path == f"/services/{SERVICE}/resume" and self.details["plan"] != "free")):
             self.start_app(self.configured_image)
         return result
 
