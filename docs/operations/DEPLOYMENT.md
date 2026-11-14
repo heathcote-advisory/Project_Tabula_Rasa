@@ -287,10 +287,10 @@ reference. The dedicated `commercial-staging-maintenance.yml` workflow and
 revisions for another upgrade; each new transition requires a reviewed procedure.
 Canonical Alembic revisions and the ordinary forward-upgrade CLI remain intact.
 
-The support-schema command below owns its recovery-checkpoint and suspended-service
-guards. Migration tests independently preserve two-business ledger/isolation and
-disabled-accounting-policy checks from `0012_operations` to the current head.
-Bridge-specific pinned-image and workflow tests retired with the single-use entry point.
+Current schema releases use the guarded release procedure above. Migration tests
+independently preserve two-business ledger/isolation and disabled-accounting-policy
+checks from `0012_operations` to the current head. Bridge-specific pinned-image
+and workflow tests retire with their single-use entry points.
 
 Restricted-alpha routes, synthetic contexts and their deployment/tests remain
 supported independently. A named staging handoff does not retire those callers.
@@ -298,67 +298,18 @@ Streamlit/Sheets writers and owner migration, conversion and recovery paths reta
 [controlled cutover](../accounting/CUTOVER.md) and capability-specific retirement
 conditions. Bridge cleanup supplies no live-cutover or deletion authority.
 
-### Reviewed support-schema maintenance: 0014 to 0015
+### Retired support-schema bridge: 0014 to 0015
 
-The manual **Support schema 0014 to 0015 maintenance** workflow supplies the
-missing transition for the existing development and staging services. Ordinary
-deployment still refuses old schemas, even when a service is stopped. API startup
-never migrates. Suspending Render alone therefore does not unblock a failed run.
-The workflow reuses the canonical forward migration; it introduces no new schema,
-support grants, bookkeeping writers, scheduler, production target or downgrade.
+The schema-specific support maintenance workflow and command are retired. They
+required an exact schema-0015 image and are not a supported route for current
+releases. Preserve the canonical Alembic revisions, runtime-grant requirements
+in [Support operations](SUPPORT.md), retained checkpoints and historical execution
+evidence. Never rerun an old workflow revision to migrate a current environment.
+Use the [approved forward-release procedure](#schedule-an-approved-forward-release)
+with the current migration safety contracts, recovery checkpoint and compatible
+image verification. Startup never performs migrations.
 
-First publish/review this procedure through the normal current-revision CI gate.
-Use an immutable image from its successful main-push CI and image-build job,
-containing this maintenance module and schema `0015_support_controls`. Its release
-must equal the main revision on which the maintenance workflow is dispatched.
-An overall release workflow may have a successful build and a later development
-migration failure; inspect the separate jobs rather than treating that as a failed
-image build. Do not rerun an old release or use a tag-only reference.
-
-1. Select **development** first for the reported failed automatic deployment.
-   Run the manual workflow with operation **inspect**, approval **not_approved**,
-   and that exact image. This connects through the existing environment-scoped
-   migration secret, checks the bound target and reports only the schema.
-   It performs no upgrade and does not require suspending the service.
-   Production is excluded; repeat separately for staging when ready.
-2. If the result is `0014_document_locations`, reserve the exact environment's
-   maintenance window. Privately verify a current recovery checkpoint for that
-   target, its source/time/retention and the retained runtime/identity/connection
-   configuration. Record the recovery evidence SHA-256. This is operator
-   attestation, not automatic proof the provider can restore it.
-3. Suspend/drain that exact Render service in Settings. Stop other approved
-   writers or provider changes to the same target for the window. Keep the
-   service suspended and avoid changes outside the shared deployment lock.
-4. Dispatch operation **upgrade**, approval **0014_to_0015**, with the same
-   verified image and recovery-record hash. Preflight refuses a running service
-   or pending deployment. The database container receives only its own bound
-   migration credential, not the Render/GitHub access tokens. It requires source
-   exactly 0014, runs the canonical locked forward upgrade and confirms 0015.
-   Already-upgraded, unknown or failed/unconfirmed outcomes stop for inspection;
-   do not repeat blindly or resume the old app.
-5. Have the database administrator verify the existing runtime role's effective
-   grants described in [Support operations](SUPPORT.md): SELECT on
-   support_grants/support_actions and INSERT on support_actions, with no grant
-   administration, audit mutation or table ownership. The new workflow does not
-   broaden role permissions or create a support operator.
-6. While suspended, select the same tested schema-0015 image in Render, preserving
-   existing mode, runtime secrets and connection files. Resume/deploy it; verify
-   both provider digest metadata and public version/readiness. This first image
-   selection is manual because ordinary promotion deliberately rejects a
-   schema-0014 prior image as rollback-incompatible. Never resume/revert to that
-   old image after upgrading the database.
-7. Once the compatible image is live, rerun the ordinary latest-main development
-   release deployment, or **Promote commercial staging** for staging, to obtain
-   its guarded deployment and mode-specific smoke record. Do not use an obsolete
-   failed main release if main has advanced. Recheck named-user/security events
-   and retained synthetic data through the existing hosted identity rollout and operational observability checks.
-
-If a step fails, preserve the checkpoint and logs, leave an incompatible service
-suspended and inspect the exact state before deciding on forward repair or an
-isolated recovery. No automatic rollback to schema 0014 is supported. The workflow
-does not suspend, resume, deploy or change secrets itself; its default inspection
-can be performed while the current app is running. Upgrade execution, downtime,
-recovery attestation and provider image selection remain explicit operator steps.
+### Immutable image verification
 
 Image verification uses authenticated Buildx registry descriptors to distinguish
 the requested OCI index (or Docker manifest list) from its single `linux/amd64`
@@ -429,7 +380,7 @@ or recovery. Development and staging can promote automatically. Production uses
 the explicitly authorized manual or scheduled path. Follow [provider custody and transfer](SECRETS.md#provider-account-custody-and-transfer)
 for account and credential ownership.
 
-The image workflow, promotion checks and staging job probe use the same GHCR
+The image workflow and promotion checks use the same GHCR
 repository derived from `GITHUB_REPOSITORY` with the `/commercial-release` suffix.
 Verify that the destination package is private and that GitHub Actions can publish
 to it before merging a registry change. Image publication can run while
