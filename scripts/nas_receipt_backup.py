@@ -56,7 +56,7 @@ def load_config(path):
         if len({binding[key] for binding in bindings}) != len(bindings):
             raise nas.BackupError('configuration')
     for key in ('storage', 'temporary_directory'):
-        config[key] = nas.protected(config[key], directory=True)
+        config[key] = nas.protected(config[key], directory=True).resolve()
         if any((parent / '.git').exists() for parent in (config[key], *config[key].parents)):
             raise nas.BackupError('configuration')
     if (config['storage'] == config['temporary_directory']

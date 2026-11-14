@@ -143,6 +143,18 @@ def test_storage_inside_temporary_directory_is_rejected(configured):
         receipts.load_config(path)
 
 
+def test_directory_dot_components_are_resolved_before_mount_checks(configured):
+    path, config = configured
+    temporary = Path(config['temporary_directory'])
+    child = temporary / 'child'
+    child.mkdir(mode=0o700)
+    config['temporary_directory'] = str(child / '..')
+    path.write_text(json.dumps(config))
+    loaded = receipts.load_config(path)
+    assert loaded['temporary_directory'] == temporary.resolve()
+    assert loaded['storage'] == Path(config['storage']).resolve()
+
+
 def test_namespace_ancestors_are_synced_before_capture(configured, monkeypatch):
     path, _ = configured
     config = receipts.load_config(path)
