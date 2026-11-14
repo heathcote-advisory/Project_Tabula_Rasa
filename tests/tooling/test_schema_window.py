@@ -10,6 +10,20 @@ import yaml
 from tabula_rasa.deployment import release, schema_window
 from tabula_rasa.migration.model import digest
 
+
+def test_free_resume_uses_a_deployment_reported_on_the_next_poll(monkeypatch):
+    prior = {"id": "dep-prior"}
+    candidate = {"id": "dep-candidate", "trigger": "service_resumed"}
+    deployments = Mock(side_effect=[[prior], [prior], [candidate, prior]])
+    monkeypatch.setattr(release, "render_deployments", deployments)
+    read = Mock(return_value={"suspended": "not_suspended", "id": SERVICE})
+    delay = Mock()
+
+    assert schema_window.resume_deployment(
+        read, SERVICE, "fixture", sleep=delay, protected=False, explicit_deploy=True,
+    ) == "dep-candidate"
+    delay.assert_called_once_with(5)
+
 REPOSITORY = "owner/repo"
 REGISTRY = release.commercial_image_repository(REPOSITORY)
 IMAGE = REGISTRY + "@sha256:" + "a" * 64

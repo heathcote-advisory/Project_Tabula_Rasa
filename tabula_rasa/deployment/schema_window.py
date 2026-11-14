@@ -121,6 +121,7 @@ def select_suspended_image(read, service, token, source, *, protected=True):
 def resume_deployment(read, service, token, *, sleep=time.sleep, protected=True, explicit_deploy=False):
     prior_ids = {item["id"] for item in release.render_deployments(service, token, read=read)}
     read(f"/services/{service}/resume", token, method="POST", no_content=True)
+    resumed_without_deploy = False
     for _ in range(12):
         state = service_state(read, service, token)
         if protected and not maintenance_state(state)["enabled"]:
@@ -133,8 +134,11 @@ def resume_deployment(read, service, token, *, sleep=time.sleep, protected=True,
                     raise release.ReleaseError("Unexpected deployment after service resume; inspect Render.")
                 return new[0]["id"]
             if explicit_deploy:
-                release.active_deployment(service, token, read=read)
-                return None
+                if resumed_without_deploy:
+                    return None
+                resumed_without_deploy = True
+        else:
+            resumed_without_deploy = False
         sleep(5)
     raise release.ReleaseError("Render did not report a new deployment after resume; inspect before any further deploy.")
 
