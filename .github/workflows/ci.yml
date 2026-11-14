@@ -17,7 +17,32 @@ concurrency:
 
 jobs:
   python-suite:
-    name: Python suite (Linux + PostgreSQL)
+    name: Python application and tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install development dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Lint Python
+        run: ruff check .
+      - name: Run Python application and tooling tests
+        run: python -m pytest --ignore=tests/postgres -ra --durations=20 --junitxml=python-results.xml
+      - name: Upload Python results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-results
+          path: python-results.xml
+          if-no-files-found: ignore
+
+  postgres-suite:
+    name: PostgreSQL integration
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -42,6 +67,24 @@ jobs:
           cache-dependency-path: requirements*.txt
       - name: Install development dependencies
         run: python -m pip install -r requirements-dev.txt
+      - name: Run PostgreSQL integration tests
+        env:
+          TABULA_RASA_TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: python -m pytest tests/postgres -ra --durations=20 --junitxml=postgres-results.xml
+      - name: Upload PostgreSQL results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-results
+          path: postgres-results.xml
+          if-no-files-found: ignore
+
+  nas-backup-smoke:
+    name: NAS backup smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
       - name: Build NAS backup client image
         run: docker build -f deploy/nas/Dockerfile -t tabula-nas-backup:test .
       - name: Verify synthetic NAS TLS backup and isolated restore
@@ -49,19 +92,6 @@ jobs:
           docker run --rm --user postgres --entrypoint python3
           --mount type=bind,source=${{ github.workspace }}/tests/tooling/nas_backup_smoke.py,target=/smoke.py,readonly
           tabula-nas-backup:test /smoke.py
-      - name: Lint Python
-        run: ruff check .
-      - name: Run complete Python suite
-        env:
-          TABULA_RASA_TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
-        run: python -m pytest -ra --durations=20 --junitxml=python-results.xml
-      - name: Upload Python results
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-results
-          path: python-results.xml
-          if-no-files-found: ignore
 
   windows-tooling:
     name: Windows environment setup
@@ -199,6 +229,8 @@ jobs:
     if: ${{ always() }}
     needs:
       - python-suite
+      - postgres-suite
+      - nas-backup-smoke
       - windows-tooling
       - frontend-contract
       - browser
@@ -212,6 +244,8 @@ jobs:
         shell: bash
         env:
           PYTHON_RESULT: ${{ needs.python-suite.result }}
+          POSTGRES_RESULT: ${{ needs.postgres-suite.result }}
+          NAS_RESULT: ${{ needs.nas-backup-smoke.result }}
           WINDOWS_RESULT: ${{ needs.windows-tooling.result }}
           FRONTEND_RESULT: ${{ needs.frontend-contract.result }}
           NATIVE_JOURNEY_RESULT: ${{ needs.native-browser-journey.result }}
@@ -219,7 +253,9 @@ jobs:
           NATIVE_WORKFLOWS_RESULT: ${{ needs.native-browser-workflows.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
         run: |
-          echo "Python suite: $PYTHON_RESULT"
+          echo "Python application/tooling: $PYTHON_RESULT"
+          echo "PostgreSQL integration: $POSTGRES_RESULT"
+          echo "NAS backup smoke: $NAS_RESULT"
           echo "Windows setup: $WINDOWS_RESULT"
           echo "Browser UI shards: $BROWSER_RESULT"
           echo "Frontend/contracts/image: $FRONTEND_RESULT"
@@ -227,6 +263,8 @@ jobs:
           echo "Native browser (Quality and workspace): $NATIVE_QUALITY_WORKSPACE_RESULT"
           echo "Native browser (Other workflows): $NATIVE_WORKFLOWS_RESULT"
           test "$PYTHON_RESULT" = success
+          test "$POSTGRES_RESULT" = success
+          test "$NAS_RESULT" = success
           test "$WINDOWS_RESULT" = success
           test "$BROWSER_RESULT" = success
           test "$FRONTEND_RESULT" = success
