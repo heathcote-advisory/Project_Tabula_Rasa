@@ -604,8 +604,9 @@ environment.
 - Configure `NEON_PROJECT_ID`, `NEON_BRANCH_ID`, `NEON_ENDPOINT_ID` and the
   project-scoped `NEON_RELEASE_API_KEY` secret in each environment that uses
   automatic checkpoints. The workflow verifies the exact read-write endpoint
-  on a root branch, at least one hour of configured recovery history, and
-  historical schema access at the bound database's WAL position. It verifies
+  on the bound branch, at least one hour of configured recovery history, and
+  historical schema access at the bound database's WAL position. A child branch
+  must have a recovery point after its fork from the parent. It verifies
   a fresh recovery point after maintenance drain before applying migrations.
   Rehearse restoring that point to an isolated target before go-live. The
   independent NAS backup schedule and custody database have their own controls.
@@ -644,6 +645,15 @@ contracts and production activation needs. Configure
 `SCHEMA_ATTENTION_ASSIGNEE` and an environment-scoped, direct Neon
 `SCHEMA_ATTENTION_DATABASE_URL` with read access to `alembic_version`.
 Close an existing alert after the associated live acceptance is verified.
+
+**Hosted commercial schema rehearsal** runs the automatic release command from
+main against an isolated Render image service and Neon database. Configure a
+dedicated GitHub `schema-rehearsal` environment with the workflow's
+`REHEARSAL_*` variables and secrets. Bind only disposable resources, start with
+the pinned compatible old image serving, then dispatch with the tested main
+candidate commit and its immutable image digest. Review the application
+restart and post-restart smoke result in the rehearsal artifact. Repeat from
+a fresh disposable source for another forward trial.
 
 **Simulated commercial schema window** runs pinned images with disposable
 PostgreSQL, local public/private routes and simulated provider controls.
