@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import sys
 
 import pytest
 import yaml
@@ -41,27 +42,38 @@ def test_ci_runs_for_current_pr_candidates_without_feature_push_duplicates() -> 
 def test_ci_preserves_complete_python_and_windows_coverage() -> None:
     jobs = workflow()["jobs"]
     python = jobs["python-suite"]
-    assert "if" not in python
-    assert python["runs-on"].startswith("ubuntu-")
-    assert "postgres" in python["services"]
-    assert python["env"]["TABULA_RASA_TEST_DATABASE_URL"].startswith(
+    postgres = jobs["postgres-suite"]
+    assert "services" not in python and "env" not in python
+    assert "postgres" in postgres["services"]
+    assert postgres["env"]["TABULA_RASA_TEST_DATABASE_URL"].startswith(
         "postgresql+psycopg://tabula_test@127.0.0.1:"
     )
-    suite = next(step for step in python['steps'] if step.get('name') == 'Run complete Python suite')
+    suite = next(step for step in postgres['steps'] if step.get('name') == 'Run PostgreSQL integration tests')
     assert suite['env']['TABULA_RASA_TEST_PG_CONTAINER'] == '${{ job.services.postgres.id }}'
-    commands = [step["run"] for step in python["steps"] if "run" in step]
-    assert "python -m pip install -r requirements-dev.txt" in commands
-    assert "ruff check ." in commands
-    assert "docker build -f deploy/nas/Dockerfile -t tabula-nas-backup:test ." in commands
-    nas = next(step for step in python["steps"] if step.get("name") ==
-               "Verify synthetic NAS TLS backup and isolated restore")
-    assert "tests/tooling/nas_backup_smoke.py" in nas["run"]
-    assert "tabula-nas-backup:test /smoke.py" in nas["run"]
-    pytest_commands = [shlex.split(command) for command in commands
-                       if command.startswith("python -m pytest")]
-    assert len(pytest_commands) == 1
-    # No positional test selection, marker filter, keyword filter or deselection.
-    assert pytest_commands[0][3:] == ["-ra", "--durations=20", "--junitxml=python-results.xml"]
+    for job, selection, artifact_name in [
+        (python, ["--ignore=tests/postgres"], "python-results"),
+        (postgres, ["tests/postgres"], "postgres-results"),
+    ]:
+        assert "if" not in job and "needs" not in job
+        assert job["runs-on"].startswith("ubuntu-")
+        assert job["timeout-minutes"] == "30"
+        setup = next(step for step in job["steps"]
+                     if step.get("uses", "").startswith("actions/setup-python@"))
+        assert setup["with"]["python-version"] == "3.12"
+        commands = [step["run"] for step in job["steps"] if "run" in step]
+        assert "python -m pip install -r requirements-dev.txt" in commands
+        pytest_commands = [shlex.split(command) for command in commands
+                           if command.startswith("python -m pytest")]
+        # Complementary directory selection only: no marker/keyword filters.
+        assert pytest_commands == [["python", "-m", "pytest", *selection, "-ra",
+                                    "--durations=20", f"--junitxml={artifact_name}.xml"]]
+        assert not any("docker " in command for command in commands)
+        artifact = next(step for step in job["steps"]
+                        if step.get("uses", "").startswith("actions/upload-artifact@"))
+        assert artifact["if"] == "${{ always() }}"
+        assert artifact["with"]["name"] == artifact_name
+        assert artifact["with"]["path"] == f"{artifact_name}.xml"
+    assert any(step.get("run") == "ruff check ." for step in python["steps"])
 
     windows = jobs["windows-tooling"]
     assert windows["runs-on"].startswith("windows-")
@@ -72,6 +84,56 @@ def test_ci_preserves_complete_python_and_windows_coverage() -> None:
     assert any(step.get("run", "").startswith(
         "python -m pytest tests/tooling/test_codex_environment_setup.py "
     ) for step in windows["steps"])
+
+
+def test_python_partitions_discover_each_test_once(tmp_path: Path) -> None:
+    # Exercise the workflow's real selection against new/nested modules, without
+    # importing the application or recursively running this policy test.
+    (tmp_path / "pytest.ini").write_text(
+        (PROJECT_ROOT / "pytest.ini").read_text(encoding="utf-8"), encoding="utf-8",
+    )
+    for index, directory in enumerate([
+        "tests", "tests/http", "tests/new_family", "tests/postgres", "tests/postgres/new_family",
+    ]):
+        path = tmp_path / directory / f"test_example_{index}.py"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("def test_example(): pass\n", encoding="utf-8")
+
+    def collect(selection: list[str]) -> set[str]:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", *selection, "--collect-only", "-q"],
+            cwd=tmp_path, env={**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+                               "PYTEST_ADDOPTS": ""},
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        return {line for line in result.stdout.splitlines() if "::test_example" in line}
+
+    selections = []
+    for job_id in ["python-suite", "postgres-suite"]:
+        command = next(step["run"] for step in workflow()["jobs"][job_id]["steps"]
+                       if step.get("run", "").startswith("python -m pytest"))
+        selections.append([arg for arg in shlex.split(command)[3:]
+                           if arg != "-ra" and not arg.startswith(("--durations=", "--junitxml="))])
+    application, postgres = map(collect, selections)
+    complete = collect([])
+    assert len(complete) == 5
+    assert len(application) == 3 and len(postgres) == 2
+    assert application.isdisjoint(postgres)
+    assert application | postgres == complete
+
+
+def test_nas_smoke_runs_independently_without_application_dependencies() -> None:
+    nas = workflow()["jobs"]["nas-backup-smoke"]
+    assert "if" not in nas and "needs" not in nas and "services" not in nas
+    assert nas["runs-on"].startswith("ubuntu-")
+    assert nas["timeout-minutes"] == "15"
+    commands = [step["run"] for step in nas["steps"] if "run" in step]
+    assert len(commands) == 2
+    assert commands[0] == "docker build -f deploy/nas/Dockerfile -t tabula-nas-backup:test ."
+    assert "docker run --rm --user postgres --entrypoint python3" in commands[1]
+    assert "tests/tooling/nas_backup_smoke.py,target=/smoke.py,readonly" in commands[1]
+    assert "tabula-nas-backup:test /smoke.py" in commands[1]
 
 
 def test_native_browser_shards_preserve_complete_disjoint_coverage() -> None:

@@ -111,14 +111,19 @@ they are not mandatory before PR creation or at review completion.
 
 [Repository CI](../.github/workflows/ci.yml) consolidates the former PostgreSQL
 and commercial-foundation workflows. Its stable merge-gate check name is
-**`Full test suite`**. It requires success from all required partitions (seven runner jobs):
+**`Full test suite`**. It requires success from all required partitions (ten runner jobs):
 
-- **Python suite (Linux + PostgreSQL)** installs `requirements-dev.txt` with
-  Python 3.12, runs `ruff check .` and `python -m pytest -ra` over every test
-  discovered by `pytest.ini`, and supplies disposable PostgreSQL 18.6 through
+- **Python application and tooling** installs `requirements-dev.txt` with
+  Python 3.12, runs `ruff check .` and `python -m pytest --ignore=tests/postgres -ra`
+  over application, HTTP, retained operator/recovery and tooling tests without a
+  database service.
+- **PostgreSQL integration** installs the same dependencies with Python 3.12,
+  runs `python -m pytest tests/postgres -ra`, and supplies disposable PostgreSQL 18.6 through
   `TABULA_RASA_TEST_DATABASE_URL`. Missing/inaccessible PostgreSQL must not be
-  used to make this gate green. There are no marker filters or deselections.
-  It also builds the client-only NAS backup image and runs its isolated synthetic
+  used to make this gate green. The two Python partitions together discover every
+  test from `pytest.ini`, with no marker or keyword filters, and upload separate
+  JUnit artifacts. The container ID remains available for the dump/restore drill.
+- **NAS backup smoke** independently builds the client-only NAS backup image and runs its isolated synthetic
   TLS/encryption/restore drill; see [NAS backup operations](operations/NAS_BACKUP.md#developer-validation).
 - **Windows environment setup** runs the Windows-only
   `tests/tooling/test_codex_environment_setup.py` on Windows with PowerShell and
@@ -140,10 +145,10 @@ and commercial-foundation workflows. Its stable merge-gate check name is
   and required-browser mode. All three jobs are required and upload separate
   artifacts. The CI policy test verifies that every module appears exactly once,
   so new modules cannot be silently omitted.
-  The complete Python suite still discovers every test;
+  The PostgreSQL integration job still discovers its native tests;
   native scenarios skip there because that isolated checkout has no SPA build.
   Native tests execute once across these required shards. Python lint and
-  non-browser integration contracts remain owned by the Python job.
+  non-browser integration contracts remain owned by the Python partitions.
 
 Retained operator, source-validation and recovery coverage remains required in Python CI.
 See [CI execution evidence and suite selection](development/CI.md) for the cost

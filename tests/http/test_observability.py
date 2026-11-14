@@ -253,28 +253,6 @@ def test_shutdown_drains_already_queued_confirmed_outcomes(monkeypatch):
     assert session.post.call_args.kwargs['json'][0]['outcome'] == 'success'
 
 
-def test_smoke_only_returns_safe_release_and_server_correlation():
-    from tabula_rasa.deployment.observability_smoke import exercise
-    session = Mock()
-    def response(status, body):
-        return Mock(status_code=status, headers={"X-Request-ID": "a" * 32}, json=lambda: body)
-    session.get.side_effect = [response(200, {"release": "synthetic-release"}),
-        response(403, PRIVATE), response(200, PRIVATE), response(200, PRIVATE)]
-    result = exercise("https://staging.example.test", "synthetic", PRIVATE, "synthetic-release", session=session)
-    assert [item["status"] for item in result["requests"]] == [200, 403, 200, 200]
-    assert PRIVATE not in json.dumps(result)
-    assert all(call.kwargs['allow_redirects'] is False for call in session.get.call_args_list)
-
-
-@pytest.mark.parametrize("status,request_id", [(200, "a" * 32), (403, PRIVATE)])
-def test_smoke_refuses_false_success_and_untrusted_correlation(status, request_id):
-    from tabula_rasa.deployment.observability_smoke import exercise
-    session = Mock()
-    session.get.return_value = Mock(status_code=status, headers={"X-Request-ID": request_id}, json=lambda: {"release": "wrong"})
-    with pytest.raises(ValueError):
-        exercise("https://staging.example.test", "synthetic", PRIVATE, "expected", session=session)
-
-
 def test_missing_dependency_and_unknown_error_never_claim_success():
     telemetry = Telemetry("test", "r")
     missing = telemetry.record("job_run", "job_execute", provider_status="not_configured")

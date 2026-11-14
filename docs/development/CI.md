@@ -10,15 +10,16 @@ methodology; dated measurements and review progress belong in GitHub discussions
 
 | Family | Owner and isolation | Budget |
 | --- | --- | --- |
-| Python unit/application, retained operator/OAuth/profile/format-13 backup/recovery contracts, NAS client/TLS/encryption/isolated-restore smoke, tooling and Python lint | `python-suite`: complete discovery without filters; synthetic providers/temporary files | 30 min |
-| PostgreSQL accounting/repository/API, authorization/session/entity isolation, concurrency/idempotency and migration contracts | Same Python job; disposable PostgreSQL 18.6 and per-test databases | Included above |
+| Python unit/application and HTTP contracts, retained operator/OAuth/profile/format-13 backup/recovery contracts, tooling and Python lint | `python-suite`: pytest discovery outside `tests/postgres`; synthetic providers/temporary files, no PostgreSQL service | 30 min |
+| PostgreSQL accounting/repository/API, authorization/session/entity isolation, concurrency/idempotency and migration contracts | `postgres-suite`: all of `tests/postgres`; disposable PostgreSQL 18.6 and per-test databases | 30 min |
+| NAS client/TLS/encryption/isolated-restore smoke | `nas-backup-smoke`: client-only Docker image and self-contained synthetic cluster; no application dependency installation | 15 min |
 | Windows environment bootstrap | `windows-tooling`: PowerShell/Python 3.12 | 15 min |
 | Frontend unit/fast checks, OpenAPI/client drift, TypeScript/build, HTTP/Git preview contracts and deployment-image inspection | `frontend-contract`: Node 24/Python 3.12; no database/browser installation | 15 min |
 | UI, responsive behavior, accessibility and visual evidence with controlled transport | `browser`: two disjoint Playwright shards, all four desktop/mobile/Firefox/WebKit projects, two workers per runner | 20 min each |
 | Critical browser journeys through compiled React, real HTTP/services/PostgreSQL, identity/workspace lifecycle and isolation | Three named native browser jobs, each with its own build, three engines, disposable PostgreSQL and isolated loopback servers | 20 min each |
 | Current-revision aggregate | `full-suite`: always requires every dependency to succeed | 5 min |
 
-Eight component runners execute independently, followed by one aggregate.
+Ten component runners execute independently, followed by one aggregate.
 The UI matrix disables fail-fast and the native jobs run independently so
 one shard failure does not stop the other shards. No path filters,
 optional components, blanket retries or scheduled-only suites are introduced.
@@ -26,6 +27,18 @@ CI policy tests execute the actual Bash gate with unsuccessful results for every
 dependency: missing, pending, skipped, cancelled, timed-out and failed results
 cannot satisfy it. Current-head triggers, PR cancellation, permissions and
 release-image consumers are preserved.
+
+The Python partitions use complementary directory selection:
+`python -m pytest --ignore=tests/postgres` and `python -m pytest tests/postgres`.
+Together they discover the entire `pytest.ini` test tree without marker or keyword
+filters. New modules inherit an owner from their location, including new test
+families outside PostgreSQL. CI policy exercises collection of new and nested
+modules and requires disjoint, complete coverage. The application job runs Ruff;
+the PostgreSQL job retains the container ID needed by the dump/restore drill.
+Each installs the same development dependencies and reports its own JUnit
+artifact. The NAS job runs independently; every partition must succeed for the
+aggregate gate. Existing Windows-only and native-browser prerequisite skips
+retain their dedicated execution owners.
 
 The controlled-transport UI shards run in the official Playwright Noble image,
 with its version matched to the lockfile's `@playwright/test`. Browsers and OS
@@ -50,7 +63,7 @@ network, without publishing a host port. Application servers and browsers share
 the job container's loopback network. Both UI shards, all projects, worker limits,
 artifacts, time budgets and the aggregate success requirement remain unchanged.
 
-The Python job has no compiled SPA. Native browser scenarios retain prerequisite
+The PostgreSQL integration job has no compiled SPA. Native browser scenarios retain prerequisite
 skips there and run once across three required native shards with
 `TABULA_RASA_REQUIRE_BROWSER_TESTS=1`:
 
@@ -150,4 +163,4 @@ summaries retain aggregate counts/times only, never testcase names, properties,
 failure messages or stdout/stderr. Review evidence before retention. Raw synthetic
 CI JUnit/traces/screenshots have unique artifact names: `browser-ui-1`,
 `browser-ui-2`, `frontend-contract-results`, the three native results artifacts
-listed above, `python-results` and `windows-results`.
+listed above, `python-results`, `postgres-results` and `windows-results`.

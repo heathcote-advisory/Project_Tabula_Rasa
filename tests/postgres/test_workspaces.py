@@ -390,3 +390,44 @@ def test_legacy_addition_receipt_can_be_replayed_without_creating(database):
     assert service.bootstrap(alice, key, 'Legacy', 'Existing business', org) == original
     with database.transaction(read_only=True) as connection:
         assert connection.scalar(text('SELECT count(*) FROM business_entities')) == 1
+
+
+def test_historical_receipt_replay_uses_current_business_scope(database):
+    import json
+    from hashlib import sha256
+
+    _, _, alice = context(database)
+    _, _, bob = context(database, 'bob')
+    service = WorkspaceService(PostgresWorkspaceRepository(database))
+    current = service.create_business(alice, uuid4().hex, 'Current business')
+    source = service.create_business(alice, uuid4().hex, 'Original container')
+    key = uuid4().hex
+    payload = sha256(json.dumps(['Legacy', 'Current business', source['organization_id']]).encode()).hexdigest()
+    # Seed an already reconciled receipt independently of retired migration tooling.
+    with database.transaction() as connection:
+        connection.execute(text("""INSERT INTO workspace_bootstraps
+            (user_id,request_id,payload_hash,organization_id,entity_id)
+            VALUES (:user,:key,:payload,:org,:entity)"""),
+            {'user': alice.user_id, 'key': key, 'payload': payload,
+             'org': current['organization_id'], 'entity': current['entity_id']})
+    def replay():
+        return service.bootstrap(alice, key, 'Legacy', 'Current business', source['organization_id'])
+    repo = PostgresIdentityRepository(database)
+    repo.set_membership(source['organization_id'], bob.user_id, 'owner')
+    repo.set_membership(source['organization_id'], alice.user_id, 'owner', active=False)
+    assert replay() == service.bootstrap_status(alice, key) == current
+    with pytest.raises(IdentityError, match='conflict'):
+        service.bootstrap(alice, key, 'Legacy', 'Changed', source['organization_id'])
+    repo.set_membership(current['organization_id'], bob.user_id, 'owner')
+    repo.set_membership(current['organization_id'], alice.user_id, 'read_only')
+    assert service.bootstrap_status(alice, key) == current
+    with pytest.raises(IdentityError, match='forbidden'):
+        replay()
+    repo.set_membership(current['organization_id'], alice.user_id, 'owner', active=False)
+    repo.set_membership(source['organization_id'], alice.user_id, 'owner')
+    for operation in (replay, lambda: service.bootstrap_status(alice, key)):
+        with pytest.raises(IdentityError, match='forbidden'):
+            operation()
+    assert service.bootstrap_status(bob, key)['state'] == 'not_started'
+    with database.transaction(read_only=True) as connection:
+        assert connection.scalar(text('SELECT count(*) FROM business_entities')) == 2
