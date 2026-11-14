@@ -73,7 +73,7 @@ additional Redis broker, scheduler daemon or application transaction manager.
    A workload owns actual domain catchup, rather than the scheduler inventing
    historical bookkeeping occurrences.
 2. A worker claims one due run using `FOR UPDATE SKIP LOCKED`, commits its lease
-   and records an attempt. Default lease is 60 seconds, configurable 1â€“3,600.
+   and records an attempt. Default lease is 60 seconds, configurable 1–3,600.
 3. Execution locks that run and checks the exact unexpired lease. That transaction
    lock is the exclusivity fence, including after the wall-clock lease expires.
    Reclaimers skip a live execution. Statement timeouts are 30 seconds. Atomic
@@ -135,7 +135,7 @@ python -m tabula_rasa.infrastructure.postgres.job_cli tick --entity SYNTHETIC_EN
 ```
 
 `pause`, `resume`, `cancel` and `retry` use the same explicit entity, service ID, `--id`
-and mutation flag. Each invocation exits after a bounded budget (1â€“100 ticks). Exit
+and mutation flag. Each invocation exits after a bounded budget (1–100 ticks). Exit
 failure instructs inspection of durable status before retrying. The flag is an execution
 guard, not proof of human approval or membership. No HTTP job-control route is added.
 Future member-triggered creation must use the existing server authorization
