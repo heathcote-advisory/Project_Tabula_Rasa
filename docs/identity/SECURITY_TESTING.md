@@ -26,8 +26,8 @@ Run repository Ruff and `git diff --check`; regenerate OpenAPI and the TypeScrip
 client and require no contract drift. The pinned Starlette transport retains
 compatibility with the declared HTTPX TestClient dependency after a fresh install.
 
-Repository CI's unfiltered Python job discovers the route audit and native
-matrix. Its browser job explicitly runs `test_identity_browser.py` and
+Repository CI's application Python job discovers the route audit; its PostgreSQL
+integration job discovers the native matrix. Its native browser jobs explicitly run `test_identity_browser.py` and
 `test_workspace_browser.py` after compiling the SPA with PostgreSQL and
 `TABULA_RASA_REQUIRE_BROWSER_TESTS=1`; missing builds/databases fail that gate.
 [Development](../DEVELOPMENT.md#authoritative-ci-and-required-check) owns the

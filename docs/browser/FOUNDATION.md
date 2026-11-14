@@ -218,8 +218,8 @@ server and does not reuse or stop the existing preview.
 
 [Repository CI](../DEVELOPMENT.md#authoritative-ci-and-required-check) exports and
 regenerates both contract artifacts, rejects drift, compiles the consumer and
-runs the browser foundation checks. Its complete Python job owns API/native
-PostgreSQL tests without a duplicate foundation pytest invocation. A dedicated
+runs the browser foundation checks. Its application and PostgreSQL Python jobs
+partition API/native PostgreSQL tests without a duplicate foundation pytest invocation. A dedicated
 Windows job covers platform-specific setup tests. The aggregate **Full test
 suite** check gates the current PR candidate while CI and advisory review proceed
 concurrently; publication and review completion require no ritual full local run.
