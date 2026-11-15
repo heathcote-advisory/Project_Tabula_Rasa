@@ -1,35 +1,53 @@
-name: Promote commercial production
+name: Read-only production provider access diagnostic
 on:
   workflow_dispatch:
-    inputs:
-      image:
-        description: Exact immutable GHCR image from successful staging verification
-        required: true
-        type: string
-      staging_run:
-        description: Automatic staging or scheduled schema window run ID that verified the image
-        required: true
-        type: string
-      previous_image:
-        description: Expected currently live production image (full immutable GHCR reference)
-        required: true
-        type: string
-      recovery_sha256:
-        description: SHA-256 of the reviewed production recovery and configuration record
-        required: true
-        type: string
 permissions:
   contents: read
-  actions: read
-  packages: read
 jobs:
-  production:
-    if: github.ref == 'refs/heads/main' && vars.COMMERCIAL_PRODUCTION_ENABLED == 'true'
-    uses: ./.github/workflows/commercial-promote.yml
-    with:
-      environment: production
-      image: ${{ inputs.image }}
-      staging_run: ${{ inputs.staging_run }}
-      previous_image: ${{ inputs.previous_image }}
-      recovery_sha256: ${{ inputs.recovery_sha256 }}
-    secrets: inherit
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: production
+      deployment: false
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check configured Render credentials without changing provider state
+        env:
+          STAGING_RENDER_SERVICE_ID: ${{ vars.STAGING_RENDER_SERVICE_ID }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          STAGING_RENDER_API_KEY: ${{ secrets.STAGING_RENDER_API_KEY }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from urllib.error import HTTPError
+          from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  return None
+
+          checks = [
+              ('staging secret -> staging', 'STAGING_RENDER_API_KEY', 'STAGING_RENDER_SERVICE_ID'),
+              ('production secret -> production', 'RENDER_API_KEY', 'RENDER_SERVICE_ID'),
+              ('production secret -> staging', 'RENDER_API_KEY', 'STAGING_RENDER_SERVICE_ID'),
+          ]
+          for label, key, target in checks:
+              service, token = os.environ.get(target, ''), os.environ.get(key, '')
+              if not re.fullmatch(r'srv-[a-z0-9]+', service) or not token:
+                  print(f'{label}: missing credential or invalid service binding')
+                  continue
+              request = Request(f'https://api.render.com/v1/services/{service}/deploys?limit=1',
+                                headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/json'})
+              try:
+                  with build_opener(NoRedirect).open(request, timeout=30) as response:
+                      print(f'{label}: HTTP {response.status}')
+              except HTTPError as error:
+                  print(f'{label}: HTTP {error.code}')
+              except Exception:
+                  print(f'{label}: transport failure (details withheld)')
+          PY
