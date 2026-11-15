@@ -932,7 +932,8 @@ confirmed workbook write.
 
 **Current behavior:** Transaction descriptions are single-line ellipsized previews;
 hover shows the original text and keyboard/touch disclosure exposes the complete
-unmodified value without changing row height. Transaction and Mileage IDs are hidden
+unmodified value in a viewport-contained popover above the table's scroll boundary,
+without changing row height. Escape or clicking outside dismisses it. Transaction and Mileage IDs are hidden
 from standard columns, searchable and exported explicitly. Transaction Debit/Credit
 columns appear only when a displayed entry contains journal postings; matching one
 posting retains the whole journal. Receipt cells show a compact paperclip and count

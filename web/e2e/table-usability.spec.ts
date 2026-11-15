@@ -27,7 +27,7 @@ test('compact descriptions, conditional journal columns and accessible receipt c
     await page.getByLabel('Search transactions').fill(ordinary.record_id);
     await expect(region.getByRole('columnheader', { name: 'Debit', exact: true })).toHaveCount(0);
     await expect(region.getByRole('columnheader', { name: 'Credit', exact: true })).toHaveCount(0);
-    const summary = region.locator('summary');
+    const summary = region.getByRole('button', { name: description, exact: true });
     await expect(summary).toHaveAttribute('title', description);
     await expect(summary).toHaveAttribute('aria-label', description);
     const row = region.locator('tbody > tr').first();
@@ -36,7 +36,20 @@ test('compact descriptions, conditional journal columns and accessible receipt c
     expect(await preview.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(true);
     await summary.focus(); await page.keyboard.press('Enter');
     await expect(region.getByRole('tooltip')).toHaveText(description);
+    await expect(region.getByRole('tooltip')).toBeVisible();
+    expect(await region.getByRole('tooltip').evaluate(node => {
+      const bounds = node.getBoundingClientRect();
+      const painted = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      return node.matches(':popover-open') && bounds.top >= 0 && bounds.bottom <= innerHeight
+        && bounds.left >= 0 && bounds.right <= innerWidth && (painted === node || node.contains(painted));
+    })).toBe(true);
     expect((await row.boundingBox())!.height).toBe(before);
+    await page.keyboard.press('Escape');
+    await expect(region.getByRole('tooltip')).toHaveCount(0);
+    await summary.click();
+    await expect(region.getByRole('tooltip')).toBeVisible();
+    await page.getByRole('heading', { name: 'Transactions', exact: true }).click();
+    await expect(region.getByRole('tooltip')).toHaveCount(0);
     await expect(region.getByLabel('2 receipt(s)')).toHaveText('📎 (2)');
     await page.getByLabel('Search transactions').fill('Sibling retained');
     await expect(region.getByRole('rowheader', { name: '↳ Posting', exact: true })).toHaveCount(2);

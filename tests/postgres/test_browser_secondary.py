@@ -1,6 +1,7 @@
 """Compiled browser secondary workflows against native isolated PostgreSQL."""
 
 from dataclasses import replace
+import re
 
 from playwright.sync_api import expect
 import pytest
@@ -115,7 +116,7 @@ def test_browser_recurring_and_mixed_source_lifecycle(database, commercial, comm
         expect(page.get_by_role('status').filter(has_text='1 matching entries')).to_be_visible()
         projection = page.get_by_role('row').filter(has=page.get_by_role('rowheader', name='Expense · Mixed-use', exact=True))
         expect(projection.get_by_role('rowheader', name='Expense · Mixed-use', exact=True)).to_be_visible()
-        expect(projection.get_by_role('button')).to_have_count(0)
+        expect(projection.get_by_role('button', name=re.compile(r'^Edit '))).to_have_count(0)
         expect(projection.get_by_role('link')).to_have_count(1)
         projection.get_by_role('link', name='Manage mixed-use expense', exact=True).click()
         page.get_by_role('link', name='Manage ' + created_source.value.json()['txn_date'] + ' · Browser allocation', exact=True).click()

@@ -43,8 +43,8 @@ it('hides IDs and empty journal columns, and exposes compact descriptions and re
   expect(screen.queryByRole('columnheader', { name: 'Debit' })).not.toBeInTheDocument();
   const preview = screen.getByTitle(description, { normalizer: value => value });
   expect(preview).toHaveAttribute('aria-label', description);
-  await userEvent.click(preview);
-  expect(preview.closest('details')).toHaveAttribute('open');
+  expect(preview).toHaveAttribute('popovertarget');
+  expect(document.getElementById(preview.getAttribute('popovertarget')!)).toHaveTextContent('including another line');
   expect(screen.getByLabelText('2 receipt(s)')).toHaveTextContent('📎 (2)');
   expect(screen.getByRole('link', { name: /^Receipts for/ })).toHaveAttribute('href', '/transactions/ordinary/receipts');
   const journal = { ...ordinary, entry_type: 'journal' as const, kind: 'Journal', postings: [

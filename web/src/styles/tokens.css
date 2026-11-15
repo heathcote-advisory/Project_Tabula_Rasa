@@ -255,12 +255,10 @@ progress { max-width: 100%; accent-color: var(--primary); }
 .fileDropZone input:disabled::file-selector-button { cursor: default; color: var(--neutral); background: var(--neutral-surface); border-color: var(--border-default); }
 
 /* Compact descriptions expose their complete value on hover, focus or tap. */
-.descriptionPreview { position: relative; width: 24ch; max-width: 24ch; }
-.descriptionPreview summary { cursor: pointer; list-style: none; }
-.descriptionPreview summary span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.descriptionPreview summary::-webkit-details-marker { display: none; }
-.descriptionPreview [role="tooltip"] { display: none; position: absolute; z-index: 5; inset-inline-end: 0; top: 100%; width: min(36ch, 65vw); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); padding: 12px; box-shadow: 0 2px 8px #0002; }
-.descriptionPreview:hover [role="tooltip"], .descriptionPreview:focus-within [role="tooltip"], .descriptionPreview[open] [role="tooltip"] { display: block; }
+.descriptionPreview { display: block; width: 24ch; max-width: 24ch; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; text-align: start; }
+.descriptionPreview span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Native popovers paint above table scroll containers without resizing rows. */
+.descriptionDisclosure { position: fixed; inset: 0; margin: auto; width: min(60ch, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); padding: 12px; box-shadow: 0 2px 8px #0002; }
 .hierarchyName { display: block; }
 .businessList > li { display: grid; grid-template-columns: minmax(0, 1fr) 11rem; min-height: 64px; }
 .businessList .businessRowAction { display: flex; justify-content: stretch; align-items: center; }

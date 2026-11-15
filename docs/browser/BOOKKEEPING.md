@@ -104,7 +104,8 @@ existing selection rules and baseline checks.
 
 The Transactions table shows a single-line ellipsized description preview. Hover
 shows the complete original text; focus exposes the full accessible name and
-Enter/Space or tap opens the complete description without expanding the row.
+Enter/Space or tap opens the complete description above the table's scroll boundary
+without expanding the row. Escape or clicking outside closes the description.
 Transaction IDs remain searchable and explicitly included in CSV exports while hidden
 from standard columns. Debit/Credit appear only when a displayed entry has journal
 postings; searches retain the complete matching journal. Receipt cells show `📎 (N)`
