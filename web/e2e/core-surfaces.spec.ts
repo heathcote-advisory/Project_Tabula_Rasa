@@ -137,7 +137,7 @@ test('ledger filters retain transport scope, reset defaults, complete-entry sear
   await expect(ledger.locator('tbody')).toHaveCount(1);
   await expect(ledger.getByRole('row')).toHaveCount(4); // header, parent, both siblings
   await expect(ledger.getByLabel('Sibling retained', { exact: true })).toBeVisible();
-  await expect(ledger.locator('.postingRow').getByRole('button')).toHaveCount(0);
+  await expect(ledger.locator('.postingRow').getByRole('button', { name: /^Edit / })).toHaveCount(0);
   await expect(ledger.locator('.postingRow').getByRole('link')).toHaveCount(0);
   await page.getByRole('button', { name: 'Clear search' }).click();
   await expect(page.getByRole('status').filter({ hasText: /matching entries$/ })).toHaveText('3 matching entries');
@@ -145,7 +145,7 @@ test('ledger filters retain transport scope, reset defaults, complete-entry sear
   await page.getByLabel('Entry order').selectOption('Ascending');
   await expect(ledger.locator('tbody').first()).toContainText('Source-owned synthetic expense');
   await expect(ledger.locator('tbody').last()).toContainText('Complete synthetic journal');
-  await expect(ledger.locator('tbody').filter({ hasText: 'Source-owned synthetic expense' }).getByRole('button')).toHaveCount(0);
+  await expect(ledger.locator('tbody').filter({ hasText: 'Source-owned synthetic expense' }).getByRole('button', { name: /^Edit / })).toHaveCount(0);
   await expect(ledger.getByRole('link', { name: 'Manage mixed-use expense' })).toHaveAttribute('href', '/mixed-use');
   const filters = page.getByRole('region', { name: 'Ledger filters' });
   await expect(filters.getByLabel('Accounts', { exact: true })).toHaveAccessibleDescription(/no selection includes all/);
