@@ -20,7 +20,10 @@ Dashboard and Reports use server-calculated accounting totals. Date filters sele
 the reporting period and balance-sheet as-of date. Transfers do not affect income or
 expenses, mileage remains separate and current earnings are included in equity.
 Accounts and categories support two layers; family totals count each direct activity
-once. Referenced records retain deletion guards and accounts deactivate rather than
+once. Accounts and Categories support column sorting, with children kept beneath
+their parent and visible indentation. Default order is Asset/Liability/Equity for
+accounts and Income/Expense for categories, then name. Dashboard mirrors the hierarchy
+without sort controls. Referenced records retain deletion guards and accounts deactivate rather than
 delete. [Bookkeeping](browser/BOOKKEEPING.md) defines the supported forms and reports.
 
 ## Transactions, journals and protected edits
@@ -28,7 +31,11 @@ delete. [Bookkeeping](browser/BOOKKEEPING.md) defines the supported forms and re
 Use Add transaction/journal for ordinary income/expense, transfers and balanced
 multi-line journals. The combined ledger preserves whole journal grouping. Ordinary
 transaction copy starts with independent identities and no receipts or recurring
-provenance. Confirmed bulk Category/Payee/Tag updates and deletion use loaded baselines.
+provenance. Descriptions use compact previews: hover for full text, or focus and
+press Enter/Space (tap on touch) to open it. IDs stay searchable and included in CSVs
+while hidden from standard Transactions and Mileage columns. Debit/Credit appear for
+displayed journals; receipt counts use a paperclip. Top Back controls retain dirty-form
+confirmation, and Mileage restores the originating filtered log. Confirmed bulk Category/Payee/Tag updates and deletion use loaded baselines.
 
 If another client changes a loaded record, save/delete is refused and the draft stays
 visible. Choose Review latest record, then Keep draft or Discard draft and reload;
@@ -43,7 +50,11 @@ conversion and independent copy. Schedules retain stable occurrence identities a
 catch up due business dates without duplicate entries. PostgreSQL worker authority
 uses the existing queue; explicit generation in worker mode enqueues background work.
 Startup and page loads never generate. Failed schedules remain inspectable and
-retryable without blocking unrelated businesses or schedules.
+retryable without blocking unrelated businesses or schedules. End permanently stops
+future generation and retains history. Separate confirmed Delete is available only
+when the sole linked occurrence is the original; it removes recurrence and keeps the
+original expense/source and receipts as an independently editable entry. Additional
+occurrences prevent deletion, including when generation wins a concurrent race.
 
 Mixed-use expenses own a source record with total expense, business-use percentage,
 allocated amount and rationale. Its ordinary Expense projection is read-only through
@@ -78,6 +89,9 @@ Transactions offers Download selected ledger CSV, Download transactions CSV and
 Download journal postings CSV. They preserve business scope, whole journal grouping
 and literal formula-leading text. Complete canonical exports retain all supported
 bookkeeping collections and provenance; audit history is excluded.
+
+Accountant handoff is the second-to-last Data & backup section; Closure and privacy
+requests is last, with red closure actions and the existing confirmation safeguards.
 
 **Accountant handoff** lets Owner, Admin and Accountant download the selected
 business's complete bookkeeping ZIP, instructions and checksum manifest. Choose

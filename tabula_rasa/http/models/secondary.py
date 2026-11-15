@@ -136,6 +136,7 @@ class Occurrence(DTO):
 
 
 class RecurringDetail(DTO):
+    can_delete: bool = False
     schedule: Recurring
     occurrences: list[Occurrence]
     mixed_sources: list[MixedUse]

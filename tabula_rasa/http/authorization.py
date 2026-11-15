@@ -62,7 +62,7 @@ ROUTE_POLICIES = MappingProxyType({
     )},
     **{name: RoutePolicy('DELETE', 'write') for name in (
         'delete_category', 'remove_payee', 'remove_tag', 'delete_transaction',
-        'delete_journal', 'delete_mileage', 'unlink_document', 'delete_mixed_use',
+        'delete_journal', 'delete_mileage', 'unlink_document', 'delete_mixed_use', 'delete_recurring',
         'delete_asset', 'remove_depreciation_override',
         'unlink_mixed_use_document',
     )},

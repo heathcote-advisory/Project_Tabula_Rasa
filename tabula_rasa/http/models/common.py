@@ -17,6 +17,7 @@ class ErrorCode(StrEnum):
     VALIDATION = "validation"
     NOT_FOUND = "not_found"
     CONFLICT = "conflict"
+    RECURRING_IN_USE = "recurring_in_use"
     PERIOD_CLOSED = 'period_closed'
     DUPLICATE = "duplicate"
     REFERENCE = "reference"

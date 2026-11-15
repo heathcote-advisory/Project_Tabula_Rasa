@@ -23,7 +23,8 @@ Transactions filters can be collapsed with **Hide filters** and restored with
 collapsing does not change filters, results, sorting or entry selection. **Clear
 filters** remains inside the expanded panel. The collapse preference survives
 navigation in this browser tab, separately per page and authorized business/user
-scope when session storage is available. Filter values still reset on navigation.
+scope when session storage is available. Transaction filter values still reset on navigation. Mileage returns from its
+edit page with the originating search/date/tag scope restored within the same business.
 Report-period controls and create/edit forms remain expanded.
 
 The local development seed creates Alpha and Beta demonstration entities in the
@@ -73,6 +74,14 @@ hierarchy/reference validation and persistence delegate to the existing entity-s
 application services. Parent names are displayed without treating table position or a
 display name as a mutation key.
 
+Accounts open in Asset → Liability → Equity order, then name. Categories open in
+Income → Expense order, then name. Children remain directly beneath their parent,
+including while users sort by column headers; sorting compares siblings rather than
+flattening families. Indentation, a child marker and assistive parent/level text expose
+the hierarchy. Other classifications/kinds retain deterministic fallback ordering.
+Dashboard current account balances use the same default order; balance-sheet sections
+order families within their existing accounting section, without interactive sorting.
+
 Existing edits, removals and merges use the
 [commercial concurrency contract](CONCURRENCY.md). Accounts deactivate
 rather than physically delete. Categories support guarded removal; the current
@@ -93,7 +102,20 @@ explicit commands are neutral, and permanent Delete is red. Reference tables
 wrap long names and merge source lists wrap labels while retaining their
 existing selection rules and baseline checks.
 
+The Transactions table shows a single-line ellipsized description preview. Hover
+shows the complete original text; focus exposes the full accessible name and
+Enter/Space or tap opens the complete description above the table's scroll boundary
+without expanding the row. Escape or clicking outside closes the description.
+Transaction IDs remain searchable and explicitly included in CSV exports while hidden
+from standard columns. Debit/Credit appear only when a displayed entry has journal
+postings; searches retain the complete matching journal. Receipt cells show `📎 (N)`
+with a spoken count; zero receipts are blank and existing receipt actions remain.
+
 ## Workflow navigation and actions
+
+Transaction, mixed-use, recurring and mileage editors/details offer a top Back
+control. Leaving a dirty form requires an explicit discard choice. Inline ledger
+edits return to the existing table context.
 
 The sidebar indicates the current destination with a leading rule and weight, as well as
 color. Transactions remains current while visiting Journals, Mixed-use expenses or

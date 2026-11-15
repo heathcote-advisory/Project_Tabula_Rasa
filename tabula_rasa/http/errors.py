@@ -14,6 +14,7 @@ from tabula_rasa.application.identity import IdentityStorageUnavailable
 
 
 ERRORS = {
+    'recurring_in_use': (409, 'This schedule no longer has only its original occurrence. Reload to inspect it, or End the schedule to stop future generation while retaining history.'),
     'beta_pending': (403, 'Invitation-only beta approval is required for this business and named user. Ask your operator to review enrollment.'),
     'beta_paused': (409, 'New beta admissions are paused. Existing authorized access and export remain available. Retry after your operator resumes admissions.'),
     'beta_capacity': (409, 'The approved beta cohort is at capacity. Ask your operator to review enrollment before retrying.'),
@@ -72,7 +73,7 @@ def failure_code(error):
     if isinstance(error, StorageNotFoundError):
         return "not_found"
     if isinstance(error, StorageConflictError):
-        return error.code if error.code in {"duplicate", "stale", "concurrent_write", 'period_closed'} else "conflict"
+        return error.code if error.code in {"duplicate", "stale", "concurrent_write", 'period_closed', 'recurring_in_use'} else "conflict"
     if isinstance(error, StorageValidationError):
         return error.code if error.code in {
             "reference", "invariant", "required", "baseline_required", "baseline_invalid",

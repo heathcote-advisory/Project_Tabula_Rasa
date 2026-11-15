@@ -19,7 +19,7 @@ export function ReloadPrompt({ pending, onKeep, onReload }: { pending: boolean; 
   </ConfirmationDialog>;
 }
 
-export function ProtectedEditor<T extends FieldValues>({ session, loaded, title, fields, save, remove, removeLabel = 'Delete', confirmSave, loadLatest, onClose, commands = [], commandFields, saveConfirmation, uncertainGuidance }: {
+export function ProtectedEditor<T extends FieldValues>({ session, loaded, title, fields, save, remove, removeLabel = 'Delete', removeDescription, topBack = true, confirmSave, loadLatest, onClose, commands = [], commandFields, saveConfirmation, uncertainGuidance }: {
   session: Session; loaded: LoadedForm<T, LoadMetadata>; title: string;
   fields: (form: UseFormReturn<T>) => ReactNode;
   save: (id: string, baseline: string, changes: T) => Promise<LoadedForm<T, LoadMetadata>>;
@@ -27,6 +27,7 @@ export function ProtectedEditor<T extends FieldValues>({ session, loaded, title,
   commands?: EditorCommand[]; commandFields?: ReactNode;
   confirmSave?: (values: T, defaults: Partial<T>) => boolean;
   saveConfirmation?: { title: string; confirmLabel: string; description: string };
+  removeDescription?: string; topBack?: boolean;
   removeLabel?: string; loadLatest: (id: string) => Promise<LoadedForm<T, LoadMetadata>>;
   onClose?: () => void;
   uncertainGuidance?: ReactNode;
@@ -78,6 +79,7 @@ export function ProtectedEditor<T extends FieldValues>({ session, loaded, title,
   const pending = mutation.isPending || reloading;
   useServerFieldErrors(form, failure, pending);
   return <section className="surface editor" aria-label={title}>
+    {topBack && onClose && <div className="actions"><ActionButton disabled={pending || review} onClick={event => { event.currentTarget.focus(); if (form.formState.isDirty) setClosing(true); else onClose(); }}>Back</ActionButton></div>}
     <SectionHeader title={title} /><UnsavedChanges dirty={form.formState.isDirty} />
     {success && <SuccessNotice>{success}</SuccessNotice>}
     {closing && <ConfirmationDialog title="Discard draft" keepLabel="Keep editing" confirmLabel="Discard draft and close"
@@ -115,7 +117,7 @@ export function ProtectedEditor<T extends FieldValues>({ session, loaded, title,
         confirmTone={removeLabel === 'Delete' ? 'destructive' : 'primary'}
         confirmLabel={'Confirm ' + removeLabel.toLowerCase()} pending={pending || review}
         onKeep={() => setConfirmRemove(false)} onConfirm={() => void submit('remove')}>
-        {removeLabel === 'Delete' ? 'Permanently delete this record?' : 'Deactivate this account?'} The saved record must still match the one you loaded.
+        {removeDescription ?? (removeLabel === 'Delete' ? 'Permanently delete this record?' : 'Deactivate this account?')} The saved record must still match the one you loaded.
       </ConfirmationDialog>}
     </form>}
     {removed && onClose && <div className="actions"><ActionButton onClick={onClose}>Back to records</ActionButton></div>}

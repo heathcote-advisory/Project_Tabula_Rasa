@@ -97,7 +97,7 @@ export function NewRecurring() {
 
 export function RecurringDetail() {
   const { recordId = '' } = useParams();
-  return <RecurringDetailQuery key={recordId} recordId={recordId} />;
+  return <><Link className="button action-secondary" to="/recurring">Back</Link><RecurringDetailQuery key={recordId} recordId={recordId} /></>;
 }
 
 function RecurringDetailQuery({ recordId }: { recordId: string }) {
@@ -127,8 +127,10 @@ function RecurringDetailQuery({ recordId }: { recordId: string }) {
           <td>{row.recurring_scheduled_date}</td><td className="tableText">{row.source_id || 'Ordinary expense'}</td><td className="tableText">{row.id}</td>
         </tr>)}</tbody></table></TableRegion>
     </section>
-    {session.capabilities.includes('bookkeeping:write') ? <ProtectedEditor key={recordId} session={session} loaded={loaded(data.schedule)} title="Edit recurring schedule"
+    {session.capabilities.includes('bookkeeping:write') ? <ProtectedEditor topBack={false} key={recordId} session={session} loaded={loaded(data.schedule)} title="Edit recurring schedule"
       fields={form => <RecurringFields form={form} mixed={data.schedule.source_kind === 'mixed_use'} />} onClose={() => navigate('/recurring')}
+      remove={data.can_delete ? (id, baseline) => api.deleteRecurring(session, id, baseline) : undefined}
+      removeDescription="Permanently delete this recurrence template and detach its original expense. The original entry and its receipts are retained as an ordinary editable record. Future generation stops."
       save={async (id, baseline, changes) => loaded(await api.updateRecurring(session, id, { baseline, changes }))}
       loadLatest={async id => loaded((await api.recurringSchedule(session, id)).schedule)}
       commands={(data.schedule.status === 'ended' ? [] : [data.schedule.status === 'active' ? 'pause' : 'resume', 'end'] as const).map(transition => ({

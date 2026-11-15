@@ -87,7 +87,7 @@ class RecurringService:
         schedule = next((row for row in self._schedules(snapshot) if row['id'] == identity), None)
         if schedule is None:
             raise StorageNotFoundError('Recurring schedule no longer exists')
-        return dict(schedule=schedule,
+        return dict(can_delete=self._repository.can_delete(identity), schedule=schedule,
                     transactions=[row for row in snapshot.transactions if row.get('recurring_schedule_id') == identity],
                     mixed_sources=[row for row in snapshot.mixed_sources if row.get('recurring_schedule_id') == identity])
 
@@ -171,6 +171,11 @@ class RecurringService:
             attention_code="",
             attention_at="",
         )
+
+    def delete(self, schedule_id, *, expected_schedule=None):
+        """Remove an unused template and detach its sole original occurrence."""
+        identity = clean_text(schedule_id, "Schedule ID", required=True)
+        return self._repository.delete(identity, expected=expected_schedule)
 
     def create_expense(self, **data):
         return self._repository.create_expense(data)

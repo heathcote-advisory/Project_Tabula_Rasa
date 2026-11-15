@@ -148,7 +148,7 @@ def test_receipt_upload_partial_link_retry_download_remove_and_recover(commercia
         assert document_store.delete_calls == 0
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.get_by_role('link', name='Back to transactions').click()
-        expect(page.get_by_role('table', name='Business ledger')).to_contain_text('1 receipt(s)')
+        expect(page.get_by_role('table', name='Business ledger').get_by_label('1 receipt(s)', exact=True)).to_be_visible()
 
 
 @pytest.mark.parametrize('width', [1440, 390])

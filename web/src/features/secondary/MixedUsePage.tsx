@@ -1,3 +1,4 @@
+import { compareDecimal, compareText } from '../../components/ordering';
 import { useState, type ReactNode } from 'react';
 import { FormSection, PageHeader, SectionHeader } from '../../components/VisualPrimitives';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -56,12 +57,12 @@ export function MixedUsePage() {
   const session = useEntity();
   return <><PageHeader title="Mixed-use expenses" description="Manage the authoritative source; the ledger receives only its business allocation."
     actions={session.capabilities.includes('bookkeeping:write') && <Link className="button" to="/mixed-use/new">Add mixed-use expense</Link>} />
-    <RecordList resource="mixed-use" title="Mixed-use Expense Log" list={api.mixedUse} label={row => row.txn_date + ' · ' + (row.description || row.id)}
+    <RecordList resource="mixed-use" title="Mixed-use Expense Log" list={api.mixedUse} sorting={{ defaultCompare: (a, b) => compareText(b.txn_date, a.txn_date), record: (a, b) => compareText(a.txn_date, b.txn_date) || compareText(a.description, b.description) }} label={row => row.txn_date + ' · ' + (row.description || row.id)}
       canEdit={() => false} editor={() => null} detailsTarget={row => row.ledger_status === 'linked' ? '/mixed-use/' + encodeURIComponent(row.id) : undefined}
-      columns={[{ title: 'Total', className: 'amount', render: row => row.total_expense }, { title: 'Business %', className: 'numeric', render: row => row.business_use_percentage },
-        { title: 'Allocated', className: 'amount', render: row => row.allocated_amount }, { title: 'Rationale', className: 'tableText', render: row => row.allocation_rationale },
-        { title: 'Relationship', className: 'tableText', render: row => row.ledger_status === 'linked' ? 'Linked · ' + row.linked_transaction_id : 'Inspection required; editing unavailable' },
-        { title: 'Schedule', className: 'tableText', render: row => row.recurring_schedule_id || 'None' }]} />
+      columns={[{ title: 'Total', compare: (a, b) => compareDecimal(a.total_expense, b.total_expense), className: 'amount', render: row => row.total_expense }, { title: 'Business %', compare: (a, b) => compareDecimal(a.business_use_percentage, b.business_use_percentage), className: 'numeric', render: row => row.business_use_percentage },
+        { title: 'Allocated', compare: (a, b) => compareDecimal(a.allocated_amount, b.allocated_amount), className: 'amount', render: row => row.allocated_amount }, { title: 'Rationale', compare: (a, b) => compareText(a.allocation_rationale, b.allocation_rationale), className: 'tableText', render: row => row.allocation_rationale },
+        { title: 'Relationship', compare: (a, b) => compareText(a.ledger_status, b.ledger_status), className: 'tableText', render: row => row.ledger_status === 'linked' ? 'Linked · ' + row.linked_transaction_id : 'Inspection required; editing unavailable' },
+        { title: 'Schedule', compare: (a, b) => compareText(a.recurring_schedule_id, b.recurring_schedule_id), className: 'tableText', render: row => row.recurring_schedule_id || 'None' }]} />
   </>;
 }
 
@@ -113,7 +114,7 @@ function MixedUseCopyEditor({ snapshot, originalId, onClose }: { snapshot: Schem
 
 export function MixedUseDetail() {
   const { recordId = '' } = useParams();
-  return <MixedUseDetailQuery key={recordId} recordId={recordId} />;
+  return <><Link className="button action-secondary" to="/mixed-use">Back</Link><MixedUseDetailQuery key={recordId} recordId={recordId} /></>;
 }
 
 function MixedUseDetailQuery({ recordId }: { recordId: string }) {
@@ -138,7 +139,7 @@ function MixedUseDetailQuery({ recordId }: { recordId: string }) {
       </dl>
     </section>
     <Link className="button action-secondary" to={'/mixed-use/' + encodeURIComponent(data.id) + '/receipts'}>Manage source receipts</Link>
-    {session.capabilities.includes('bookkeeping:write') ? <ProtectedEditor key={recordId} session={session} loaded={loaded(data)} title="Edit mixed-use expense"
+    {session.capabilities.includes('bookkeeping:write') ? <ProtectedEditor topBack={false} key={recordId} session={session} loaded={loaded(data)} title="Edit mixed-use expense"
       fields={form => <MixedFields form={form} />} onClose={() => navigate('/mixed-use')}
       save={async (id, baseline, changes) => loaded(await api.updateMixedUse(session, id, { baseline, changes }))}
       remove={async (id, baseline) => { await api.deleteMixedUse(session, id, baseline); navigate('/mixed-use'); }} loadLatest={async id => loaded(await api.mixedUseSource(session, id))} />

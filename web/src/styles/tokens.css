@@ -253,3 +253,17 @@ progress { max-width: 100%; accent-color: var(--primary); }
 .fileDropZone input::file-selector-button { font: inherit; min-height: var(--control-height); margin-right: var(--space-3); padding: var(--space-2) var(--space-4); border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface-primary); color: var(--text-primary); cursor: pointer; }
 .fileDropZone input::file-selector-button:hover { background: var(--hover); }
 .fileDropZone input:disabled::file-selector-button { cursor: default; color: var(--neutral); background: var(--neutral-surface); border-color: var(--border-default); }
+
+/* Compact descriptions expose their complete value on hover, focus or tap. */
+.descriptionPreview { display: block; width: 24ch; max-width: 24ch; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; text-align: start; }
+.descriptionPreview span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Native popovers paint above table scroll containers without resizing rows. */
+.descriptionDisclosure { position: fixed; inset: 0; margin: auto; width: min(60ch, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); padding: 12px; box-shadow: 0 2px 8px #0002; }
+.hierarchyName { display: block; }
+.businessList > li { display: grid; grid-template-columns: minmax(0, 1fr) 11rem; min-height: 64px; }
+.businessList .businessRowAction { display: flex; justify-content: stretch; align-items: center; }
+.businessList .businessRowAction > button, .businessList .selectedBusiness { width: 100%; max-width: 100%; min-height: 44px; text-align: center; }
+.businessList .selectedBusiness { display: flex; align-items: center; justify-content: center; }
+@media (max-width: 480px) { .businessList > li { grid-template-columns: minmax(0, 1fr) 9rem; gap: 8px; } }
+
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

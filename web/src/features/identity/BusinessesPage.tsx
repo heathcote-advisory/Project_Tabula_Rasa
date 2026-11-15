@@ -14,9 +14,9 @@ export function BusinessesPage() {
   const selection = useContext(EntitySelectionContext);
   const [creating, setCreating] = useState(false);
   return <div className="workflowSections"><PageHeader title="My Businesses" description="Each business has its own membership and ledger. Creating another business does not copy anyone else’s access." />
-    <section aria-label="Available businesses"><h2>Your businesses</h2><ul className="recordList">
+    <section aria-label="Available businesses"><h2>Your businesses</h2><ul className="recordList businessList">
       {selection?.items.map(item => <li key={item.id}><span><span>{businessLabel(item, selection.items)}</span> · {item.currency_code} <span className="muted">{roleLabel(item.role)}</span></span>
-        {item.id === session.entity.id ? <span>Selected business</span> : <EntitySelector activeId={session.entity.id} targetId={item.id} />}</li>)}
+        <div className="businessRowAction">{item.id === session.entity.id ? <span className="selectedBusiness">Selected business</span> : <EntitySelector activeId={session.entity.id} targetId={item.id} />}</div></li>)}
     </ul></section>
     {!session.trusted_development && session.business_creation_available && (creating ? <LedgerSetup key={session.actor_id} session={session} />
       : <div className="actions"><ActionButton tone="primary" onClick={() => setCreating(true)}>Create another business</ActionButton></div>)}

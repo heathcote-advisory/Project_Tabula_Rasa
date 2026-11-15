@@ -34,3 +34,26 @@ it('adds durable recurring badges while preserving accounting type and source-ow
   await userEvent.click(screen.getAllByRole('button', { name: 'Edit 2026-10-01 · Edited memo · 12.50' })[0]);
   expect(edit).toHaveBeenCalledWith(recurring);
 });
+
+it('hides IDs and empty journal columns, and exposes compact descriptions and receipts accessibly', async () => {
+  const description = 'First few words with  a complete unmodified description\nincluding another line';
+  const { rerender } = render(<MemoryRouter><EntityContext.Provider value={session}><LedgerTable rows={[{ ...ordinary, description, receipt_count: 2 }]}
+    filters={{ kind: 'All' }} edit={vi.fn()} loadingRecord={false} /></EntityContext.Provider></MemoryRouter>);
+  expect(screen.queryByRole('columnheader', { name: 'ID' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('columnheader', { name: 'Debit' })).not.toBeInTheDocument();
+  const preview = screen.getByTitle(description, { normalizer: value => value });
+  expect(preview).toHaveAttribute('aria-label', description);
+  expect(preview).toHaveAttribute('popovertarget');
+  expect(document.getElementById(preview.getAttribute('popovertarget')!)).toHaveTextContent('including another line');
+  expect(screen.getByLabelText('2 receipt(s)')).toHaveTextContent('📎 (2)');
+  expect(screen.getByRole('link', { name: /^Receipts for/ })).toHaveAttribute('href', '/transactions/ordinary/receipts');
+  const journal = { ...ordinary, entry_type: 'journal' as const, kind: 'Journal', postings: [
+    { target: 'Cash', payee: '', description: 'Posting', side: 'Debit', amount: '12.50' },
+    { target: 'Equity', payee: '', description: '', side: 'Credit', amount: '12.50' },
+  ] };
+  rerender(<MemoryRouter><EntityContext.Provider value={session}><LedgerTable rows={[journal]}
+    filters={{ kind: 'All' }} edit={vi.fn()} loadingRecord={false} /></EntityContext.Provider></MemoryRouter>);
+  expect(screen.getByRole('columnheader', { name: 'Debit' })).toBeVisible();
+  expect(screen.getByRole('columnheader', { name: 'Credit' })).toBeVisible();
+  expect(screen.getAllByRole('rowheader', { name: '↳ Posting' })).toHaveLength(2);
+});

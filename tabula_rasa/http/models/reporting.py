@@ -95,6 +95,7 @@ class BalanceSheet(DTO):
 
 
 class AccountBalance(DTO):
+    parent_id: str = ''
     id: str
     name: str
     classification: str
@@ -114,7 +115,8 @@ def report_response(service, snapshot, *, start, end):
     sections = {name: [BalanceRow(**{key: money(value) if key in {'balance', 'direct_balance', 'rollup_balance'} else value
                                     for key, value in row.items()}) for row in sheet[name]]
                 for name in ('assets', 'liabilities', 'equity')}
+    parents = {item.id: item.parent_id or '' for item in snapshot.accounts}
     return ReportSummary(profit_loss=ProfitLoss(**{key: money(value) for key, value in period.totals.items()}),
         balance_sheet=BalanceSheet(**sections, **{name: money(sheet[name]) for name in BalanceSheet.model_fields if name not in sections}),
         account_balances=[AccountBalance(id=row['id'], name=row['name'], classification=row['classification'],
-            active=row['active'], balance=money(row['balance'])) for row in service.account_balances(snapshot, decimal_values=True)])
+            active=row['active'], parent_id=parents.get(row['id'], ''), balance=money(row['balance'])) for row in service.account_balances(snapshot, decimal_values=True)])

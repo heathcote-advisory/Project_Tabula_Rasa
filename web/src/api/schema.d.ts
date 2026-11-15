@@ -1200,7 +1200,8 @@ export interface paths {
         get: operations["get_recurring"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Recurring */
+        delete: operations["delete_recurring"];
         options?: never;
         head?: never;
         /** Update Recurring */
@@ -1787,6 +1788,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Parent Id
+             * @default
+             */
+            parent_id: string;
         };
         /** AccountChanges */
         AccountChanges: {
@@ -2610,7 +2616,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "beta_pending" | "beta_paused" | "beta_capacity" | "beta_eligibility" | "validation" | "not_found" | "conflict" | "period_closed" | "duplicate" | "reference" | "invariant" | "required" | "baseline_required" | "baseline_invalid" | "stale" | "concurrent_write" | "unauthorized" | "forbidden" | "unavailable" | "unexpected" | "method_not_allowed" | "reauthentication_required" | "invitation_invalid" | "invitation_used" | "invitation_expired";
+        ErrorCode: "beta_pending" | "beta_paused" | "beta_capacity" | "beta_eligibility" | "validation" | "not_found" | "conflict" | "recurring_in_use" | "period_closed" | "duplicate" | "reference" | "invariant" | "required" | "baseline_required" | "baseline_invalid" | "stale" | "concurrent_write" | "unauthorized" | "forbidden" | "unavailable" | "unexpected" | "method_not_allowed" | "reauthentication_required" | "invitation_invalid" | "invitation_used" | "invitation_expired";
         /** ErrorDetail */
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
@@ -3911,6 +3917,11 @@ export interface components {
         };
         /** RecurringDetail */
         RecurringDetail: {
+            /**
+             * Can Delete
+             * @default false
+             */
+            can_delete: boolean;
             /** Mixed Sources */
             mixed_sources: components["schemas"]["MixedUse"][];
             /** Occurrences */
@@ -12535,6 +12546,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringDetail"];
+                };
+            };
+            /** @description Identity required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Operation denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Duplicate or concurrent change */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Transport or domain validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unexpected failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    delete_recurring: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProtectedMutation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MutationResult"];
                 };
             };
             /** @description Identity required */
