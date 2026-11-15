@@ -558,8 +558,13 @@ environment.
   or writers require a separately reviewed drain plan before enabling this mode.
   In production, if the only external writer uses one dedicated login, set
   `WINDOW_WORKER_ROLE` to that login and leave the exclusive Render setting
-  unset. Verify the role is dedicated to this deployment and the scoped
-  migration owner can toggle its login. Record the schemas supported by the
+  unset. Verify the role is dedicated to this deployment. On the bound production
+  database, an administrator provisions [the scoped login function](../../scripts/provision_worker_login_fence.sql)
+  with `psql -X -v worker_role=<dedicated-worker> -v migration_role=<migration-owner> -f scripts/provision_worker_login_fence.sql`.
+  Connect with the administrator's protected connection settings. Review the
+  exact role bindings before execution. The function can toggle only the
+  selected worker login and grants execution to the migration role without
+  making that role a role administrator. Record the schemas supported by the
   installed pinned worker as comma-separated revisions in
   `WINDOW_WORKER_COMPATIBLE_SCHEMAS` after testing it on each listed schema.
   The workflow disables login before suspending Render, waits for existing

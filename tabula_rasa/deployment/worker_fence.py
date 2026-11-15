@@ -38,9 +38,12 @@ class WorkerLoginFence:
             """), {"role": self.role}).one_or_none()
             if state != (previous, True) or current_revision(connection) != schema:
                 raise ReleaseError("Worker login or schema state changed. Inspect before continuing.")
-            # The role name is restricted to simple ASCII identifiers above.
-            option = "LOGIN" if enabled else "NOLOGIN"
-            connection.exec_driver_sql(f'ALTER ROLE "{self.role}" {option}')
+            connection.execute(text("""
+                SELECT release_control.set_worker_login(CAST(:role AS name), :enabled)
+            """), {"role": self.role, "enabled": enabled})
+            if connection.scalar(text("SELECT rolcanlogin FROM pg_roles WHERE rolname = :role"),
+                                 {"role": self.role}) is not enabled:
+                raise ReleaseError("The scoped worker login change could not be verified.")
 
     def drain(self, *, sleep=time.sleep, monotonic=time.monotonic):
         database = self._database()
