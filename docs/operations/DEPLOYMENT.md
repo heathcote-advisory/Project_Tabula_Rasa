@@ -556,6 +556,18 @@ environment.
   variable `WINDOW_EXCLUSIVE_RENDER_WRITER=true` records an inventory proving
   the service owns runtime writes during schema maintenance. External timers
   or writers require a separately reviewed drain plan before enabling this mode.
+  In production, if the only external writer uses one dedicated login, set
+  `WINDOW_WORKER_ROLE` to that login and leave the exclusive Render setting
+  unset. Verify the role is dedicated to this deployment and the scoped
+  migration owner can toggle its login. Record the schemas supported by the
+  installed pinned worker as comma-separated revisions in
+  `WINDOW_WORKER_COMPATIBLE_SCHEMAS` after testing it on each listed schema.
+  The workflow disables login before suspending Render, waits for existing
+  worker sessions to exit, and enables login after validating the restarted
+  application and target schema. If the release fails with the worker fenced,
+  inspect the deployed image, committed schema and role login before restoring
+  access. Only restore access once the deployed worker is safe on that schema.
+  Keep the NAS timer and backup task definitions in place.
 - Configure `NEON_PROJECT_ID`, `NEON_BRANCH_ID`, `NEON_ENDPOINT_ID` and the
   project-scoped `NEON_RELEASE_API_KEY` secret in each environment that uses
   automatic checkpoints. The workflow verifies the exact read-write endpoint
