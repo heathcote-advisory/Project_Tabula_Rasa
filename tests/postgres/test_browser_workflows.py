@@ -150,7 +150,7 @@ def test_browser_journal_balance_and_service_failure_preserve_draft(database, co
         assert edited.value.json()['id'] == identity
         page.get_by_role('button', name='Back to records', exact=True).click()
         page.goto(commercial_server + '/transactions')
-        expect(page.get_by_role('cell', name='Reviewed browser journal', exact=True)).to_be_visible()
+        expect(page.get_by_label('Reviewed browser journal', exact=True)).to_be_visible()
         expect(page.get_by_role('rowheader', name='↳ Posting', exact=True)).to_have_count(4)
         page.goto(commercial_server + '/reports')
         expect(page.get_by_role('definition').filter(has_text=re.compile(r'^35\.01$'))).to_be_visible()
