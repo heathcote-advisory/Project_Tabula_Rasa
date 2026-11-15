@@ -530,8 +530,12 @@ currently live staging digest only when that exact deployment has a completed
 successful build and staging job, a new Render deployment and post-restart
 readiness, version and named-user smoke evidence by the cutoff. If staging
 changes during preflight or finishes after the cutoff, defer to a later
-window. A late start beyond 03:15 Eastern or a GitHub rerun cannot start a
-production deployment. The current healthy production digest is skipped.
+window. The start window defaults to 15 minutes. If the owner accepts later
+downtime to accommodate GitHub scheduling delays, set the production environment
+variable `PRODUCTION_RELEASE_START_WINDOW_MINUTES` to an integer between 15
+and 120. The 03:00 Eastern eligibility cutoff still applies. The job skips
+when it starts outside the configured window or is a GitHub rerun. The current
+healthy production digest is skipped.
 
 Before enabling unattended releases, verify the following in each applicable
 environment.
