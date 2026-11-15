@@ -17,7 +17,10 @@ def production_cutoff(environ, now):
         return None
     start = datetime.combine(now.astimezone(schema_window.EASTERN).date(), time(3), schema_window.EASTERN)
     start = start.astimezone(timezone.utc)
-    return start if start <= now < start + timedelta(minutes=15) else None
+    configured = environ.get("PRODUCTION_RELEASE_START_WINDOW_MINUTES") or "15"
+    if not re.fullmatch(r"[0-9]{1,3}", configured) or not 15 <= int(configured) <= 120:
+        raise release.ReleaseError("Production release start window must be between 15 and 120 minutes.")
+    return start if start <= now < start + timedelta(minutes=int(configured)) else None
 
 
 def staging_run(candidate, environ, cutoff, *, github):
@@ -87,8 +90,10 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
         smoke=named_smoke, now=schema_window.utc_now, emit=lambda _: None):
     stage = environ["TABULA_RASA_ENVIRONMENT"]
     scheduled = stage == "production"
+    if scheduled and environ.get("COMMERCIAL_AUTO_PRODUCTION_ENABLED") != "true":
+        return {"status": "skipped", "reason": "disabled_or_outside_safe_start_window"}
     cutoff = production_cutoff(environ, now()) if scheduled else None
-    if scheduled and (environ.get("COMMERCIAL_AUTO_PRODUCTION_ENABLED") != "true" or cutoff is None):
+    if scheduled and cutoff is None:
         return {"status": "skipped", "reason": "disabled_or_outside_safe_start_window"}
     if stage not in {"staging", "production"} or release.promotion_mode(environ) != "named_user":
         raise release.ReleaseError("Unattended promotion requires a bound named-user environment.")

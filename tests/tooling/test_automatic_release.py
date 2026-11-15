@@ -17,6 +17,21 @@ def test_production_cutoff_follows_eastern_dst(utc, hour):
     assert automatic_release.production_cutoff({**ENV, "GITHUB_RUN_ATTEMPT": "2"}, start) is None
 
 
+def test_delayed_production_start_keeps_the_original_cutoff():
+    start = datetime.fromisoformat("2026-11-14T08:00:00+00:00")
+    env = {**ENV, "PRODUCTION_RELEASE_START_WINDOW_MINUTES": "90"}
+    assert automatic_release.production_cutoff(env, start - timedelta(seconds=1)) is None
+    assert automatic_release.production_cutoff(env, start + timedelta(minutes=60)) == start
+    assert automatic_release.production_cutoff(env, start + timedelta(minutes=90)) is None
+    assert automatic_release.production_cutoff({**env, "GITHUB_RUN_ATTEMPT": "2"}, start) is None
+
+
+@pytest.mark.parametrize("value", ["0", "14", "121", "90.0", "invalid"])
+def test_invalid_production_start_window_fails_closed(value):
+    with pytest.raises(release.ReleaseError, match="start window"):
+        automatic_release.production_cutoff({**ENV, "PRODUCTION_RELEASE_START_WINDOW_MINUTES": value}, NOW)
+
+
 def test_selection_uses_only_the_live_release_artifact_and_defers_late_staging():
     name = f"staging-release-{CANDIDATE['release']}"
     artifact = {"name": name, "expired": False, "workflow_run": {"id": 123}}
