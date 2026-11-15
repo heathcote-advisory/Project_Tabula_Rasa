@@ -331,3 +331,43 @@ def test_immediate_staging_and_scheduled_production_use_the_shared_environment_q
     assert set(shared) == {"deploy"}
     assert shared["deploy"]["concurrency"]["group"] == "commercial-deploy-${{ inputs.environment }}"
     assert "github.event_name == 'schedule'" in shared["deploy"]["if"]
+
+
+@pytest.mark.parametrize("failure", [None, "smoke", "worker_drain"])
+def test_automatic_production_drains_worker_through_verified_restart(staging, monkeypatch, failure):
+    staging.full_downtime = True
+    staging.settings["ENVIRONMENT"] = "production"
+    staging.failure = failure
+    fence = Mock()
+    def drain():
+        staging.actions.append("worker_drain")
+        if failure == "worker_drain":
+            raise release.ReleaseError("Worker drain failed.")
+    fence.drain.side_effect = drain
+    fence.restore.side_effect = lambda: staging.actions.append("worker_restore")
+    factory = Mock(return_value=fence)
+    monkeypatch.setattr(schema_window, "WorkerLoginFence", factory)
+    env = {**ENV, "TABULA_RASA_ENVIRONMENT": "production", "WINDOW_WORKER_ROLE": "fixture_worker",
+           "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE}
+    plan = {"image": IMAGE, "previous_image": PRIOR_IMAGE, "render_service": SERVICE,
+            "database_sha256": ENV["TABULA_RASA_DEPLOY_DATABASE_SHA256"]}
+    def checkpoint(*_):
+        staging.actions.append("checkpoint")
+        return {}
+    def run():
+        return schema_window.run(
+            env, plan=plan, read=staging.read, metadata=lambda image, _: staging.candidate if image == IMAGE else PRIOR,
+            verify=Mock(), check_database=staging.db, check_closed=staging.closed, check_reopened=staging.reopened,
+            smoke_check=staging.smoke, now=lambda: NOW, revalidate=lambda **_: {}, checkpoint=checkpoint,
+        )
+    if failure:
+        with pytest.raises(release.ReleaseError, match="Inspect the worker login fence"):
+            run()
+        fence.restore.assert_not_called()
+        if failure == "worker_drain":
+            assert "suspend" not in staging.actions and "upgrade" not in staging.actions
+    else:
+        assert run()["status"] == "smoke_passed"
+        initial, final = [i for i, action in enumerate(staging.actions) if action == "checkpoint"]
+        assert initial < staging.actions.index("worker_drain") < staging.actions.index("suspend") < final
+        assert staging.actions.index("smoke_new") < staging.actions.index("worker_restore")

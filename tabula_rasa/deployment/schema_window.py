@@ -13,6 +13,7 @@ from urllib.request import build_opener
 from zoneinfo import ZoneInfo
 
 from . import release
+from .worker_fence import WorkerLoginFence
 
 EASTERN = ZoneInfo("America/New_York")
 START_BUDGET = timedelta(minutes=25)
@@ -281,11 +282,14 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
     emit({**evidence, "status": "preflight_started"})
     if candidate["release"] == previous["release"]:
         raise release.ReleaseError("The forward schema transition has no reviewed maintenance path.")
+    worker_fence = None
     if automatic:
         if previous_image != plan["previous_image"]:
             raise release.ReleaseError("Live release changed before maintenance.")
         release.verify_prior_release(candidate, previous, environment, maintenance=True)
-        if environ.get("WINDOW_EXCLUSIVE_RENDER_WRITER") != "true":
+        if environment == "production" and environ.get("WINDOW_WORKER_ROLE"):
+            worker_fence = WorkerLoginFence(environ, runtime_role, source, candidate["schema"])
+        elif environ.get("WINDOW_EXCLUSIVE_RENDER_WRITER") != "true":
             raise release.ReleaseError("Verify that the bound Render service owns all runtime writes before automation.")
     else:
         evidence.update(checkpoint_sha256=plan["recovery_sha256"], checkpoint_at=plan["checkpoint_at"])
@@ -312,6 +316,10 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
         return {"status": "skipped", "reason": "preflight_exhausted_safe_start_budget"}
     resuming = False
     try:
+        if worker_fence:
+            emit({"status": "draining_database_worker", "at": now().isoformat()})
+            worker_fence.drain()
+            evidence.update(revalidate())
         if protected:
             uri = maintenance_state(state)["uri"]
             emit({"status": "restricting_ingress", "at": now().isoformat()})
@@ -392,10 +400,20 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
                 emit({"status": "suspension_unconfirmed", "at": now().isoformat()})
         emit({"status": "maintenance_failed", "at": now().isoformat()})
         detail = f"{error} " if isinstance(error, release.ReleaseError) else ""
+        if worker_fence:
+            detail += "Inspect the worker login fence before resuming the worker. "
         raise release.ReleaseError(
             detail + "Maintenance stopped. Inspect Render ingress and suspension, deployed digest and committed schema. "
             "Keep ingress restricted until verified; follow forward repair or compatible recovery. Do not rerun blindly."
         ) from None
+    if worker_fence:
+        try:
+            worker_fence.restore()
+        except Exception:
+            raise release.ReleaseError(
+                "The application passed smoke, but worker login restoration is unconfirmed. Inspect before retrying."
+            ) from None
+        emit({"status": "database_worker_login_restored", "at": now().isoformat()})
     finished = now().isoformat()
     return {**evidence, "deploy_id": deploy_id, "deploy_started_at": started, "restarted": True,
             "verified_at": finished, "traffic_restored_at": finished, "status": "smoke_passed"}
