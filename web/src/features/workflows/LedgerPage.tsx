@@ -73,7 +73,7 @@ export function LedgerPage() {
     finally { setLoadingRecord(false); }
   }
   const rows = query.data?.items.filter(row => !search.trim() || [row.kind, row.account, row.to_account, row.category, row.payee, ...row.tags,
-    row.description, row.reference, row.id, ...row.postings.flatMap(line => [line.target, line.payee, line.description])]
+    row.description, row.reference, row.id, row.record_id, ...row.postings.flatMap(line => [line.target, line.payee, line.description])]
     .some(text => text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))) ?? [];
   rows.sort((a, b) => {
     const field = sortFields[sortField];

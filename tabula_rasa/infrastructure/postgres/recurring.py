@@ -102,6 +102,54 @@ class PostgresRecurringRepository(EntityRepository):
             prepared = self.template(built, refs, schedule_id=schedule_id, created_at=current['created_at'])
             return self.write(connection, prepared)
 
+    @staticmethod
+    def unused(schedule, occurrences):
+        return (len(occurrences) == 1
+                and occurrences[0]['occurrence_type'] == 'initial'
+                and occurrences[0]['source_kind'] == schedule['source_kind']
+                and occurrences[0]['scheduled_date'] == schedule['start_date'])
+
+    def occurrence_rows(self, connection, schedule_id):
+        return list(connection.execute(text(
+            'SELECT * FROM recurring_occurrences WHERE entity_id=:scope AND schedule_id=:id'
+        ), {'scope': self.entity_id, 'id': schedule_id}).mappings())
+
+    def can_delete(self, schedule_id):
+        with self.operation(read_only=True) as connection:
+            row = self.get_row(connection, 'recurring_schedules', schedule_id)
+            return self.unused(row, self.occurrence_rows(connection, schedule_id))
+
+    def delete(self, schedule_id, *, expected=None):
+        with self.operation() as connection:
+            # Discover occurrence roots, then acquire the same reference/root order
+            # used by generation and source editors. Recheck after waiting on locks.
+            schedule = self.get_row(connection, 'recurring_schedules', schedule_id)
+            occurrences = self.occurrence_rows(connection, schedule_id)
+            if not self.unused(schedule, occurrences):
+                raise StorageConflictError('Only a schedule with its sole original occurrence can be deleted. End it to retain its history.', code='recurring_in_use')
+            roots = [self.key('recurring_schedules', schedule_id)]
+            for occurrence in occurrences:
+                if occurrence['entry_id']:
+                    roots.append(self.key('entries', occurrence['entry_id']))
+                if occurrence['mixed_use_source_id']:
+                    source = self.get_row(connection, 'mixed_use_sources', occurrence['mixed_use_source_id'])
+                    roots.extend([self.key('mixed_use_sources', source['id']),
+                                  self.key('entries', source['expected_projection_entry_id'])])
+            self.transactions.references(connection, lock=True, root_keys=roots)
+            row = self.get_row(connection, 'recurring_schedules', schedule_id)
+            current = self.project(connection, row)
+            ignored = {'updated_at', 'attention_code', 'attention_at', 'attention_message',
+                       'next_due_date', 'latest_current_occurrence_date'}
+            filtered = {key: value for key, value in expected.items() if key not in ignored} if isinstance(expected, Mapping) else expected
+            self.check_expected(row, 'recurring_schedules', filtered, current)
+            if not self.unused(row, self.occurrence_rows(connection, schedule_id)):
+                raise StorageConflictError('Only a schedule with its sole original occurrence can be deleted. End it to retain its history.', code='recurring_in_use')
+            # Provenance is stored only in this association. Version triggers
+            # invalidate loaded source/entry baselines; accounting rows stay intact.
+            connection.execute(text('DELETE FROM recurring_occurrences WHERE entity_id=:scope AND schedule_id=:id'),
+                               {'scope': self.entity_id, 'id': schedule_id})
+            self.delete_row(connection, 'recurring_schedules', schedule_id)
+
     def reconcile(self, process):
         # The read snapshot closes before application generation starts. Each
         # occurrence and attention write opens its own supported commit unit.

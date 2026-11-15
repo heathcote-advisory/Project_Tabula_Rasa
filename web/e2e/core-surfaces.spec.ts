@@ -136,7 +136,7 @@ test('ledger filters retain transport scope, reset defaults, complete-entry sear
   await expect(page.getByRole('status').filter({ hasText: /matching entries$/ })).toHaveText('1 matching entries');
   await expect(ledger.locator('tbody')).toHaveCount(1);
   await expect(ledger.getByRole('row')).toHaveCount(4); // header, parent, both siblings
-  await expect(ledger.getByText('Sibling retained', { exact: true })).toBeVisible();
+  await expect(ledger.getByLabel('Sibling retained', { exact: true })).toBeVisible();
   await expect(ledger.locator('.postingRow').getByRole('button')).toHaveCount(0);
   await expect(ledger.locator('.postingRow').getByRole('link')).toHaveCount(0);
   await page.getByRole('button', { name: 'Clear search' }).click();

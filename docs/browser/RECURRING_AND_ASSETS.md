@@ -21,8 +21,17 @@ drafts survive failure. Templates contain managed references rather than receipt
 Schedule edits affect future occurrences; existing occurrences retain their
 saved amounts and provenance. **Pause**, **Resume** and **End** require explicit
 confirmation and the originally loaded baseline. End is permanent and retains
-history. The application service has no permanent schedule-delete operation;
-the browser/API does not invent one.
+history, and remains independent of whether any generated occurrence exists.
+
+**Delete** is a separate destructive action shown only when the schedule's sole
+linked occurrence is its original initial expense/source. Active, Paused and Ended
+schedules follow the same eligibility rule. Confirmation removes the template and
+recurrence association, retaining the original entry/source, projection and receipts
+as ordinary editable records. The service checks the loaded schedule baseline and
+revalidates membership under the same entity/reference/root locks used by generation.
+A generated occurrence that wins the race prevents deletion; deleting first prevents
+a prepared generator from recreating the schedule. Missing-original and used schedules
+cannot be deleted. Use End to stop future recurrence while preserving history.
 
 **Generate due occurrences** is an explicit, confirmed command with a cutoff date. Its
 response reports confirmed generated and attention counts. Repeating the action uses
@@ -45,7 +54,9 @@ without partial source pairs.
 ## Mixed-use sources and projections
 
 Transactions links to **Mixed-use expenses**. The source log exposes total,
-business-use percentage, allocated amount, rationale and linked projection.
+business-use percentage, allocated amount, rationale and linked projection. Column
+headers sort ascending/descending with numeric amount/percentage comparisons and a
+visible active direction. Full descriptions remain visible.
 Incomplete source/projection relationships remain visible for inspection with
 editing/removal unavailable; normal commands do not silently repair them.
 

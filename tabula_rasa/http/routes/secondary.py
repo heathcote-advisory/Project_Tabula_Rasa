@@ -153,13 +153,20 @@ def convert_expense_to_recurring(entity_id: str, record_id: str, body: ExpenseRe
 def get_recurring(entity_id: str, record_id: str, request: Request, context: Context):
     with service_operation(request, context, 'recurring') as service:
         detail = service.detail(record_id, fresh=True)
-        return RecurringDetail(schedule=recurring_response(detail['schedule']),
+        return RecurringDetail(can_delete=detail['can_delete'], schedule=recurring_response(detail['schedule']),
                                occurrences=[occurrence_response(row) for row in detail['transactions']],
                                mixed_sources=[mixed_response(row) for row in detail['mixed_sources']])
 
 
 def saved_schedule(row):
     return recurring_response(dict(row, next_due_date='', latest_current_occurrence_date='', attention_message=''))
+
+
+@router.delete('/recurring/{record_id}', response_model=MutationResult, operation_id='delete_recurring')
+def delete_recurring(entity_id: str, record_id: str, body: ProtectedMutation, request: Request, context: Context):
+    with service_operation(request, context, 'recurring') as service:
+        service.delete(record_id, expected_schedule=required_baseline(body.baseline))
+        return MutationResult(status='fully_applied')
 
 
 @router.patch('/recurring/{record_id}', response_model=Recurring, operation_id='update_recurring')

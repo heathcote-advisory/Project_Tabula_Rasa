@@ -194,3 +194,12 @@ it('retains the entire failed selection when refresh removes one selected record
   expect(update).toHaveBeenCalledOnce();
   expect(update.mock.calls[0][1].transaction_ids).toEqual(['one', 'two']);
 });
+
+it('searches stable transaction IDs with no visible ID column and keeps the edit identity', async () => {
+  await setup(undefined, false);
+  await userEvent.type(screen.getByLabelText('Search transactions'), 'one');
+  expect(screen.getByRole('checkbox', { name: 'Select 2026-10-05 · First memo · 12.50' })).toBeVisible();
+  expect(screen.queryByRole('columnheader', { name: 'ID' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Edit 2026-10-05 · First memo · 12.50' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /Edit .*Second memo/ })).not.toBeInTheDocument();
+});

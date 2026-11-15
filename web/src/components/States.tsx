@@ -24,10 +24,11 @@ const messages = {
 
 export function ErrorNotice({ error, onReview, operation = 'write', reauthenticationPath }: { error: unknown; onReview?: () => void; operation?: 'read' | 'write'; reauthenticationPath?: '/invitations' }) {
   const failure = error instanceof ApiError ? error : new ApiError('unexpected');
-  const conflict = ['stale', 'conflict', 'duplicate', 'concurrent_write', 'period_closed'].includes(failure.code);
+  const conflict = ['stale', 'conflict', 'duplicate', 'concurrent_write', 'period_closed', 'recurring_in_use'].includes(failure.code);
   const validation = ['validation', 'reference', 'invariant', 'required', 'baseline_required', 'baseline_invalid'].includes(failure.code);
   const identity = ['unauthorized', 'forbidden'].includes(failure.code);
   const invitationMessages: Record<string, string> = {
+    recurring_in_use: 'This schedule no longer has only its original occurrence. Reload to inspect it, or End the schedule to stop future generation while retaining history.',
     reauthentication_required: 'Sign in again to continue. Re-enter any invitation credential after login.',
     invitation_invalid: 'This invitation is unavailable for this account. Check the invited email with your administrator.',
     invitation_used: 'This invitation was already redeemed, declined or revoked. Ask your administrator for a new one.',

@@ -71,8 +71,8 @@ export function CustomerLifecycle({ session, businessId }: { session: SessionSta
     {error !== undefined && <ErrorNotice error={error} onReview={() => { setError(undefined); setGeneration(value => value + 1); }} />}
     {status && <>
       <div className="actions">
-        {businessId && !active('business_closure') && <ActionButton disabled={busy} onClick={() => request('business_closure')}>Request business closure</ActionButton>}
-        {!active('account_closure') && <ActionButton disabled={busy || status.last_owned_businesses.length > 0} onClick={() => request('account_closure')}>Request personal login closure</ActionButton>}
+        {businessId && !active('business_closure') && <ActionButton tone="destructive" disabled={busy} onClick={() => request('business_closure')}>Request business closure</ActionButton>}
+        {!active('account_closure') && <ActionButton tone="destructive" disabled={busy || status.last_owned_businesses.length > 0} onClick={() => request('account_closure')}>Request personal login closure</ActionButton>}
         {!active('privacy_erasure') && <ActionButton disabled={busy} onClick={() => request('privacy_erasure')}>Request privacy erasure review</ActionButton>}
       </div>
       {status.last_owned_businesses.length > 0 && <p>You are the last active Owner of {status.last_owned_businesses.length} business(es). Login closure is blocked until ownership is resolved.</p>}

@@ -928,6 +928,38 @@ should not be regenerated on every rerun. Show their preparation timestamp,
 change Prepare to Refresh when a set exists, and invalidate a set after a
 confirmed workbook write.
 
+### Commercial table readability and management
+
+**Current behavior:** Transaction descriptions are single-line ellipsized previews;
+hover shows the original text and keyboard/touch disclosure exposes the complete
+unmodified value without changing row height. Transaction and Mileage IDs are hidden
+from standard columns, searchable and exported explicitly. Transaction Debit/Credit
+columns appear only when a displayed entry contains journal postings; matching one
+posting retains the whole journal. Receipt cells show a compact paperclip and count
+with accessible text; zero is blank and receipt management remains available.
+Mixed-use descriptions remain complete and columns sort with field-specific comparators.
+
+Accounts default to Asset → Liability → Equity, then name; Categories default to
+Income → Expense, then name. Sorting is user initiated and always keeps descendants
+contiguous with parents. Indentation/child markers include an assistive level/parent
+label; unrecognized kinds/classifications remain present in deterministic order.
+Dashboard balances mirror account ordering. Balance-sheet families use equivalent
+hierarchy within existing sections, preserving accounting section order and totals.
+Dashboard tables have no sorting/filter controls.
+
+Transaction, mixed-use, recurring and mileage editors/details have a top Back control
+and explicit dirty-draft protection. Mileage returns to its originating filtered log
+within the selected business. End recurrence preserves the template/history and stops
+future generation. Separate confirmed Delete is offered only for the sole original
+occurrence; server-side baseline/eligibility checks serialize with generation and
+retain the original expense/source, linked projection and receipts after detachment.
+
+Data & backup retains its other sections' relative order, followed by Accountant
+handoff and then Closure and privacy requests. Closure uses the established red
+destructive action style. My Businesses reserves the same aligned action column and
+touch target sizing for Selected business and Open business at desktop/narrow widths.
+Business selection, closure authorization and confirmations retain their owners.
+
 ## Page contracts
 
 The page contracts below are the canonical location for exact control order,

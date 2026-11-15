@@ -1,3 +1,5 @@
+import { compareRank, compareText, hierarchy } from '../../components/ordering';
+import { HierarchyName } from '../../components/HierarchyName';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -18,7 +20,7 @@ function Metric({ label, value, signed = false }: { label: string; value?: strin
 function StatementTable({ title, rows }: { title: string; rows: Schemas['BalanceSheet']['assets'] }) {
   return <TableRegion label={title}><table><caption>{title}</caption><thead><tr>
     <th scope="col">Account</th><th scope="col" className="amount">Direct balance</th><th scope="col" className="amount">Including children</th>
-  </tr></thead><tbody>{rows.length ? rows.map(row => <tr key={row.id}><th scope="row" className="tableText">{row.name}</th>
+  </tr></thead><tbody>{rows.length ? hierarchy(rows).map(({ row, depth, parent }) => <tr key={row.id}><th scope="row" className="tableText"><HierarchyName name={row.name} depth={depth} parent={parent} /></th>
     <td className="amount">{row.direct_balance ?? '—'}</td><td className="amount">{row.rollup_balance ?? '—'}</td></tr>)
     : <tr><td colSpan={3} className="tableEmpty">No accounts in {title}.</td></tr>}</tbody></table></TableRegion>;
 }
@@ -62,7 +64,7 @@ export function ReportsPage({ dashboard = false }: { dashboard?: boolean }) {
       <section aria-label="All-date balances" className="reportSection"><SectionHeader title="Current account balances"
         description="All dates, including opening balances and inactive accounts. These balances are independent of the selected report period." />
         <TableRegion label="Current account balances"><table><caption>Current account balances · all dates</caption><thead><tr><th scope="col">Account</th><th scope="col">Classification</th><th scope="col">Status</th><th scope="col" className="amount">Ledger balance</th></tr></thead>
-          <tbody>{report.account_balances.length ? report.account_balances.map(row => <tr key={row.id}><th scope="row" className="tableText">{row.name}</th><td>{row.classification}</td><td>{row.active ? 'Active' : 'Inactive'}</td><td className="amount">{row.balance ?? '—'}</td></tr>)
+          <tbody>{report.account_balances.length ? hierarchy(report.account_balances, (a, b) => compareRank(a.classification, b.classification, ['Asset', 'Liability', 'Equity']) || compareText(a.name, b.name)).map(({ row, depth, parent }) => <tr key={row.id}><th scope="row" className="tableText"><HierarchyName name={row.name} depth={depth} parent={parent} /></th><td>{row.classification}</td><td>{row.active ? 'Active' : 'Inactive'}</td><td className="amount">{row.balance ?? '—'}</td></tr>)
             : <tr><td colSpan={4} className="tableEmpty">No account balances. <Link to="/accounts">Review accounts</Link> or <Link to="/transactions">open the ledger</Link>.</td></tr>}</tbody></table></TableRegion>
       </section>
     </div>}

@@ -15,14 +15,14 @@ export function DataBackupPage() {
   const [mileageDirty, setMileageDirty] = useState(false);
   return <><PageHeader title="Data & backup" description={<>Imports and downloads for {session.entity.name}.</>} />
     <FinancialCsvExports embedded />
-    <CustomerExport />
-    {!session.trusted_development && <CustomerLifecycle key={session.cache_scope + session.entity.id} session={session}
-      businessId={session.entity.role === 'owner' ? session.entity.id : undefined} />}
     {session.capabilities.includes('connections:manage') && !session.trusted_development && <ConnectionsPanel />}
     <UnsavedChanges dirty={transactionDirty || mileageDirty} />
     {['bookkeeping:read', 'bookkeeping:write', 'bookkeeping:import'].every(capability => session.capabilities.includes(capability)) ? <>
       <TransactionImportsPage onDirtyChange={setTransactionDirty} />
       <MileageImport onDirtyChange={setMileageDirty} />
     </> : <p>Importing requires import access to this business (Owner, Admin or Accountant).</p>}
+    <CustomerExport />
+    {!session.trusted_development && <CustomerLifecycle key={session.cache_scope + session.entity.id} session={session}
+      businessId={session.entity.role === 'owner' ? session.entity.id : undefined} />}
   </>;
 }

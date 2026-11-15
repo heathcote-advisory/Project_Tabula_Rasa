@@ -1,3 +1,6 @@
+import { compareDecimal, compareRank, compareText, hierarchy } from '../../components/ordering';
+import { HierarchyName } from '../../components/HierarchyName';
+import { useTableSort } from '../../components/useTableSort';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { accountQuery } from '../../api/query';
@@ -21,14 +24,21 @@ export function Accounts() {
   const session = useEntity();
   const [selected, setSelected] = useState<Account>();
   const query = useQuery(accountQuery(session));
+  const sort = useTableSort<Account>((a, b) => compareRank(a.classification, b.classification, ['Asset', 'Liability', 'Equity']) || compareText(a.name, b.name));
+  const compare = sort.compare({
+    Name: (a, b) => compareText(a.name, b.name), Type: (a, b) => compareText(a.type, b.type),
+    Classification: (a, b) => compareRank(a.classification, b.classification, ['Asset', 'Liability', 'Equity']),
+    'Opening balance': (a, b) => compareDecimal(a.opening_balance, b.opening_balance),
+    Status: (a, b) => Number(a.active) - Number(b.active),
+  });
   return <><PageHeader title="Accounts" description={<>Accounts for {session.entity.name}.</>}
     actions={!selected && session.capabilities.includes('bookkeeping:write') && <Link to="/accounts/new" className="button">Add account</Link>} />
     {selected ? <AccountEditor row={selected} onClose={() => setSelected(undefined)} /> : query.isPending ? <LoadingState label="Loading accounts…" />
       : query.isError ? <ErrorNotice error={query.error} operation="read" onReview={() => void query.refetch()} />
       : query.data.items.length === 0 ? <EmptyState title="No accounts yet">Add an account to start bookkeeping.</EmptyState>
       : <TableRegion label="Accounts"><table>
-        <caption>Business accounts</caption><thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Classification</th><th scope="col">Parent account</th><th scope="col" className="amount">Opening balance</th><th scope="col">Status</th><th scope="col" className="tableActions">Actions</th></tr></thead>
-        <tbody>{query.data.items.map(account => <tr key={account.id}><th scope="row" className="tableText"><span className="recordTitle">{account.name}</span></th>
+        <caption>Business accounts</caption><thead><tr>{sort.header('Name')}{sort.header('Type')}{sort.header('Classification')}<th scope="col">Parent account</th>{sort.header('Opening balance', 'Opening balance', 'amount')}{sort.header('Status')}<th scope="col" className="tableActions">Actions</th></tr></thead>
+        <tbody>{hierarchy(query.data.items, compare).map(({ row: account, depth, parent }) => <tr key={account.id}><th scope="row" className="tableText"><span className="recordTitle"><HierarchyName name={account.name} depth={depth} parent={parent} /></span></th>
           <td>{account.type}</td><td>{account.classification}</td><td className="tableText">{query.data.items.find(parent => parent.id === account.parent_id)?.name ?? '—'}</td><td className="amount">{account.opening_balance}</td>
           <td>{account.active ? 'Active' : 'Inactive'}</td><td className="tableActions"><div className="rowActions">{session.capabilities.includes('bookkeeping:write') &&
             <ActionButton aria-label={'Edit ' + account.name} onClick={() => setSelected(structuredClone(account))}>Edit</ActionButton>}</div></td></tr>)}</tbody></table></TableRegion>}
