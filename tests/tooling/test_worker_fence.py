@@ -44,3 +44,22 @@ def test_fence_timeout_does_not_reopen_login(monkeypatch):
         fence.drain(monotonic=Mock(side_effect=[0, 91]), sleep=Mock())
     set_login.assert_called_once_with(db, previous=True, enabled=False, schema="source")
     db.dispose.assert_called_once_with()
+
+
+def test_scoped_login_function_is_bound_and_read_back(monkeypatch):
+    from tabula_rasa.deployment import worker_fence
+
+    fence = WorkerLoginFence(ENV, "app", "source", "target")
+    db = MagicMock()
+    connection = db.engine.begin.return_value.__enter__.return_value
+    connection.execute.return_value.one_or_none.return_value = (True, True)
+    monkeypatch.setattr(worker_fence, "current_revision", lambda _: "source")
+    connection.scalar.return_value = True
+    with pytest.raises(ReleaseError, match="could not be verified"):
+        fence._set_login(db, previous=True, enabled=False, schema="source")
+    statement, parameters = connection.execute.call_args.args
+    assert "release_control.set_worker_login" in str(statement)
+    assert parameters == {"role": "recurring_worker", "enabled": False}
+    connection.exec_driver_sql.assert_not_called()
+    connection.scalar.return_value = False
+    fence._set_login(db, previous=True, enabled=False, schema="source")
