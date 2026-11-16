@@ -17,6 +17,7 @@ import pytest
 
 from tabula_rasa.deployment import release, schema_window
 from tabula_rasa.deployment.smoke import named_smoke
+from tabula_rasa.infrastructure.postgres.migrations import head_revision
 from tabula_rasa.migration.model import digest
 from tests.tooling.test_schema_window import ENV, NOW, ORIGIN, PLAN, PRIVATE, SERVICE, Staging
 
@@ -61,7 +62,7 @@ class Rehearsal(Staging):
         self.stack = stack
         self.metadata = metadata
         self.candidate = metadata[image]
-        self.expected_schema = "0024_mileage_vehicles"
+        self.expected_schema = self.candidate["schema"]
         self.network = "schema-window-" + uuid4().hex[:12]
         self.database = self.network + "-db"
         self.app = self.network + "-app"
@@ -292,11 +293,12 @@ def release_images():
     prior_metadata = {"release": labels["org.opencontainers.image.revision"], "schema": labels["io.tabula.schema"],
                       "manifest_digest": prior.split("@")[1]}
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    schema = head_revision()
     docker("build", "-f", "deploy/commercial/Dockerfile", "-t", "schema-rehearsal:local",
-           "--build-arg", f"RELEASE_ID={sha}", "--build-arg", "SCHEMA_REVISION=0024_mileage_vehicles", ".")
+           "--build-arg", f"RELEASE_ID={sha}", "--build-arg", f"SCHEMA_REVISION={schema}", ".")
     image_id = docker("image", "inspect", "--format", "{{.Id}}", "schema-rehearsal:local").stdout.strip()
     image = f"{registry}@{image_id}"
-    metadata = {image: {"release": sha, "schema": "0024_mileage_vehicles", "manifest_digest": image_id},
+    metadata = {image: {"release": sha, "schema": schema, "manifest_digest": image_id},
                 prior: prior_metadata}
     return repository, metadata
 
@@ -323,7 +325,7 @@ def test_schema_window_reopens_after_real_private_smoke(lab):
     assert not lab.actions and lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
     result = lab.rehearse({**lab.environ, "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE}, immediate=True)
     assert result["status"] == "smoke_passed" and result["image"] == lab.image
-    assert lab.schema == "0024_mileage_vehicles"
+    assert lab.schema == head_revision()
     assert (lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")) == expected
     assert lab.sql("SET ROLE runtime; SELECT drive_recovery_binding IS NULL FROM external_connections;") == "t"
     assert lab.phases.index("schema_verified") < lab.phases.index("post_restart_smoke_passed")
