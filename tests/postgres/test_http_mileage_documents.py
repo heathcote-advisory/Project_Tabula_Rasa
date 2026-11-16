@@ -90,6 +90,23 @@ def test_mileage_create_round_trip_detail_filter_and_entity_isolation(database, 
     assert snapshot(database)['entries'] == before['entries']  # Mileage never posts accounting entries.
 
 
+def test_managed_vehicle_can_be_cleared_without_legacy_free_text(commercial):
+    _, _, (client, _), _ = commercial
+    vehicle = client.post(PREFIX + 'vehicles', headers=HEADERS, json={'name': 'Van'}).json()
+    fields = {key: value for key, value in TRIP.items() if key != 'vehicle'}
+    created = client.post(PREFIX + 'mileage', headers=HEADERS,
+                          json={**fields, 'vehicle_id': vehicle['id']}).json()['items'][0]
+    route = PREFIX + 'mileage/' + created['id']
+    retained = client.patch(route, headers=HEADERS,
+                            json={'baseline': created['baseline'], 'changes': {**fields, 'notes': 'Keep selection'}})
+    assert retained.status_code == 200 and retained.json()['vehicle_id'] == vehicle['id']
+    cleared = client.patch(route, headers=HEADERS,
+                           json={'baseline': retained.json()['baseline'], 'changes': {**fields, 'vehicle_id': None}})
+    assert cleared.status_code == 200
+    assert cleared.json()['vehicle_id'] is None and cleared.json()['vehicle'] == ''
+    assert cleared.json()['miles'] == created['miles']
+
+
 def test_mileage_create_rejects_other_entity_tag_and_keeps_inactive_history(database, commercial):
     alpha, beta, (client, _), ids = commercial
     foreign = beta.tags.create('Other business')

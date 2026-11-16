@@ -359,6 +359,8 @@ class MileageService:
     def edit_trip(
         self, trip_id: str, *, expected: ExpectedRecord | None = None, **changes: Any,
     ) -> MileageTrip:
+        if 'vehicle_id' in changes and not changes['vehicle_id']:
+            changes.setdefault('vehicle', '')
         if 'vehicle' in changes and 'vehicle_id' not in changes:
             changes['vehicle_id'] = None
         def prepare(
