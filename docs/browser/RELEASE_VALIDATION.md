@@ -11,7 +11,7 @@ regression coverage and the completed historical technical-alpha acceptance.
 
 ## Exact default workflow matrix
 
-### Country and fixed-currency acceptance
+### Country and bookkeeping-currency acceptance
 
 Before a selected Canadian cohort is authorized, record the exact release SHA,
 image digest, database revision (including `0020_book_currency`), browser versions,
@@ -29,6 +29,11 @@ The release owner must verify:
   on desktop/mobile. Currency, private drafts/cache, records, receipt access and
   download labels follow the selected business. Direct foreign-business access
   and unauthorized writes/exports fail; no membership is granted by switching.
+- Owner/Admin can explicitly change an existing USD/CAD label in either direction,
+  while other roles and stale/foreign-business requests fail. Confirm exact numbers,
+  current exports/import validation and refreshed peer/switching context, with
+  business country, approval and membership unchanged. No separate enrollment
+  currency is retained.
 - Representative opening balances, income/expense, transfer, journal, recurring
   and mixed-use activity retain exact amounts and signs. Mileage and transfers
   stay outside income/expenses; Assets = Liabilities + Equity remains balanced.

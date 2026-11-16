@@ -87,13 +87,14 @@ broken required references or unrepresentable accounting records fail before
 publication. Fix the cause or inspect the source locally; never edit validation
 requirements to obtain a success result.
 
-## Fixed book currency and compatibility
+## Book currency and compatibility
 
 `business_entities.currency_code` identifies every amount in the selected
 business's artifact. CAD and USD preserve the same exact decimal strings,
-signs, scales, identities and 26-domain inventory; no FX is performed. Forward
+signs, scales, identities and bookkeeping values; no FX is performed. Forward
 schema `0020_book_currency` changes the allowed currency, not the export field
-shape or encoding, so canonical format remains version 1. The validator accepts
+shape or encoding; that revision retained canonical version 1. Current version 2
+adds managed vehicles as described below. The validator accepts
 both currencies and the new database revision; older supported USD revisions
 remain valid. Older validators may reject CAD or the newer database revision;
 upgrade the validator rather than relabeling currency or bypassing checksums.
@@ -106,7 +107,7 @@ filenames identify the selected book currency; API CSV responses also carry
 `X-Book-Currency`. Currency-free CSVs must be kept with that delivery context;
 they do not independently prove their source currency.
 
-## Version 1 format
+## Current version 2 format
 
 The artifact is UTF-8 JSON with two objects: `manifest` and `domains`. It uses
 the canonical [ADR 0001](../adr/0001-canonical-accounting-schema.md) concepts, not
@@ -117,8 +118,8 @@ completeness, relationships and accounting meaning beyond JSON Schema.
 
 | Manifest field | Meaning |
 | --- | --- |
-| `format`, `format_version` | `tabula-rasa-bookkeeping`, integer `1`; independent of Sheets/archive format 13 |
-| `database_schema_version` | Observed supported PostgreSQL revision (`0004_mileage_order` through `0013_accounting_controls`; all have the same v1 financial inventory, excluding identity/session/connection/claim/lifecycle/job/audit and period/correction control records) |
+| `format`, `format_version` | `tabula-rasa-bookkeeping`, integer `2` for current exports; independent of Sheets/archive format 13 |
+| `database_schema_version` | Observed supported PostgreSQL revision; current v2 uses `0024_mileage_vehicles`, while archived v1 revisions through `0023_business_currency` retain their original inventory |
 | `entity_id` | Explicit selected business entity; also present on every entity-local record |
 | `snapshot_at` | Database transaction-start instant in UTC; all reads use that transaction's coherent snapshot |
 | `counts` | Count for every included canonical collection, including zero counts |
@@ -130,13 +131,13 @@ Every listed collection is required, even when empty:
 
 | Included collections | Preserved content |
 | --- | --- |
-| `business_entities` | Ledger identity, name and immutable book currency (USD or CAD) |
+| `business_entities` | Ledger identity, name and current book currency (USD or CAD) |
 | `accounts`, `categories`, `payees`, `tags` | Hierarchies, signed opening balances, classification/kind, names and inactive historical references |
 | `entries`, `postings`, `entry_tags` | Simple and advanced entries, complete ordered canonical postings, payee references, source ownership and tags |
 | `mixed_use_sources`, `mixed_use_tags` | Full costs, exact percentages/allocations, expected projection identities, relationship states and source tags |
 | `recurring_schedules`, `schedule_tags`, `recurring_occurrences` | Current templates/status/attention, historical occurrence dates/types and typed owners |
 | `fixed_assets`, `asset_tags`, `asset_period_overrides`, `depreciation_events` | Acquisition/retirement terms and references, historical overrides, committed periods and source-owned entries including zero periods |
-| `mileage_records`, `mileage_tags` | Exact one-decimal trips, insertion ordering and tags; no financial postings |
+| `vehicles`, `mileage_records`, `mileage_tags` | Stable vehicle catalog, original vehicle text, vehicle references, exact one-decimal trips, insertion ordering and tags; no financial postings |
 | `documents`, `document_links` | Linked and unreferenced document identities/metadata, external addresses, logical owners and explicit receipt positions |
 | `import_batches`, `import_records` | Persisted source/format/status, fingerprints and accepted record attribution |
 | `migration_runs`, `migration_units`, `migration_id_mappings` | Retained source binding/digests/checkpoints, deterministic ID mappings/reasons and original source update instants |
@@ -231,9 +232,26 @@ python -m pytest tests/test_bookkeeping_export.py tests/postgres/test_entity_exp
 ```
 
 Native tests create fresh disposable databases and seed two synthetic entities
-with overlapping IDs. They cover all 26 canonical collections, exact values and
+with overlapping IDs. They cover all 27 current canonical collections, exact values and
 historical labels, source ownership, document-byte separation, independent report
 totals/balances, deterministic content, offline validation, omitted domains,
 corrupt references/accounting, schema drift, private no-clobber delivery and a
 concurrent committed write between export reads. Tests never use a live ledger,
 profile secrets, credentials or real export artifacts.
+
+### Managed vehicle export version
+
+Canonical format **v2** (schema `0024_mileage_vehicles`) adds the `vehicles`
+collection and nullable `mileage_records.vehicle_id`, with entity-qualified
+relationship validation. The retained mileage `vehicle` text is the original
+source label; the linked catalog record supplies its current display name.
+The 27 collections preserve numeric values exactly. Customer ZIP delivery keeps
+its separate envelope version and embeds this complete canonical v2 artifact.
+Archived v1/schema snapshots remain explicitly inspectable with their original
+26-domain contract; no startup or restore conversion is introduced. Unknown
+versions, missing collections, bad references and checksum mismatches fail.
+
+Owner/Admin may explicitly change the existing business currency label through
+[Business settings](../identity/WORKSPACES.md#business-currency-settings). New
+exports use the current root unit without modifying numbers; archived exports
+retain their original labels. Currency edits alone add no canonical fields.

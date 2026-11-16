@@ -80,6 +80,8 @@ export function createApi(fetcher: typeof fetch = (...args) => fetch(...args)) {
       if (!result.response.ok) throw new ApiError(result.error?.error.code ?? 'unavailable');
     }),
     entities: (signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/businesses', { signal, headers: headers() }))),
+    businessSettings: (s: Session, signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/businesses/{business_id}/settings', { params: { path: { business_id: s.entity.id } }, signal, headers: headers() }))),
+    changeBusinessCurrency: (s: Session, body: Schemas['BusinessCurrencyChange']) => safe(async () => unwrap(await client.PATCH('/api/v1/businesses/{business_id}/settings/currency', { params: { path: { business_id: s.entity.id } }, body, headers: headers(s.csrf_token) }))),
     betaStatus: (signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/beta/status', { signal, headers: headers() }))),
     createBusiness: (s: SessionState, body: Schemas['BusinessCreateRequest']) => safe(async () => unwrap(await client.POST('/api/v1/businesses', { body, headers: headers(s.csrf_token) }))),
     bootstrapStatus: (request_id: string, signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/businesses/creation/{request_id}', { params: { path: { request_id } }, signal, headers: headers() }))),
@@ -134,6 +136,10 @@ export function createApi(fetcher: typeof fetch = (...args) => fetch(...args)) {
       '/api/v1/entities/{entity_id}/payees/{record_id}/merge', { ...mutationParams(s, id), body }))),
     tags: (s: Session, signal?: AbortSignal) => safe(async () => unwrap(await client.GET(
       '/api/v1/entities/{entity_id}/tags', listParams(s, signal)))),
+    vehicles: (s: Session, signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/entities/{entity_id}/vehicles', listParams(s, signal)))),
+    createVehicle: (s: Session, body: Schemas['ManagedCreate']) => safe(async () => unwrap(await client.POST('/api/v1/entities/{entity_id}/vehicles', { ...createParams(s), body }))),
+    updateVehicle: (s: Session, id: string, body: Schemas['ManagedUpdate']) => safe(async () => unwrap(await client.PATCH('/api/v1/entities/{entity_id}/vehicles/{record_id}', { ...mutationParams(s, id), body }))),
+    removeVehicle: (s: Session, id: string, baseline: string) => safe(async () => unwrap(await client.DELETE('/api/v1/entities/{entity_id}/vehicles/{record_id}', { ...mutationParams(s, id), body: { baseline } }))),
     createTag: (s: Session, body: Schemas['ManagedCreate']) => safe(async () => unwrap(await client.POST(
       '/api/v1/entities/{entity_id}/tags', { ...createParams(s), body }))),
     updateTag: (s: Session, id: string, body: Schemas['ManagedUpdate']) => safe(async () => unwrap(await client.PATCH(

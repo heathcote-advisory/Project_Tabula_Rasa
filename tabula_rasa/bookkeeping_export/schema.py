@@ -1,4 +1,4 @@
-"""The explicit v1 canonical record inventory; no worksheet or SQL types.
+"""The current and archived canonical record inventories; no worksheet or SQL types.
 
 Adding a supported field/domain requires an export format decision. Unknown
 fields are rejected rather than silently dropped. This is also the source for
@@ -8,7 +8,7 @@ the machine-readable JSON Schema exposed by the operator command.
 from dataclasses import dataclass
 
 FORMAT_NAME = "tabula-rasa-bookkeeping"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 # A new database revision requires a completeness review for this format.
 # 0005 adds only operator authority/evidence, not bookkeeping fields. The v1
 # inventory remains complete; cutover controls are deployment records.
@@ -26,12 +26,13 @@ FORMAT_VERSION = 1
 # 0019 adds program eligibility/history; canonical v1 stays unchanged.
 # 0020 permits CAD in the existing currency_code field; v1 encoding is unchanged.
 # 0021 adds lifecycle control-plane records only, excluded from financial exports.
-SUPPORTED_DATABASE_REVISION = "0022_drive_recovery_binding"
+# 0023 permits audited metadata edits only; canonical v1 fields are unchanged.
+SUPPORTED_DATABASE_REVISION = "0024_mileage_vehicles"
 SUPPORTED_DATABASE_REVISIONS = ("0004_mileage_order", "0005_bookkeeping_cutover",
                                 "0006_identity_control_plane", "0007_identity_sessions", "0008_owner_lock_scope",
                                 "0009_external_connections", "0010_workspace_lifecycle",
                                 "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls",
-                                '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', SUPPORTED_DATABASE_REVISION)
+                                '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding', '0023_business_currency', SUPPORTED_DATABASE_REVISION)
 ROOT = "id:text created_at:instant updated_at:instant incarnation_id:text version:integer"
 
 
@@ -106,11 +107,27 @@ DOMAINS = {
                                     references="run_id:migration_runs"),
 }
 
+# Archived v1 inspection remains explicit; normal current exports use v2.
+V1_DOMAINS = DOMAINS
+DOMAINS = {**V1_DOMAINS, 'vehicles': domain('name:text name_key:text active:boolean', root=True)}
+old_mileage = V1_DOMAINS['mileage_records']
+DOMAINS['mileage_records'] = Domain({**old_mileage.fields, 'vehicle_id': 'text?'},
+    old_mileage.key, {'vehicle_id': 'vehicles'})
+
+
+def domains_for_revision(revision):
+    return DOMAINS if revision == '0024_mileage_vehicles' else V1_DOMAINS
+
+
 SCALES = {"money": 2, "percentage": 5, "miles": 1}
 
 
-def json_schema():
+def json_schema(*, format_version=FORMAT_VERSION):
     """Return a standard JSON Schema for canonical records and manifest."""
+    if format_version not in {1, FORMAT_VERSION}:
+        raise ValueError("Unsupported export schema version.")
+    inventory = DOMAINS if format_version == FORMAT_VERSION else V1_DOMAINS
+    revisions = [revision for revision in SUPPORTED_DATABASE_REVISIONS if domains_for_revision(revision) is inventory]
     def field_schema(kind):
         nullable = kind.endswith("?")
         kind = kind.rstrip("?")
@@ -127,30 +144,30 @@ def json_schema():
         name: {"type": "array", "items": {
             "type": "object", "additionalProperties": False,
             "required": list(spec.fields), "properties": {field: field_schema(kind) for field, kind in spec.fields.items()},
-        }} for name, spec in DOMAINS.items()
+        }} for name, spec in inventory.items()
     }
     records['business_entities']['items']['properties']['currency_code']['enum'] = ['USD', 'CAD']
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "Tabula Rasa canonical bookkeeping export v1",
+        "title": f"Tabula Rasa canonical bookkeeping export v{format_version}",
         "type": "object", "additionalProperties": False, "required": ["manifest", "domains"],
         "properties": {
-            "domains": {"type": "object", "additionalProperties": False, "required": list(DOMAINS), "properties": records},
+            "domains": {"type": "object", "additionalProperties": False, "required": list(inventory), "properties": records},
             "manifest": {
                 "type": "object", "additionalProperties": False,
                 "required": ["format", "format_version", "database_schema_version", "entity_id", "snapshot_at",
                              "counts", "content_sha256", "status", "diagnostics", "document_bytes"],
                 "properties": {
-                    "format": {"const": FORMAT_NAME}, "format_version": {"const": FORMAT_VERSION},
-                    "database_schema_version": {"enum": list(SUPPORTED_DATABASE_REVISIONS)}, "entity_id": {"type": "string", "minLength": 1},
+                    "format": {"const": FORMAT_NAME}, "format_version": {"const": format_version},
+                    "database_schema_version": {"enum": revisions}, "entity_id": {"type": "string", "minLength": 1},
                     "snapshot_at": {"type": "string", "format": "date-time"},
-                    "counts": {"type": "object", "additionalProperties": False, "required": list(DOMAINS),
-                               "properties": {name: {"type": "integer", "minimum": 0} for name in DOMAINS}},
+                    "counts": {"type": "object", "additionalProperties": False, "required": list(inventory),
+                               "properties": {name: {"type": "integer", "minimum": 0} for name in inventory}},
                     "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
                     "status": {"enum": ["complete", "complete_with_diagnostics"]},
                     "diagnostics": {"type": "array", "items": {
                         "type": "object", "additionalProperties": False, "required": ["domain", "record", "code"],
-                        "properties": {"domain": {"enum": list(DOMAINS)}, "record": {"type": "integer", "minimum": 0},
+                        "properties": {"domain": {"enum": list(inventory)}, "record": {"type": "integer", "minimum": 0},
                                        "code": {"type": "string"}},
                     }},
                     "document_bytes": {"const": "external"},

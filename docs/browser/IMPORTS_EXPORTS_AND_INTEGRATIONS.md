@@ -7,7 +7,7 @@ mutation boundary. Financial CSVs do not replace the
 [complete recovery export](../accounting/EXPORT.md). Live use requires configured
 dependencies and the separate [cutover procedure](../accounting/CUTOVER.md).
 
-## Fixed-currency source interpretation
+## Current business-currency source interpretation
 
 Each business has immutable USD or CAD books. The shell, forms and reports show
 the server-selected book currency; imports never infer a target from a filename,
@@ -77,7 +77,8 @@ the named session, current selected-business membership, Origin and CSRF. Its
 body chooses `scope: documents_inclusive` (the UI default) or `metadata_only`.
 Extra fields and arbitrary audit scopes are refused.
 
-`bookkeeping.json` is the unchanged, validated 26-collection canonical export.
+`bookkeeping.json` is the validated canonical v2 export, including all 27
+collections, stable vehicle identities and original mileage vehicle labels.
 `README.txt` explains the handoff. `manifest.json` is
 `tabula-rasa-customer-handoff` version 1: business, snapshot time, canonical
 version, scope, diagnostics, SHA-256/file sizes and an attachment map from document

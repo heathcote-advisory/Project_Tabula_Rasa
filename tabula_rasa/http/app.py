@@ -195,6 +195,7 @@ def create_app(*, settings=None, runtime_factory=None, schema_only=False, static
     app.include_router(references.categories)
     app.include_router(references.payees)
     app.include_router(references.tags)
+    app.include_router(references.vehicles)
     app.include_router(accounting.transactions)
     app.include_router(accounting.journals)
     app.include_router(mileage.router)

@@ -39,7 +39,7 @@ ROUTE_POLICIES = MappingProxyType({
     'authorize_drive': RoutePolicy('POST', 'connections_manage'),
     'complete_drive_authorization': RoutePolicy('GET', 'session', 'identity'),
     **{name: RoutePolicy('GET', 'read') for name in (
-        'list_accounts', 'list_categories', 'list_payees', 'list_tags',
+        'list_vehicles', 'list_accounts', 'list_categories', 'list_payees', 'list_tags',
         'list_transactions', 'list_journals', 'list_mileage', 'get_mileage',
         'unreferenced_documents', 'download_document', 'transaction_documents',
         'query_ledger', 'report_summary', 'list_mixed_use', 'get_mixed_use',
@@ -48,7 +48,7 @@ ROUTE_POLICIES = MappingProxyType({
         'download_selected_ledger_csv', 'mixed_use_documents', 'mileage_maps',
     )},
     **{name: RoutePolicy('POST', 'write') for name in (
-        'create_account', 'deactivate_account', 'create_category', 'create_payee',
+        'create_vehicle', 'create_account', 'deactivate_account', 'create_category', 'create_payee',
         'create_tag', 'merge_payees', 'merge_tags', 'create_transaction', 'create_journal',
         'create_mileage', 'link_document', 'create_mixed_use', 'create_recurring',
         'reconcile_recurring', 'transition_recurring', 'create_asset', 'post_depreciation',
@@ -56,12 +56,12 @@ ROUTE_POLICIES = MappingProxyType({
         'bulk_update_transactions', 'bulk_delete_transactions', 'convert_expense_to_recurring',
     )},
     **{name: RoutePolicy('PATCH', 'write') for name in (
-        'update_account', 'update_category', 'update_payee', 'update_tag',
+        'update_vehicle', 'update_account', 'update_category', 'update_payee', 'update_tag',
         'update_transaction', 'update_journal', 'update_mileage', 'update_mixed_use',
         'update_recurring', 'update_asset',
     )},
     **{name: RoutePolicy('DELETE', 'write') for name in (
-        'delete_category', 'remove_payee', 'remove_tag', 'delete_transaction',
+        'remove_vehicle', 'delete_category', 'remove_payee', 'remove_tag', 'delete_transaction',
         'delete_journal', 'delete_mileage', 'unlink_document', 'delete_mixed_use', 'delete_recurring',
         'delete_asset', 'remove_depreciation_override',
         'unlink_mixed_use_document',
@@ -89,6 +89,8 @@ ROUTE_POLICIES = MappingProxyType({
     )},
     'change_member': RoutePolicy('PATCH', 'session', 'identity'),
     'business_change_member': RoutePolicy('PATCH', 'session', 'identity'),
+    'business_settings': RoutePolicy('GET', 'session', 'identity'),
+    'business_change_currency': RoutePolicy('PATCH', 'session', 'identity'),
     'revoke_invitation': RoutePolicy('DELETE', 'session', 'identity'),
     'business_revoke_invitation': RoutePolicy('DELETE', 'session', 'identity'),
     'select_entity': RoutePolicy('POST', 'read', 'identity'),

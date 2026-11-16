@@ -10,6 +10,7 @@ from tabula_rasa.reference_data import (
     ACCOUNT_TYPES, as_bool, balance_amount, clean_text, normalize_merge_ids,
     normalize_payee_name, normalize_tag_name, validate_account_classification,
     validate_hierarchy_records,
+    vehicle_name,
 )
 from .repository import EntityRepository, insert, new_object, record, replace
 from .concurrency import lock_aggregates
@@ -23,7 +24,7 @@ MANAGED_FIELDS = ('id', 'name', 'active', 'created_at')
 def reference_record(row, table):
     fields = ACCOUNT_FIELDS if table == 'accounts' else CATEGORY_FIELDS if table == 'categories' else MANAGED_FIELDS
     result = record(row, table, fields)
-    if table in {'payees', 'tags'}:
+    if table in {'payees', 'tags', 'vehicles'}:
         result['active'] = 'TRUE' if row['active'] else 'FALSE'
     return result
 
@@ -200,13 +201,17 @@ class _ManagedRepository(EntityRepository):
     table = ''
     normalize = staticmethod(normalize_payee_name)
 
+    @staticmethod
+    def clean_name(value):
+        return clean_text(value, 'Reference name', required=True)
+
     def list(self, *, active_only=False):
         with self.operation(read_only=True) as connection:
             return sorted([reference_record(row, self.table) for row in self.rows(connection, self.table)
                            if not active_only or row['active']], key=lambda row: row['name'].casefold())
 
     def create(self, name, *, active=True):
-        name = clean_text(name, 'Reference name', required=True)
+        name = self.clean_name(name)
         active = as_bool(active)
         values = new_object(self.entity_id, name=name, name_key=self.normalize(name), active=active)
         with self.operation() as connection:
@@ -230,7 +235,7 @@ class _ManagedRepository(EntityRepository):
         with self.operation() as connection:
             current = self.get_row(connection, self.table, identity, lock=True)
             self.check_expected(current, self.table, expected, reference_record(current, self.table))
-            name = clean_text(changes.get('name', current['name']), 'Reference name', required=True)
+            name = self.clean_name(changes.get('name', current['name']))
             values = {'name': name, 'name_key': self.normalize(name), 'active': as_bool(changes.get('active', current['active']))}
             return reference_record(replace(connection, self.table, self.entity_id, identity, values), self.table)
 
@@ -338,3 +343,22 @@ class PostgresPayeeRepository(_ManagedRepository):
 class PostgresTagRepository(_ManagedRepository):
     table = 'tags'
     normalize = staticmethod(normalize_tag_name)
+
+
+class PostgresVehicleRepository(_ManagedRepository):
+    """Exact names preserve distinguishable historical vehicle labels."""
+    table = 'vehicles'
+    normalize = staticmethod(str)
+    clean_name = staticmethod(vehicle_name)
+
+
+def ensure_vehicle_for_label(connection, entity_id, label):
+    """Map an accepted source label exactly; never reactivate an inactive vehicle."""
+    if not label.strip():
+        return None
+    values = new_object(entity_id, name=label, name_key=label)
+    connection.execute(text('''INSERT INTO vehicles(entity_id,id,incarnation_id,name,name_key)
+        VALUES (:entity_id,:id,:incarnation_id,:name,:name_key)
+        ON CONFLICT (entity_id,name_key) DO NOTHING'''), values)
+    return connection.execute(text('SELECT * FROM vehicles WHERE entity_id=:scope AND name_key=:name FOR UPDATE'),
+        {'scope': entity_id, 'name': label}).mappings().one()

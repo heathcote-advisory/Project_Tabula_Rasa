@@ -8,6 +8,7 @@ import { SelectField, TextField } from '../concurrency/Fields';
 import { activeChoices } from '../concurrency/useReferenceChoices';
 import type { MileageDraft } from './mileageForm';
 import { MapsMileageFields } from './MapsMileageFields';
+import { VehicleSelector } from './VehicleSelector';
 import { FormSection } from '../../components/VisualPrimitives';
 
 export function MileageFields({ form }: { form: UseFormReturn<MileageDraft> }) {
@@ -15,7 +16,7 @@ export function MileageFields({ form }: { form: UseFormReturn<MileageDraft> }) {
   const tags = useQuery({ queryKey: resourceKey(session, 'tags'), queryFn: ({ signal }) => api.tags(session, signal) });
   return <><FormSection title="Trip details">
     <TextField form={form} name="trip_date" label="Trip date" type="date" />
-    <TextField form={form} name="vehicle" label="Vehicle" />
+    <VehicleSelector form={form} />
     </FormSection>
     <MapsMileageFields key={JSON.stringify(form.formState.defaultValues)} form={form}>
     <FormSection title="Tags">

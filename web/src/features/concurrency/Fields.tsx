@@ -15,16 +15,16 @@ export function TextField<T extends FieldValues>({ form, name, label, type = 'te
   </Field>;
 }
 
-export function SelectField<T extends FieldValues>({ form, name, label, options, multiple = false, onChange, hint }: {
+export function SelectField<T extends FieldValues>({ form, name, label, options, multiple = false, onChange, hint, controlled = false }: {
   form: UseFormReturn<T>; name: Path<T>; label: string; options: { id: string; name: string }[]; multiple?: boolean; onChange?: () => void;
-  hint?: ReactNode;
+  hint?: ReactNode; controlled?: boolean;
 }) {
   const error = form.getFieldState(name, form.formState).error?.message;
   const value = useWatch({ control: form.control, name });
   const selected = multiple && Array.isArray(value) ? options.filter(option => value.includes(option.id)).map(option => option.name) : [];
   const description = [hint || multiple ? name + '-hint' : '', multiple ? name + '-selection' : '', error ? name + '-error' : ''].filter(Boolean).join(' ') || undefined;
   return <Field id={name} label={label} error={error}><select id={name} multiple={multiple} aria-invalid={Boolean(error)}
-    aria-describedby={description} {...form.register(name, { onChange })}>
+    aria-describedby={description} {...form.register(name, { onChange })} value={controlled ? value ?? (multiple ? [] : '') : undefined}>
     {options.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
   </select>
     {(hint || multiple) && <p id={name + '-hint'} className="fieldHint">{hint ?? 'Use Ctrl or Command to select more than one; use Shift to select a range.'}</p>}

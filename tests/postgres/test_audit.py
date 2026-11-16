@@ -237,6 +237,9 @@ def test_migration_checkpoint_and_mapping_history_tracks_full_keys(empty_databas
         if pre_activation:
             previous_checkout.setattr('tabula_rasa.infrastructure.postgres.migration.head_revision',
                                       lambda: '0011_control_plane_join')
+            from tabula_rasa.infrastructure.postgres.migration import ROOT_TABLES
+            previous_checkout.setattr('tabula_rasa.infrastructure.postgres.migration.ROOT_TABLES',
+                                      tuple(table for table in ROOT_TABLES if table != 'vehicles'))
         for plan in plans:
             runner.execute(plan, dry_run=False)
     if pre_activation:

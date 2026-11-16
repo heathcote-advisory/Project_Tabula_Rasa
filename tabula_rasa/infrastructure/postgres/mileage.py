@@ -11,7 +11,7 @@ from tabula_rasa.errors import StorageConflictError, StorageValidationError
 from tabula_rasa.quickbooks_mileage_import import mileage_fingerprint
 from .provenance import MAX_IMPORT_ROWS, complete_import, completed_import, import_identity
 from .concurrency import baseline_for
-from .reference_data import PostgresTagRepository
+from .reference_data import PostgresTagRepository, ensure_vehicle_for_label
 from .repository import EntityRepository, insert, new_object, record, replace, serialized
 
 
@@ -31,13 +31,17 @@ class PostgresMileageRepository(EntityRepository):
 
     def project(self, connection, row):
         values = record(row, 'mileage_records', TRIP_FIELDS)
+        if row['vehicle_id']:
+            values['vehicle'] = connection.scalar(text('SELECT name FROM vehicles WHERE entity_id=:scope AND id=:id'),
+                {'scope': self.entity_id, 'id': row['vehicle_id']})
         labels = connection.execute(text(
             'SELECT t.id,t.name FROM mileage_tags m JOIN tags t '
             'ON t.entity_id=m.entity_id AND t.id=m.tag_id '
             'WHERE m.entity_id=:scope AND m.mileage_id=:id ORDER BY t.id'
         ), {'scope': self.entity_id, 'id': row['id']}).all()
         return MileageTrip(
-            **values, trip_date=row['trip_date'].isoformat(), miles=format(row['miles'], '.1f'),
+            **values, vehicle_id=row['vehicle_id'], original_vehicle=row['vehicle'],
+            trip_date=row['trip_date'].isoformat(), miles=format(row['miles'], '.1f'),
             tag_ids=tuple(item.id for item in labels), tags=tuple(item.name for item in labels),
         )
 
@@ -62,15 +66,33 @@ class PostgresMileageRepository(EntityRepository):
         if current and (trip.id != current.id or trip.created_at != current.created_at):
             raise StorageValidationError('Mileage identity and creation instant cannot change.')
         # Callback-created/reactivated tags are visible in this shared operation.
-        return prepare_mileage_trip(
+        prepared = prepare_mileage_trip(
             trip.as_record(), self.tags(connection, lock=True) if tags is None else tags,
             trip_id=trip.id, created_at=trip.created_at,
             original_tag_ids=current.tag_ids if current else (),
         )
+        vehicle_id = prepared.vehicle_id
+        if not vehicle_id and prepared.vehicle:
+            vehicle_id = ensure_vehicle_for_label(connection, self.entity_id, prepared.vehicle)['id']
+        if vehicle_id:
+            vehicle = connection.execute(text('SELECT name,active FROM vehicles WHERE entity_id=:scope AND id=:id FOR SHARE'),
+                {'scope': self.entity_id, 'id': vehicle_id}).mappings().first()
+            if vehicle is None or not vehicle['active'] and (current is None or current.vehicle_id != vehicle_id):
+                raise StorageValidationError('Select an active vehicle from this business.')
+            prepared = replace_trip(prepared, vehicle_id=vehicle_id, vehicle=vehicle['name'])
+        return prepared
 
-    def write(self, connection, trip, *, create=False):
+    def write(self, connection, trip, *, create=False, current=None):
         values = {field: getattr(trip, field) for field in TRIP_FIELDS if field not in {'id', 'created_at'}}
         values.update(trip_date=date.fromisoformat(trip.trip_date), miles=Decimal(trip.miles))
+        values['vehicle_id'] = trip.vehicle_id
+        if not create:
+            # Renames/reassignments retain source text. Explicitly clearing a
+            # previously selected vehicle clears that trip's label, too.
+            if current is not None and current.vehicle_id and not trip.vehicle_id:
+                values['vehicle'] = ''
+            else:
+                values.pop('vehicle')
         if create:
             insert(connection, 'mileage_records', new_object(
                 self.entity_id, id=trip.id,
@@ -107,7 +129,7 @@ class PostgresMileageRepository(EntityRepository):
             current = self.project(connection, row)
             self.check_expected(row, 'mileage_records', expected, current.as_record())
             trip = prepare(current, self.tags(connection, lock=True), self.create_tag)
-            return self.write(connection, self.validate(connection, trip, current=current))
+            return self.write(connection, self.validate(connection, trip, current=current), current=current)
 
     def delete_trip(self, trip_id, *, expected=None):
         with self.operation() as connection:

@@ -760,7 +760,10 @@ reset an operator database or silently upgrade an old revision identifier.
 Repository code alone need not introduce a revision. Any later schema/constraint
 change uses a new forward revision, coordinated to keep one Alembic head.
 `0020_book_currency` follows admission revision `0019_beta_admission`, permits
-USD/CAD on new entities and prevents updating currency on any existing entity.
+USD/CAD on new entities. Its original immutable-update policy is superseded by
+`0023_business_currency`: an explicit Owner/Admin command changes only root
+currency/version/timestamp and records private audit history. The migration
+rewrites no existing records, financial numbers or admission metadata.
 It preserves existing rows/default USD, memberships, source archives and identity.
 Deploy a currency-aware compatible image after the explicit migration; rollback
 must retain CAD interpretation and admission enforcement. Do not downgrade the
@@ -815,3 +818,38 @@ and performs no provider or custody calls. Successful customer consent records t
 original Drive account fingerprint and managed folders. Preserve these rows in full
 database backups. See [Google Drive recovery](../identity/GOOGLE_DRIVE.md#recover-after-loss-of-credential-custody)
 for enrolling existing connections and recovering from lost ciphertext.
+
+### Managed mileage vehicles
+
+Forward revision `0024_mileage_vehicles` adds entity-qualified `vehicles` and a
+nullable `mileage_records.vehicle_id` FK with referenced-delete protection.
+Exact historical nonblank labels map once per entity; case/spacing variants are
+kept distinct. The original `vehicle` text and every numeric field remain intact.
+Blank/whitespace labels remain unassigned and are exposed in the editor for
+resolution. Vehicle roots reuse aggregate versions and private audit capture.
+Read projection resolves the current catalog name without rewriting trip rows.
+Inactive references may be retained by their current trip, but cannot be newly
+assigned. Runtime accepts the current schema; historical mapping happens only
+in this explicit forward migration. Apply the declared maintenance rollout and
+runtime vehicle-table/vehicle-ID column grants before serving the new image.
+
+The maintenance migration owner must provision the runtime's declared grants,
+including currency-column updates and the new vehicle table. For newly created
+tables, configure the owner/runtime default table privileges for this reviewed
+maintenance operation before applying; existing mileage-table privileges must
+cover `vehicle_id`. The bound migration verifies the declared grants before
+committing. Do not bypass grant verification or expose audit history to runtime
+readers as part of this setup.
+
+The vehicle backfill also handles already-closed books. During the explicit
+maintenance transaction it pauses the mileage closure trigger only for the
+metadata mapping, restores it before commit, and installs the same closure guard
+on vehicles. Failure rolls back the trigger state along with all mapping work.
+Normal runtime never bypasses closure. Currency edits acquire the existing
+closure drain lock before identity locks and reject a confirmed closure.
+
+Business currency revision `0023_business_currency` also removes the redundant
+`beta_admissions.currency` column. Country and approval remain; creation validates
+US/USD and CA/CAD directly from the submitted initial setup. The current unit
+lives only on the business root. This migration does not change ledger amounts
+or introduce FX behavior.

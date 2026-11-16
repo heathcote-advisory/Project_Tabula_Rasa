@@ -278,7 +278,12 @@ membership and claimed profile IDs do not unlock that interface.
   The shell shows Book currency and states the unit for all monetary amounts above
   its content, including entry forms, ledger, reports and downloads on desktop/mobile.
   Currency labels do not convert or round stored numeric values. Each new business
-  has one fixed currency; switching remounts the selected unit with private state.
+  has one currency; switching remounts the selected unit with private state.
+  Owner/Admin can change the existing label in Business & members after a separate
+  confirmation naming the business/reference: exact numeric amounts remain, only
+  labels/symbols change, and no FX conversion occurs (100.00 USD becomes 100.00 CAD
+  or the reverse). Other roles have no control; server authorization is authoritative.
+  The settings revision refreshes private session scope and clears stale drafts/queries.
   Selector/list labels and download filenames identify USD versus CAD. CSV columns
   remain compatible. Import guidance states that currency-free amounts use the
   selected book and contradictory explicit source currency is rejected.
@@ -523,6 +528,13 @@ table patterns. Source ownership, service-calculated allocation, posted-history
 locks and future-only schedule edits are explained alongside the applicable
 controls. Depreciation and occurrence history remain locally scrollable tables;
 generation, posting and retirement retain explicit protected confirmations.
+Mileage includes Vehicle management beside View mileage log and Add trip.
+The shared Add/Edit Vehicle selector uses business-scoped stable catalog IDs,
+with No vehicle and inline creation. Historical exact labels remain separate and
+visible with quoted names/references for deliberate resolution; original trip
+text remains preserved. Renames update linked display; deactivation hides new
+choices but retains the current inactive selection. Referenced deletion is refused.
+Read-only users can inspect the catalog.
 Mileage uses the same create/edit fields, a named scrollable log, wrapped text
 and aligned distance columns; manual entry, round trips and scoped CSV remain.
 Shared fields keep their labels and controls at the top of a grid row, so the
@@ -1185,8 +1197,8 @@ upload. Maps lookup buttons retain an 8px gap below their input.
 beta notice below the business actions and forms, using existing surfaces and status text.
 Asynchronous enrollment status must not shift controls during a pointer interaction.
 Scope and service limitations sit in a keyboard-accessible disclosure. Business setup collects
-U.S./USD or Canada/CAD. The review step states the fixed currency and that it
-cannot change after creation. Canadian admission requires separate release/cohort approval. Create Business can return pending without creating a ledger. The
+U.S./USD or Canada/CAD. The review step states the initial currency and that
+Owner/Admin can later change its label without converting amounts. Canadian admission requires separate release/cohort approval. Create Business can return pending without creating a ledger. The
 form preserves the exact request for explicit retry after approval, including
 refresh recovery, and never treats a pending result as successful creation.
 Named collaborators need separate operator approval and retain the existing

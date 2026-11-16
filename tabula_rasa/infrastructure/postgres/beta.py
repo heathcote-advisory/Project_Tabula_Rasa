@@ -109,23 +109,21 @@ def prepare_business(connection, actor, request_id, name, country, currency):
             return None
         key = uuid4().hex
         connection.execute(
-            text("""INSERT INTO beta_admissions(id,user_id,request_id,business_name,country,currency)
-            VALUES (:id,:user,:request,:name,:country,:currency)"""),
+            text("""INSERT INTO beta_admissions(id,user_id,request_id,business_name,country)
+            VALUES (:id,:user,:request,:name,:country)"""),
             dict(
                 id=key,
                 user=actor,
                 request=request_id,
                 name=name,
                 country=country,
-                currency=currency,
             ),
         )
         event(connection, actor, "requested", key)
         return {"state": "pending", "entity_id": None, "organization_id": None}
-    if (row["business_name"], row["country"], row["currency"]) != (
+    if (row["business_name"], row["country"]) != (
         name,
         country,
-        currency,
     ):
         raise IdentityError("conflict")
     if row["state"] != "approved" or connection.scalar(
@@ -253,7 +251,7 @@ class PostgresBeta:
             requests = [
                 dict(row)
                 for row in connection.execute(
-                    text("""SELECT request_id,business_name,country,currency,
+                    text("""SELECT request_id,business_name,country,
                 CASE WHEN state='approved' AND expires_at<=clock_timestamp() THEN 'expired' ELSE state END AS state
                 FROM beta_admissions WHERE user_id=:user ORDER BY id"""),
                     {"user": actor},

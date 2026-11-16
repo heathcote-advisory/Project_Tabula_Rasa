@@ -41,7 +41,7 @@ def test_named_handoff_is_complete_scoped_versioned_and_audited(database):
             assert manifest['scope'] == 'documents_inclusive' and manifest['audit_history'] == 'excluded'
             assert manifest['history_boundary']['activated_at']
             validate_artifact(canonical, entity_id='alpha')
-            assert len(canonical['domains']) == 26
+            assert len(canonical['domains']) == 27
             assert archive.read(manifest['attachments'][0]['path']) == b'synthetic receipt'
             assert [item['origin'] for item in manifest['attachments']] == ['canonical', 'unlinked_inventory']
             assert len(canonical['domains']['documents']) == 1

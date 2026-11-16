@@ -57,7 +57,7 @@ def test_complete_versioned_package_preserves_canonical_and_maps_safe_attachment
             assert len(content) == expected['bytes'] and sha256(content).hexdigest() == expected['sha256']
         canonical = json.loads(archive.read('bookkeeping.json'))
         assert validate_artifact(canonical, entity_id='alpha') == artifact
-        assert len(canonical['domains']) == 26
+        assert len(canonical['domains']) == 27
         assert all('..' not in name for name in archive.namelist())
 
 

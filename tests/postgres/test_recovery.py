@@ -37,7 +37,7 @@ def test_representative_recovery_verification_is_read_only_and_isolates_two_enti
         result = verify(database, expected_alpha)
         assert result == {
             "status": "matched", "scope": "entity_bookkeeping",
-            "database_schema_version": "0022_drive_recovery_binding",
+            "database_schema_version": "0024_mileage_vehicles",
             "content_sha256": expected_alpha["manifest"]["content_sha256"], "later_state_distinct": False,
             "diagnostic_count": 0,
         }
@@ -89,6 +89,12 @@ def test_expected_point_requires_matching_schema_valid_checksum_and_same_entity(
     seed_core(database)
     expected = exported(database)
     expected["manifest"]["database_schema_version"] = "0004_mileage_order"
+    expected['manifest']['format_version'] = 1
+    del expected['domains']['vehicles']
+    for trip in expected['domains']['mileage_records']:
+        del trip['vehicle_id']
+    expected['manifest']['counts'] = {name: len(rows) for name, rows in expected['domains'].items()}
+    expected['manifest']['content_sha256'] = content_digest(expected['domains'])
     with pytest.raises(ExportError, match="recovery_schema_mismatch"):
         verify(database, expected)
     expected = exported(database)

@@ -39,7 +39,7 @@ def delete_category(entity_id: str, record_id: str, body: ProtectedMutation, req
         return MutationResult(status='fully_applied')
 
 
-def managed_router(resource):
+def managed_router(resource, *, allow_merge=True):
     # Payees and tags already share one managed-reference command contract.
     router = APIRouter(prefix=f'/api/v1/entities/{{entity_id}}/{resource}', tags=[resource.title()], responses=ERROR_RESPONSES)
 
@@ -65,14 +65,17 @@ def managed_router(resource):
         with service_operation(request, context, resource) as service:
             return MutationResult(**service.remove(record_id, expected=expected))
 
-    @router.post('/{record_id}/merge', response_model=MutationResult, operation_id=f'merge_{resource}')
-    def merge_reference(entity_id: str, record_id: str, body: ManagedMerge, request: Request, context: Context):
-        expected = merge_baselines(record_id, body.source_ids, body.baselines)
-        with service_operation(request, context, resource) as service:
-            return MutationResult(**service.merge(record_id, body.source_ids, expected=expected))
+    if allow_merge:
+        @router.post('/{record_id}/merge', response_model=MutationResult, operation_id=f'merge_{resource}')
+        def merge_reference(entity_id: str, record_id: str, body: ManagedMerge, request: Request, context: Context):
+            expected = merge_baselines(record_id, body.source_ids, body.baselines)
+            with service_operation(request, context, resource) as service:
+                return MutationResult(**service.merge(record_id, body.source_ids, expected=expected))
 
     return router
 
 
 payees = managed_router('payees')
 tags = managed_router('tags')
+
+vehicles = managed_router('vehicles', allow_merge=False)

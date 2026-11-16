@@ -17,6 +17,67 @@ from tests.postgres.browser_quality_support import assert_accessible
 from tests.test_oidc import oidc as oidc
 
 
+@pytest.mark.parametrize('engine', ['chromium', 'firefox', 'webkit'])
+@pytest.mark.parametrize('width', [1440, 390])
+def test_currency_settings_and_managed_mileage_vehicles(named_server, engine, width, native_browser):
+    origin, repo, _, _, _, _, _, _ = named_server
+    with repo.database.transaction(read_only=True) as c:
+        configuration = c.scalar(text("SELECT configuration_hash FROM identity_environments WHERE environment='test'"))
+    sessions = PostgresSessionRepository(repo.database, 'test', configuration)
+    raw, _ = sessions.issue(verified())
+    sessions.select(raw, 'alpha')
+    services = create_postgres_services(repo.database, 'alpha')
+    vehicle = services.vehicles.create('Work van')
+    trip = services.mileage.create_trip(trip_date='2026-11-01', miles='12.3', vehicle_id=vehicle['id'],
+        start_location='Office', destination='Client', business_purpose='Meeting')
+    with native_browser(engine) as browser:
+        context = browser.new_context(viewport={'width': width, 'height': 1000})
+        context.add_cookies([{'name': 'tabula_dev_session', 'value': raw, 'url': origin,
+                             'httpOnly': True, 'sameSite': 'Lax'}])
+        page = context.new_page()
+        page.goto(origin + '/business/members')
+        page.get_by_label('Business currency', exact=True).select_option('CAD')
+        page.get_by_role('button', name='Save currency', exact=True).click()
+        dialog = page.get_by_role('alertdialog', name='Confirm business currency change')
+        expect(dialog).to_contain_text('100.00 USD becomes 100.00 CAD')
+        assert_accessible(page)
+        dialog.get_by_role('button', name='Change currency label', exact=True).click()
+        expect(page.get_by_text('Book currency: CAD', exact=True)).to_be_visible()
+        assert context.request.get(origin + '/api/v1/session').json()['entity']['currency_code'] == 'CAD'
+        page.goto(origin + '/mileage')
+        page.get_by_role('link', name='Vehicle management', exact=True).click()
+        expect(page.get_by_role('heading', name='Vehicle management', exact=True)).to_be_visible()
+        page.get_by_role('button', name='Edit Work van', exact=True).click()
+        page.get_by_label('Name', exact=True).fill('Renamed van')
+        page.get_by_role('button', name='Save changes', exact=True).click()
+        expect(page.get_by_role('status').filter(has_text='Changes saved.')).to_be_visible()
+        page.get_by_role('button', name='Back to records', exact=True).click()
+        page.goto(origin + '/mileage/' + trip.id)
+        expect(page.get_by_label('Vehicle', exact=True)).to_have_value(vehicle['id'])
+        expect(page.get_by_role('option', name='Renamed van', exact=True)).to_be_attached()
+        page.get_by_text('Add a new vehicle', exact=True).click()
+        page.get_by_label('New vehicle name', exact=True).fill('Spare van')
+        with page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/vehicles')) as created:
+            page.get_by_role('button', name='Add vehicle', exact=True).click()
+        assert created.value.status == 201
+        spare = created.value.json()
+        expect(page.get_by_label('Vehicle', exact=True)).to_have_value(spare['id'])
+        page.get_by_role('button', name='Save changes', exact=True).click()
+        expect(page.get_by_role('status').filter(has_text='Changes saved.')).to_be_visible()
+        assert_accessible(page)
+        page.goto(origin + '/mileage')
+        expect(page.get_by_role('table', name='Business mileage').get_by_text('Spare van', exact=True)).to_be_visible()
+        with page.expect_download() as downloading:
+            page.get_by_role('button', name='Download filtered mileage CSV', exact=True).click()
+        assert 'Spare van' in Path(downloading.value.path()).read_text(encoding='utf-8')
+        assert_accessible(page)
+        if evidence_root := os.environ.get('TABULA_RASA_BROWSER_EVIDENCE'):
+            target = Path(evidence_root)
+            target.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(target / f'{engine}-{width}-managed-mileage.png'), full_page=True)
+        assert services.mileage.get_trip(trip.id).miles == '12.3'
+
+
 @pytest.mark.parametrize('named_server', [('USD', 'CAD')], indirect=True)
 @pytest.mark.parametrize('engine', ['chromium', 'firefox', 'webkit'])
 @pytest.mark.parametrize('width', [1440, 390])
@@ -531,7 +592,7 @@ def test_beta_pending_operator_approval_and_pause_preserve_business(named_server
                 creation_paused=False,invitations_paused=False,suspended=False)
         page.reload()
         expect(page.get_by_role('region',name='Beta enrollment').get_by_text(
-            f'Synthetic beta business: approved. Book currency: {currency}.',exact=True)).to_be_visible()
+            'Synthetic beta business: approved.',exact=True)).to_be_visible()
         page.get_by_role('button',name='Create your first business',exact=True).click()
         expect(page.get_by_text('Enrollment: approved.',exact=False)).to_be_visible()
         page.get_by_label('Business name').fill('Synthetic beta business')

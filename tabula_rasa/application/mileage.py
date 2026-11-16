@@ -48,6 +48,8 @@ class MileageTrip:
     created_at: str
     tags: tuple[str, ...] = ()
     baseline: str | None = None
+    vehicle_id: str | None = None
+    original_vehicle: str | None = None
 
     def as_record(self) -> dict[str, Any]:
         """Return portable field values for existing table/form consumers."""
@@ -56,6 +58,7 @@ class MileageTrip:
             "trip_date": self.trip_date,
             "miles": self.miles,
             "vehicle": self.vehicle,
+            "vehicle_id": self.vehicle_id,
             "start_location": self.start_location,
             "destination": self.destination,
             "business_purpose": self.business_purpose,
@@ -182,6 +185,7 @@ def prepare_mileage_trip(
         trip_date=trip_date,
         miles=miles,
         vehicle=vehicle,
+        vehicle_id=_text(data.get('vehicle_id'), 'Vehicle ID') or None,
         start_location=start,
         destination=destination,
         business_purpose=purpose,
@@ -242,7 +246,7 @@ def _validated_trips(
                 trip_id=trip_id,
                 created_at=trip.created_at,
                 original_tag_ids=trip.tag_ids,
-            ), baseline=trip.baseline)
+            ), baseline=trip.baseline, vehicle=trip.vehicle, original_vehicle=trip.original_vehicle)
         )
     # Preserve backend insertion order for equal timestamps (new return first).
     return tuple(
@@ -264,6 +268,8 @@ def _quickbooks_preview(
         )
     normalized = normalize_rows(rows)
     known = {mileage_fingerprint(item.as_record()) for item in existing}
+    known.update(mileage_fingerprint({**item.as_record(), 'vehicle': item.original_vehicle})
+                 for item in existing if item.original_vehicle is not None)
     ready = []
     duplicates = []
     for source in normalized["rows"]:
@@ -353,6 +359,8 @@ class MileageService:
     def edit_trip(
         self, trip_id: str, *, expected: ExpectedRecord | None = None, **changes: Any,
     ) -> MileageTrip:
+        if 'vehicle' in changes and 'vehicle_id' not in changes:
+            changes['vehicle_id'] = None
         def prepare(
             current: MileageTrip,
             tags: Sequence[MileageTag],

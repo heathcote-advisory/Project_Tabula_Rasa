@@ -98,12 +98,12 @@ function managedLoaded(row: Schemas['ManagedReference']) {
   return { values, metadata: metadata(row) };
 }
 
-function ManagedEditor({ row, resource, onClose }: { row: Schemas['ManagedReference']; resource: 'payees' | 'tags'; onClose: () => void }) {
+function ManagedEditor({ row, resource, onClose }: { row: Schemas['ManagedReference']; resource: 'payees' | 'tags' | 'vehicles'; onClose: () => void }) {
   const session = useEntity();
-  const list = resource === 'payees' ? api.payees : api.tags;
-  const save = resource === 'payees' ? api.updatePayee : api.updateTag;
-  const remove = resource === 'payees' ? api.removePayee : api.removeTag;
-  return <ProtectedEditor session={session} loaded={managedLoaded(row)} title={resource === 'payees' ? 'Edit payee' : 'Edit tag'} onClose={onClose}
+  const list = resource === 'vehicles' ? api.vehicles : resource === 'payees' ? api.payees : api.tags;
+  const save = resource === 'vehicles' ? api.updateVehicle : resource === 'payees' ? api.updatePayee : api.updateTag;
+  const remove = resource === 'vehicles' ? api.removeVehicle : resource === 'payees' ? api.removePayee : api.removeTag;
+  return <ProtectedEditor session={session} loaded={managedLoaded(row)} title={resource === 'vehicles' ? 'Edit vehicle' : resource === 'payees' ? 'Edit payee' : 'Edit tag'} onClose={onClose}
     confirmSave={(values, defaults) => Boolean(defaults.active && !values.active)}
     save={async (id, baseline, changes) => managedLoaded(await save(session, id, { baseline, changes }))}
     remove={(id, baseline) => remove(session, id, baseline)}
@@ -111,19 +111,22 @@ function ManagedEditor({ row, resource, onClose }: { row: Schemas['ManagedRefere
     fields={form => <FormSection title="Record details"><TextField form={form} name="name" label="Name" /><ActiveField form={form} name="active" /></FormSection>} />;
 }
 
-export function ReferencesPage({ resource }: { resource: 'categories' | 'payees' | 'tags' }) {
+export function ReferencesPage({ resource }: { resource: 'categories' | 'payees' | 'tags' | 'vehicles' }) {
   const session = useEntity();
-  const title = resource[0].toUpperCase() + resource.slice(1);
+  const title = resource === 'vehicles' ? 'Vehicle management' : resource[0].toUpperCase() + resource.slice(1);
+  const path = resource === 'vehicles' ? '/mileage/vehicles' : '/' + resource;
   return <><PageHeader title={title} description="Review existing records and save changes for this business."
-    actions={session.capabilities.includes('bookkeeping:write') && <Link className="button" to={'/' + resource + '/new'}>Add {resource === 'categories' ? 'category' : resource === 'payees' ? 'payee' : 'tag'}</Link>} />
+    actions={session.capabilities.includes('bookkeeping:write') && <Link className="button" to={path + '/new'}>Add {resource === 'vehicles' ? 'vehicle' : resource === 'categories' ? 'category' : resource === 'payees' ? 'payee' : 'tag'}</Link>} />
+    {resource === 'vehicles' && <p>Historical labels are mapped exactly. Similar case or spacing remains separate; review the quoted exact names and vehicle references before explicitly reassigning a trip. Deactivate vehicles to hide them from new trips while retaining history. Referenced vehicles cannot be deleted.</p>}
     {resource === 'categories'
       ? <RecordList resource={resource} title="Categories" list={api.categories} label={row => row.name}
           tree={row => row} sorting={{ defaultCompare: (a, b) => compareRank(a.kind, b.kind, ['Income', 'Expense']) || compareText(a.name, b.name) }}
           columns={[{ title: 'Kind', compare: (a, b) => compareRank(a.kind, b.kind, ['Income', 'Expense']), render: row => <span className="recordBadge">{row.kind}</span> }, { title: 'Parent category', className: 'tableText', render: (row, rows) => rows.find(parent => parent.id === row.parent_id)?.name ?? '—' }]}
           editor={(row, close) => <CategoryEditor row={row} onClose={close} />} />
-      : <><RecordList key={resource} resource={resource} title={title} list={resource === 'payees' ? api.payees : api.tags} label={row => row.name}
-          columns={[{ title: 'Status', render: row => <span className="recordBadge">{row.active ? 'Active' : 'Inactive'}</span> }]}
+      : <><RecordList key={resource} resource={resource} title={title} list={resource === 'vehicles' ? api.vehicles : resource === 'payees' ? api.payees : api.tags} label={row => row.name}
+          columns={[{ title: 'Status', render: row => <span className="recordBadge">{row.active ? 'Active' : 'Inactive'}</span> },
+            ...(resource === 'vehicles' ? [{ title: 'Vehicle reference', render: (row: Schemas['ManagedReference']) => <span>{row.id}<br /><code>{JSON.stringify(row.name)}</code></span> }] : [])]}
           editor={(row, close) => <ManagedEditor row={row} resource={resource} onClose={close} />} />
-        <div className="actions"><Link className="button action-secondary" to={'/' + resource + '/merge'}>Merge {resource}</Link></div></>}
+        {resource !== 'vehicles' && <div className="actions"><Link className="button action-secondary" to={'/' + resource + '/merge'}>Merge {resource}</Link></div>}</>}
   </>;
 }

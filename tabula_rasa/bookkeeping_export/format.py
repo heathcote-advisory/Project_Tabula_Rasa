@@ -7,7 +7,7 @@ import json
 import re
 
 from tabula_rasa.application.entity_export import ExportError
-from .schema import DOMAINS, FORMAT_NAME, FORMAT_VERSION, SCALES, SUPPORTED_DATABASE_REVISIONS
+from .schema import DOMAINS, FORMAT_NAME, FORMAT_VERSION, SCALES, SUPPORTED_DATABASE_REVISIONS, domains_for_revision, V1_DOMAINS
 
 
 def encoded_value(value, kind):
@@ -65,11 +65,12 @@ def content_digest(domains):
     return hashlib.sha256(canonical_json(domains).encode("utf-8")).hexdigest()
 
 
-def validate_domains(domains, entity_id):
-    if not isinstance(domains, dict) or set(domains) != set(DOMAINS):
+def validate_domains(domains, entity_id, *, inventory=None):
+    inventory = DOMAINS if inventory is None else inventory
+    if not isinstance(domains, dict) or set(domains) != set(inventory):
         raise ExportError("domain_coverage")
     indexes = {}
-    for name, spec in DOMAINS.items():
+    for name, spec in inventory.items():
         rows = domains[name]
         if not isinstance(rows, list):
             raise ExportError("format")
@@ -93,7 +94,12 @@ def validate_domains(domains, entity_id):
         raise ExportError("entity_scope")
     if domains["business_entities"][0]["currency_code"] not in {"USD", "CAD"}:
         raise ExportError("unsupported_currency")
-    for name, spec in DOMAINS.items():
+    if 'vehicles' in inventory:
+        names = [row['name'] for row in domains['vehicles']]
+        if (len(set(names)) != len(names) or any(not row['name'].strip() or row['name_key'] != row['name']
+                for row in domains['vehicles'])):
+            raise ExportError('record_identity')
+    for name, spec in inventory.items():
         for row in domains[name]:
             for field, target in spec.references.items():
                 if row[field] is not None and row[field] not in indexes[target]:
@@ -107,19 +113,20 @@ def build_artifact(snapshot):
         raise ExportError("unsupported_database_schema")
     if not snapshot.entity_id.strip() or not _valid(snapshot.snapshot_at, "instant"):
         raise ExportError("snapshot_metadata")
-    if set(snapshot.domains) != set(DOMAINS):
+    inventory = domains_for_revision(snapshot.database_schema_version)
+    if set(snapshot.domains) != set(inventory):
         raise ExportError("domain_coverage")
     domains = {}
-    for name, spec in DOMAINS.items():
+    for name, spec in inventory.items():
         domains[name] = []
         for row in snapshot.domains[name]:
             if set(row) != set(spec.fields):
                 raise ExportError("record_format")
             domains[name].append({field: encoded_value(row[field], kind) for field, kind in spec.fields.items()})
         domains[name].sort(key=lambda row: tuple(row[field] for field in spec.key))
-    diagnostics = validate_domains(domains, snapshot.entity_id)
+    diagnostics = validate_domains(domains, snapshot.entity_id, inventory=inventory)
     return {"manifest": {
-        "format": FORMAT_NAME, "format_version": FORMAT_VERSION,
+        "format": FORMAT_NAME, "format_version": FORMAT_VERSION if inventory is DOMAINS else 1,
         "database_schema_version": snapshot.database_schema_version, "entity_id": snapshot.entity_id,
         "snapshot_at": snapshot.snapshot_at, "counts": {name: len(rows) for name, rows in domains.items()},
         "content_sha256": content_digest(domains),
@@ -138,7 +145,7 @@ def validate_artifact(artifact, *, entity_id):
     if not isinstance(manifest, dict) or set(manifest) != required:
         raise ExportError("manifest")
     if (manifest["format"] != FORMAT_NAME or type(manifest["format_version"]) is not int
-            or manifest["format_version"] != FORMAT_VERSION or manifest["document_bytes"] != "external"
+            or manifest["format_version"] not in {1, FORMAT_VERSION} or manifest["document_bytes"] != "external"
             or not isinstance(manifest["database_schema_version"], str) or not manifest["database_schema_version"]
             or not _valid(manifest["snapshot_at"], "instant")):
         raise ExportError("manifest")
@@ -146,7 +153,10 @@ def validate_artifact(artifact, *, entity_id):
         raise ExportError("unsupported_database_schema")
     if not isinstance(entity_id, str) or not entity_id.strip() or manifest["entity_id"] != entity_id:
         raise ExportError("entity_scope")
-    diagnostics = validate_domains(artifact["domains"], entity_id)
+    inventory = DOMAINS if manifest["format_version"] == FORMAT_VERSION else V1_DOMAINS
+    if inventory is not domains_for_revision(manifest["database_schema_version"]):
+        raise ExportError("unsupported_database_schema")
+    diagnostics = validate_domains(artifact["domains"], entity_id, inventory=inventory)
     expected_counts = {name: len(rows) for name, rows in artifact["domains"].items()}
     if (not isinstance(manifest["counts"], dict) or manifest["counts"] != expected_counts
             or any(type(value) is not int for value in manifest["counts"].values())):

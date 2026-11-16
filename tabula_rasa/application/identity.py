@@ -62,6 +62,7 @@ class EntityAccess:
     currency_code: str = 'USD'
     closure_expires_at: datetime | None = None
     lifecycle_version: int = 0
+    settings_version: int = 1
 
 
 def access_capabilities(access):
