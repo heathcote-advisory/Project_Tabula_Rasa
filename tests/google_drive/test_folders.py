@@ -16,6 +16,13 @@ from tests.drive_fixtures import drive_folder
 from ._support import FakeResponse, DriveSession, drive_error, drive_settings, managed_folder, oauth_config
 
 class TestGoogleDriveFolders:
+    @pytest.mark.parametrize("ids", [None, "abc", ["duplicate-id", "duplicate-id", "another-id"]])
+    def test_rejects_malformed_reserved_storage_ids(self, ids):
+        transport = DriveSession([FakeResponse(200, {"ids": ids})])
+        client = GoogleDriveClient(oauth_config(), drive_settings(), session=transport)
+        with pytest.raises(GoogleDriveAccessError, match="did not reserve"):
+            client.new_storage_ids()
+
     @pytest.mark.parametrize("invalid", ["trashed", "readonly", "managed", "inaccessible"])
     def test_storage_parent_requires_accessible_writable_nonmanaged_folder(self, invalid):
         parent = drive_folder("picked-parent", "Books")

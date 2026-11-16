@@ -17,7 +17,7 @@ class ConnectionInfo(DTO):
     self_service_available: bool = False
     authorization_status: Literal['connecting', 'failed'] | None = None
     authorized_account: str | None = None
-    folder_setup: DriveFolderSetup | None = None
+    folder_setup: DriveFolderSetup | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ConnectionChange(DTO):

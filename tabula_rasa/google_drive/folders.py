@@ -180,8 +180,9 @@ class _FolderOperationsMixin:
     def new_storage_ids(self) -> list[str]:
         response = self._request("GET", f"{DRIVE_API_ROOT}/files/generateIds",
                                  params={"count": 3, "space": "drive"})
-        ids = _json_response(response).get("ids", [])
-        if len(ids) != 3 or len(set(ids)) != 3:
+        ids = _json_response(response).get("ids")
+        if (not isinstance(ids, list) or len(ids) != 3
+                or any(not isinstance(item, str) for item in ids) or len(set(ids)) != 3):
             raise GoogleDriveAccessError("Google Drive did not reserve the storage folder identities.")
         return [self._valid_folder_id(file_id) for file_id in ids]
 
