@@ -17,16 +17,29 @@ def test_production_cutoff_follows_eastern_dst(utc, hour):
     assert automatic_release.production_cutoff({**ENV, "GITHUB_RUN_ATTEMPT": "2"}, start) is None
 
 
-def test_delayed_production_start_keeps_the_original_cutoff():
+@pytest.mark.parametrize('minutes', [90, 120, 180])
+def test_delayed_production_start_keeps_the_original_cutoff(minutes):
     start = datetime.fromisoformat("2026-11-14T08:00:00+00:00")
-    env = {**ENV, "PRODUCTION_RELEASE_START_WINDOW_MINUTES": "90"}
+    env = {**ENV, "PRODUCTION_RELEASE_START_WINDOW_MINUTES": str(minutes)}
     assert automatic_release.production_cutoff(env, start - timedelta(seconds=1)) is None
     assert automatic_release.production_cutoff(env, start + timedelta(minutes=60)) == start
-    assert automatic_release.production_cutoff(env, start + timedelta(minutes=90)) is None
+    assert automatic_release.production_cutoff(env, start + timedelta(minutes=minutes, microseconds=-1)) == start
+    assert automatic_release.production_cutoff(env, start + timedelta(minutes=minutes)) is None
     assert automatic_release.production_cutoff({**env, "GITHUB_RUN_ATTEMPT": "2"}, start) is None
 
 
-@pytest.mark.parametrize("value", ["0", "14", "121", "90.0", "invalid"])
+def test_three_hour_allowance_accepts_delayed_start_after_five_eastern():
+    start = datetime.fromisoformat('2026-11-16T08:00:00+00:00')
+    delayed = datetime.fromisoformat('2026-11-16T10:12:34+00:00')
+    assert automatic_release.production_cutoff(
+        {**ENV, 'PRODUCTION_RELEASE_START_WINDOW_MINUTES': '180'}, delayed,
+    ) == start
+    assert automatic_release.production_cutoff(
+        {**ENV, 'PRODUCTION_RELEASE_START_WINDOW_MINUTES': '120'}, delayed,
+    ) is None
+
+
+@pytest.mark.parametrize("value", ["0", "14", "181", "999", "90.0", "invalid"])
 def test_invalid_production_start_window_fails_closed(value):
     with pytest.raises(release.ReleaseError, match="start window"):
         automatic_release.production_cutoff({**ENV, "PRODUCTION_RELEASE_START_WINDOW_MINUTES": value}, NOW)

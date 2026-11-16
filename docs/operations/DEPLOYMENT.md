@@ -533,7 +533,7 @@ changes during preflight or finishes after the cutoff, defer to a later
 window. The start window defaults to 15 minutes. If the owner accepts later
 downtime to accommodate GitHub scheduling delays, set the production environment
 variable `PRODUCTION_RELEASE_START_WINDOW_MINUTES` to an integer between 15
-and 120. The 03:00 Eastern eligibility cutoff still applies. The job skips
+and 180. The 03:00 Eastern eligibility cutoff still applies. The job skips
 when it starts outside the configured window or is a GitHub rerun. The current
 healthy production digest is skipped.
 

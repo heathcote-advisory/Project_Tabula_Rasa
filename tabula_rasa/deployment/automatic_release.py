@@ -18,8 +18,8 @@ def production_cutoff(environ, now):
     start = datetime.combine(now.astimezone(schema_window.EASTERN).date(), time(3), schema_window.EASTERN)
     start = start.astimezone(timezone.utc)
     configured = environ.get("PRODUCTION_RELEASE_START_WINDOW_MINUTES") or "15"
-    if not re.fullmatch(r"[0-9]{1,3}", configured) or not 15 <= int(configured) <= 120:
-        raise release.ReleaseError("Production release start window must be between 15 and 120 minutes.")
+    if not re.fullmatch(r"[0-9]{1,3}", configured) or not 15 <= int(configured) <= 180:
+        raise release.ReleaseError("Production release start window must be between 15 and 180 minutes.")
     return start if start <= now < start + timedelta(minutes=int(configured)) else None
 
 
