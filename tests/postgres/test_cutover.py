@@ -220,6 +220,27 @@ def test_every_exported_bookkeeping_collection_has_the_native_cutover_guard(data
     assert guarded == set(DOMAINS)
 
 
+@pytest.mark.parametrize('state', ['prepared', 'sheets', 'postgres'])
+def test_vehicle_writes_obey_cutover_authority_and_divergence(database, state):
+    plan = loaded(database)
+    controller = PostgresCutoverController(database)
+    controller.prepare(plan, mode='rehearsal', evidence=REHEARSAL_EVIDENCE)
+    if state != 'prepared':
+        controller.activate(plan.snapshot.binding)
+    if state == 'sheets':
+        controller.rollback(plan)
+    vehicles = create_postgres_services(database, 'alpha').vehicles
+    if state == 'postgres':
+        vehicles.create('New vehicle')
+        assert status(database)['divergent']
+    else:
+        with pytest.raises(StorageConflictError):
+            vehicles.create('New vehicle')
+        assert not status(database)['divergent']
+        with database.transaction(read_only=True) as connection:
+            assert not connection.scalar(text("SELECT count(*) FROM vehicles WHERE name='New vehicle'"))
+
+
 def test_source_or_target_mismatch_blocks_preparation_without_validated_status(database):
     plan = loaded(database)
     with database.transaction() as connection:

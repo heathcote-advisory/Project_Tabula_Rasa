@@ -67,7 +67,10 @@ parity. [Recurring and assets](browser/RECURRING_AND_ASSETS.md) specifies the wo
 Asset register workflows preserve acquisition links, useful life, overrides,
 depreciation history and existing ledger effects. An owner's operational depreciation
 deferral does not retire these rules or data. Mileage supports manual trips, configured
-Maps lookup/routing and supported imports. Review suggested miles before saving.
+Maps lookup/routing and supported imports. Mileage → Vehicle management owns
+this business's vehicle catalog; Add/Edit selects a stable vehicle, and renames
+update linked display labels. Deactivate to retain history while hiding new choices.
+Review suggested miles before saving.
 Maps usage monitoring is read-only, explicit and deployment-wide; it is not a billing
 meter or business Google grant. [Mileage and receipts](browser/MILEAGE_AND_RECEIPTS.md)
 and [Maps setup](GOOGLE_MAPS.md) define provider requirements.
@@ -198,7 +201,10 @@ keep the original name, country and request, then retry after approval. Offers
 last up to 48 hours, bounded by their approval deadline shown during review, and
 need a new approval/invitation after expiry or withdrawal.
 An admission pause preserves existing authorized business access and export.
-U.S. books use USD; Canadian books use CAD with a fixed currency selected at creation.
+New U.S. businesses start in USD and Canadian businesses in CAD. Owner/Admin
+can change the existing bookkeeping label under Business & members after explicit
+confirmation, without converting any numeric amounts. Business country and admission
+remain unchanged; there is no separate enrollment-currency setting. See [Business settings](identity/WORKSPACES.md#business-currency-settings).
 Canadian enrollment still requires selected-release currency-safe
 product verification. My Businesses shows beta status and limitations. See the
 [admission procedure](operations/BETA_ADMISSION.md) for supported scope and release

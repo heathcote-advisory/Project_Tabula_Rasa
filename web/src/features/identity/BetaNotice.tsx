@@ -15,10 +15,10 @@ export function BetaNotice() {
       ? 'New admissions are paused. Existing authorized access and export remain available.'
       : 'Enrollment is open only for the approved cohort.'}</p>}
     {status && status.requests.length > 0 && <ul>{status.requests.map(item => <li key={item.request_id}>
-      {item.business_name}: {item.state}. Book currency: {item.currency}.
+      {item.business_name}: {item.state}.
     </li>)}</ul>}
     <details><summary>Beta scope and service limits</summary>
-    <p>U.S. books use USD; Canadian books use CAD. Each business has one fixed currency. Actual enrollment requires a separately approved release and cohort. No foreign exchange or consolidated cross-currency reporting, tax filing, payroll, bank feeds or unverified depreciation operations are offered.</p>
+    <p>New U.S. businesses start in USD; new Canadian businesses start in CAD. Owner/Admin can later change the bookkeeping label in Business & members without converting numeric amounts. Business country and approval do not change. Actual enrollment requires a separately approved release and cohort. No foreign exchange or consolidated cross-currency reporting, tax filing, payroll, bank feeds or unverified depreciation operations are offered.</p>
     <p>Beta receipts require customer-owned Google Drive. Ordinary bookkeeping and receipts may be used only after a separately approved release. Do not submit passwords, tokens, government IDs, full payment-card credentials, medical information or other unnecessary sensitive data.</p>
     <p>Support is best-effort with a target first response within two business days and weekly defect triage; no fix-time or 24/7 SLA. Independent database and receipt recovery targets of 24 hours and full-service recovery within 48 hours remain unverified. Your operator must provide the reviewed policies and contact channel before enrollment.</p>
     </details>

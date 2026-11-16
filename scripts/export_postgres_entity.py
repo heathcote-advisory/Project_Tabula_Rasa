@@ -40,7 +40,7 @@ def main(argv=None):
             database = Database(DatabaseSettings.from_environment(required=True))
             artifact = create_postgres_export_service(database, args.entity).export()
             write_artifact(path, artifact)
-        print(json.dumps({"status": artifact["manifest"]["status"], "format_version": 1,
+        print(json.dumps({"status": artifact["manifest"]["status"], "format_version": artifact["manifest"]["format_version"],
                           "diagnostic_count": len(artifact["manifest"]["diagnostics"])}))
         return 0
     except (ExportError, StorageError) as error:

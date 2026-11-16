@@ -123,7 +123,7 @@ async def handle_validation(request, error: RequestValidationError):
         "active", "kind", "baseline", "baselines", "source_ids", "txn_date", "amount",
         "account_id", "to_account_id", "category_id", "payee_id", "tag_ids", "description",
         "reference", "postings", "target_type", "target_id", "side", "trip_date", "miles",
-        "vehicle", "start_location", "destination", "business_purpose", "notes",
+        "vehicle", "vehicle_id", "start_location", "destination", "business_purpose", "notes",
         "new_payee_name", "new_tag_name", "filename", "document_id", "round_trip", "return_miles", "start", "end",
         "total_expense", "business_use_percentage", "allocation_rationale", "source_id", "linked_transaction_id",
         "schedule_id", "source_kind", "recurrence_unit", "recurrence_interval", "start_date", "end_date",

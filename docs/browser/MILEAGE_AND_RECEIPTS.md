@@ -15,7 +15,7 @@ remembered per page and authorized business/user scope in this browser tab when
 session storage is available; navigating still resets filter values as before.
 
 Open **Mileage** to view the business's log. Shared **View mileage log** /
-**Add trip** route links show the current workflow with weight and an underline,
+**Add trip** / **Vehicle management** route links show the current workflow with weight and an underline,
 wrap on narrow screens and retain the dirty-navigation confirmation. Add trip
 is visible only to writers; detail routes remain associated with the log.
 
@@ -70,6 +70,45 @@ The entity-qualified transport provides:
 - `POST .../mileage` with declared fields, `round_trip` and optional `return_miles`,
   returning confirmed records and baselines;
 - the existing protected `PATCH` and `DELETE` detail paths.
+
+## Vehicle management
+
+Open **Mileage → Vehicle management** to view this business's vehicles. Writers
+can add a vehicle, edit its name, deactivate/reactivate it, or delete it when no
+trip references it. The existing protected editor requires loaded baselines and
+confirms deactivation/deletion. Read-only users can inspect the catalog.
+
+Add/Edit trip uses a **Vehicle** selector, with **No vehicle** allowed. **Add a
+new vehicle** creates and selects a catalog record without leaving the draft.
+Inactive vehicles disappear from new selections; the current inactive vehicle
+remains available when editing its trip. Renames keep the same identity and
+appear in trip lists, details and filtered mileage CSV. Distances, round trips,
+filters, totals and financial accounting remain unchanged.
+
+The explicit forward migration maps each exact nonblank historical label once
+per business. Case and spacing variants remain distinct: Vehicle management
+shows quoted exact labels and stable references for deliberate resolution, never
+automatically merging similar names. Original trip text is retained independently
+of current display names. Explicitly choosing No vehicle on an assigned trip
+clears that trip's reference and label; it does not delete the catalog vehicle.
+Whitespace-only historical text remains preserved and
+is shown as an unresolved label in Edit, where a vehicle may be selected. A
+cross-business or inactive new reference fails at save. Referenced deletion is
+rejected; deactivate instead. Import previews remain read-only; committed
+QuickBooks mileage maps accepted vehicle labels into the same catalog atomically.
+
+Vehicle transport reuses the managed-reference contract at
+`/api/v1/entities/{entity_id}/vehicles`: GET lists the catalog, POST creates,
+PATCH with a loaded baseline edits name/active, and protected DELETE refuses
+referenced rows. Mileage commands carry `vehicle_id`; the returned `vehicle`
+is the current display label. Committed source imports and explicit source
+migration share the exact-label catalog mapper; preview never creates vehicles.
+Catalog versions, audit capture, closure/cutover guards and selected-business request
+context reuse their existing owners. See [canonical export](../accounting/EXPORT.md)
+for current catalog/reference encoding and original labels.
+The maintenance backfill preserves existing cutover authority and divergence;
+subsequent vehicle writes require an active backend and record divergence just
+like other bookkeeping mutations.
 
 ## Transaction receipts
 

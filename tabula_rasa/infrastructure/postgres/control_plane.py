@@ -23,7 +23,7 @@ def identity_operation(database, *, read_only=False):
     raise IdentityStorageUnavailable(exhausted=code == 'database_exhausted') from None
 
 
-ENTITY_ACCESS_SQL = '''SELECT e.entity_id, e.organization_id, b.name, b.currency_code, m.role,
+ENTITY_ACCESS_SQL = '''SELECT e.entity_id, e.organization_id, b.name, b.currency_code, b.version AS settings_version, m.role,
     m.authorization_version, o.name AS organization_name,
     (SELECT recover_until FROM customer_lifecycle_requests WHERE entity_id=e.entity_id
         AND kind='business_closure' AND state='confirmed') AS closure_expires_at,

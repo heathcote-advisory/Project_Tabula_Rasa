@@ -11,7 +11,7 @@ export const entryRoutes = [
   { path: '/mixed-use', label: 'Mixed-use expenses' }, { path: '/recurring', label: 'Recurring expenses' },
 ] as const;
 export const mileageRoutes = [
-  { path: '/mileage', label: 'View mileage log' }, { path: '/mileage/new', label: 'Add trip', write: true },
+  { path: '/mileage', label: 'View mileage log' }, { path: '/mileage/vehicles', label: 'Vehicle management' }, { path: '/mileage/new', label: 'Add trip', write: true },
 ] as const;
 export const referenceRoutes = [
   { path: '/categories', label: 'Categories' }, { path: '/payees', label: 'Payees' }, { path: '/tags', label: 'Tags' },

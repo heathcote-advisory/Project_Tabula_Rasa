@@ -24,7 +24,7 @@ from .repository import insert
 from .runtime import DatabaseError
 from .migrations import current_revision, head_revision
 
-ROOT_TABLES = ("accounts", "categories", "payees", "tags", "entries", "mixed_use_sources",
+ROOT_TABLES = ("vehicles", "accounts", "categories", "payees", "tags", "entries", "mixed_use_sources",
                "recurring_schedules", "fixed_assets", "mileage_records", "documents", "import_batches")
 
 

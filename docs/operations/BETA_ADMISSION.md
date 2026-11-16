@@ -30,7 +30,9 @@ customers as internal to bypass enrollment. Existing ledger access, jobs,
 connections, retained Sheets sources and export remain unchanged.
 
 A normal non-internal Create Business request records `pending` with its stable
-request ID, authenticated applicant, exact name, country and currency. It creates
+request ID, authenticated applicant, exact name and country. The submitted initial
+bookkeeping unit must match the creation-country rule; admission does not store
+a separate currency. It creates
 no ledger or membership. The applicant can see only their own requests through
 `GET /api/v1/beta/status` and the existing creation receipt endpoint. A changed
 payload cannot reuse an approval. Operator approval reserves one business and its
@@ -70,12 +72,16 @@ is no date-triggered expansion or automatic 20-user initial entitlement.
 
 Eligible request pairs are US/USD and CA/CAD. Forward migration
 `0020_book_currency` supports independent CAD books. Approval binds the exact
-country/currency/name; explicit retry creates the fixed currency in the same
+country/name; creation validates the initial US/USD or CA/CAD pairing and
+explicit retry creates that bookkeeping unit in the same
 transaction as defaults, membership, admission activation and creation receipt.
 Both countries share the same aggregate program caps, named-user approvals and
 freezes. Existing internal USD operations remain unchanged; the internal-user
-creation exemption remains US/USD only. No tenant operation changes an existing
-book's currency. There is no FX, redenomination or cross-currency consolidation.
+creation exemption remains US/USD only. An explicit Owner/Admin [business-settings command](../identity/WORKSPACES.md#business-currency-settings)
+may later change the bookkeeping label without changing this admission record,
+country or approval. Admission stores no separate currency; the business root
+is the current currency owner. There is
+no FX, numeric redenomination or cross-currency consolidation.
 Actual Canadian enrollment still requires selected-release verification and
 written cohort GO; implementation removes the code hold, not the release gate.
 

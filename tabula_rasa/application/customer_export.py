@@ -14,7 +14,7 @@ MAX_EXPORT_RECORDS = 50_000
 MAX_EXPORT_SECONDS = 300
 
 INSTRUCTIONS = """Tabula Rasa accountant handoff
-bookkeeping.json is the complete versioned 26-collection canonical financial archive.
+bookkeeping.json is the complete versioned canonical financial archive.
 manifest.json lists scope, snapshot time, attachment paths, sizes and SHA-256 checksums.
 Checksums detect corruption; they do not establish authorship. Retain this archive privately.
 Documents-inclusive exports contain snapshot documents and verified unlinked inventory files.

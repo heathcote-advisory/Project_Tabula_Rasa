@@ -54,6 +54,14 @@ class WorkspaceService:
     def preview_invitation(self, session, credential):
         return self.repository.preview_invitation(session, credential)
 
+    def business_settings(self, session, business_id):
+        return self.repository.business_settings(session.user_id, business_id)
+
+    def change_currency(self, session, business_id, currency, version, confirmed):
+        if currency not in {'USD', 'CAD'} or confirmed is not True or not isinstance(version, int) or version < 1:
+            raise IdentityError('validation')
+        return self.repository.change_currency(session.user_id, business_id, currency, version)
+
     def members(self, session, organization_id):
         return self.repository.members(session.user_id, organization_id)
 

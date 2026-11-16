@@ -31,7 +31,7 @@ def test_whole_profile_acceptance_covers_all_domains_and_keeps_source_and_author
         assert report["passed"] and report["whole_profile_accepted"], report["exceptions"]
         assert report["acceptance"] == "whole_profile" and report["export_verified"]
         assert report["source_contract"] == SOURCE_CONTRACT
-        assert len(report["export_domain_counts"]) == 26
+        assert len(report["export_domain_counts"]) == 27
         assert report["unit_counts"] == plan.report()["unit_counts"]
         assert not report["cutover_authorized"]
         output = json.dumps(report) + acceptance_text(report)

@@ -44,6 +44,24 @@ def test_currency_forward_migration_preserves_usd_and_refuses_redenomination(emp
             entity(c, 'unsupported', currency='EUR')
 
 
+def test_currency_settings_upgrade_removes_redundant_admission_unit_only(empty_database):
+    from alembic import command
+    from tabula_rasa.infrastructure.postgres.migrations import migration_config
+    from tabula_rasa.infrastructure.postgres.control_plane import PostgresIdentityRepository
+    from tests.postgres.test_identity import verified
+    with empty_database.transaction() as c:
+        command.upgrade(migration_config(c), '0022_drive_recovery_binding')
+    owner = PostgresIdentityRepository(empty_database).resolve_user(verified('pending-cad'))
+    with empty_database.transaction() as c:
+        c.execute(text("""INSERT INTO beta_admissions(id,user_id,request_id,business_name,country,currency,state)
+            VALUES ('pending',:user,'pending-request','Canadian business','CA','CAD','approved')"""), {'user': owner.id})
+        before = dict(c.execute(text('SELECT * FROM beta_admissions')).mappings().one())
+    upgrade(empty_database)
+    with empty_database.transaction(read_only=True) as c:
+        after = dict(c.execute(text('SELECT * FROM beta_admissions')).mappings().one())
+        assert after == {key: value for key, value in before.items() if key != 'currency'}
+
+
 def test_cad_approval_atomic_creation_replay_and_no_direct_api_bypass(database, cohort, monkeypatch):
     client, auth, _, person, _, _, beta, command, configure, service, request, _ = cohort
     raw, alice = person('cad-owner')
@@ -203,9 +221,9 @@ def test_internal_usd_exemption_cannot_reinterpret_an_existing_cad_request(datab
         assert c.scalar(text('SELECT count(*) FROM business_entities')) == 1
         assert c.scalar(text('SELECT currency_code FROM business_entities WHERE id=:id'),
                         {'id': internal['entity_id']}) == 'USD'
-        row = c.execute(text('SELECT state,country,currency,organization_id FROM beta_admissions WHERE id=:id'),
+        row = c.execute(text('SELECT state,country,organization_id FROM beta_admissions WHERE id=:id'),
                         {'id': ca}).mappings().one()
-        assert dict(row) == dict(state=expected_state, country='CA', currency='CAD', organization_id=None)
+        assert dict(row) == dict(state=expected_state, country='CA', organization_id=None)
     assert beta.status(alice.user_id)['requests'][0]['state'] == expected_state
     assert len(auth.sessions.identity.allowed_entities(alice.user_id)) == 1
     if not approved:
@@ -246,7 +264,7 @@ def test_cad_complete_canonical_export_preserves_all_domains_and_rejects_unknown
     cad, _ = representative(database, currencies=('CAD', 'USD'))
     artifact = create_postgres_export_service(database, 'alpha').export()
     validate_artifact(artifact, entity_id='alpha')
-    assert artifact['manifest']['format_version'] == 1
+    assert artifact['manifest']['format_version'] == 2
     assert artifact['domains']['business_entities'][0]['currency_code'] == 'CAD'
     assert artifact['domains']['mixed_use_sources'][0]['business_use_percentage'] == '33.33333'
     assert artifact['domains']['mileage_records'][0]['miles'] == '1.2'

@@ -11,6 +11,7 @@ from .documents import PostgresReceiptRepository
 from .migration import CoreLoader, _object
 from .migration_readback import unit_differences
 from .repository import insert
+from .reference_data import ensure_vehicle_for_label
 from .source_accounting import write_tags
 
 
@@ -73,7 +74,9 @@ class SecondaryLoader:
             row = unit.rows["Mileage"][0]
             identity = plan.target_id("Mileage", row["id"])
             fields = ("trip_date", "miles", "vehicle", "start_location", "destination", "business_purpose", "notes")
+            vehicle = ensure_vehicle_for_label(connection, scope, row['vehicle'])
             insert(connection, "mileage_records", {**_object(plan, "mileage", identity, row),
+                                                  'vehicle_id': vehicle['id'] if vehicle else None,
                                                   **{field: row[field] for field in fields}})
             write_tags(connection, scope, "mileage_tags", "mileage_id", identity, row["tag_ids"])
 

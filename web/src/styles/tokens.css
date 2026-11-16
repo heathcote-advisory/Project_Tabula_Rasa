@@ -225,7 +225,7 @@ dd { margin: 0 0 var(--space-3); }
 .mergeSources input { margin-top: var(--space-3); }
 .allocationResult { padding: var(--space-3) var(--space-4); background: var(--surface-secondary); font-variant-numeric: tabular-nums; }
 .receiptMetadata { margin: var(--space-2) 0; }
-.receiptMetadata summary { cursor: pointer; min-height: var(--control-height); padding-block: var(--space-2); overflow-wrap: anywhere; }
+.receiptMetadata summary, .disclosure summary { cursor: pointer; min-height: var(--control-height); padding-block: var(--space-2); overflow-wrap: anywhere; }
 .receiptMetadata dl { margin: var(--space-2) 0; }
 .receiptQueue { list-style: none; padding: 0; margin: var(--space-4) 0; }
 .receiptQueue li { border-top: 1px solid var(--border-subtle); padding-block: var(--space-3); }

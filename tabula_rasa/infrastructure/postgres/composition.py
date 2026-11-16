@@ -16,7 +16,7 @@ from .mileage import PostgresMileageRepository
 from .reporting import PostgresLedgerQueryRepository
 from .reference_data import (
     PostgresLedgerSetupRepository, PostgresAccountRepository, PostgresCategoryRepository,
-    PostgresPayeeRepository, PostgresTagRepository,
+    PostgresPayeeRepository, PostgresTagRepository, PostgresVehicleRepository,
 )
 
 
@@ -36,6 +36,7 @@ def create_postgres_services(database, entity_id, *, document_store=None, docume
         category_repository=PostgresCategoryRepository(database, entity_id),
         payee_repository=PostgresPayeeRepository(database, entity_id),
         tag_repository=PostgresTagRepository(database, entity_id),
+        vehicle_repository=PostgresVehicleRepository(database, entity_id),
         transaction_repository=PostgresTransactionRepository(database, entity_id),
         journal_repository=PostgresJournalRepository(database, entity_id),
         asset_repository=PostgresAssetRepository(database, entity_id),

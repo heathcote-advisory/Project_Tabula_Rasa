@@ -13,6 +13,7 @@ from ..models.workspaces import (
     BusinessCreateRequest, BusinessCreateResult, BootstrapRequest, BootstrapResult, MemberChange, MemberList, InviteRequest,
     InviteIssued, InvitationList, InvitationResponse, InvitationOutcome, OwnershipGrant,
     InvitationPreview, InvitationPreviewRequest, BetaStatus, BetaOperatorCommand,
+    BusinessSettings, BusinessCurrencyChange,
 )
 
 router = APIRouter(responses=ERROR_RESPONSES, tags=['Business access'])
@@ -35,6 +36,18 @@ def business_workflow(request, business_id):
     request.state.telemetry_context = RequestContext(session.user_id, business.organization_id,
         business.entity_id, capabilities(business.role), identity.scope(session), session.csrf_token)
     return service, session
+
+
+@router.get('/api/v1/businesses/{business_id}/settings', response_model=BusinessSettings, operation_id='business_settings')
+def business_settings(business_id: str, request: Request):
+    service, session = business_workflow(request, business_id)
+    return service.business_settings(session, business_id)
+
+
+@router.patch('/api/v1/businesses/{business_id}/settings/currency', response_model=BusinessSettings, operation_id='business_change_currency')
+def business_change_currency(business_id: str, body: BusinessCurrencyChange, request: Request):
+    service, session = business_workflow(request, business_id)
+    return service.change_currency(session, business_id, body.currency_code, body.version, body.confirm_label_change)
 
 
 @router.post('/api/v1/businesses', response_model=BusinessCreateResult, operation_id='create_business', tags=['Businesses'])

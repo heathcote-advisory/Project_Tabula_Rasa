@@ -50,6 +50,8 @@ const routes = [{
     { path: 'journals', element: <BookkeepingPage resource="journals" /> },
     { path: 'mileage', element: <MileagePage /> },
     { path: 'mileage/new', element: <NewMileage /> },
+    { path: 'mileage/vehicles', element: <ReferencesPage resource="vehicles" /> },
+    { path: 'mileage/vehicles/new', element: <ReferenceCreator resource="vehicles" /> },
     { path: 'mileage/:recordId', element: <MileageDetail /> },
     { path: 'transactions/:recordId/receipts', element: <ReceiptsPage /> },
     { path: 'transactions/:recordId/recurring', element: <ExpenseToRecurring /> },

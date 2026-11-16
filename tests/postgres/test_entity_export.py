@@ -23,6 +23,7 @@ from tests.postgres.test_reporting_sources import seed_source_history
 def representative(database, *, currencies=("USD", "USD")):
     alpha, beta = seed_core(database, currencies=currencies)
     for scope, services in (("alpha", alpha), ("beta", beta)):
+        services.vehicles.create("Fleet van")
         with database.transaction() as connection:
             account(connection, scope, "child", parent="bank")
             account(connection, scope, "debt", classification="Liability")
@@ -253,7 +254,7 @@ def test_operator_exports_without_sheets_and_excludes_control_plane_data(databas
     assert command.main(["--entity", "alpha", "--output", str(output)]) == 0
     assert "synthetic-secret-sentinel" not in output.read_text(encoding="utf-8")
     assert validate_artifact(read_artifact(output, entity_id="alpha"), entity_id="alpha")
-    assert capsys.readouterr().out.strip() == '{"status": "complete", "format_version": 1, "diagnostic_count": 0}'
+    assert capsys.readouterr().out.strip() == '{"status": "complete", "format_version": 2, "diagnostic_count": 0}'
 
 
 def test_missing_domain_schema_fails_without_exposing_private_table_names(database):

@@ -15,7 +15,7 @@ from .contracts import (
     PayeeRepository,
     TagRepository,
 )
-from .reference_data import AccountService, CategoryService, PayeeService, TagService
+from .reference_data import AccountService, CategoryService, PayeeService, TagService, VehicleService
 from .imports import TransactionImportRepository, TransactionImportService
 from .accounting_contracts import TransactionRepository, JournalRepository
 from .transactions import TransactionService
@@ -46,6 +46,7 @@ class ApplicationServices:
     imports: TransactionImportService | None = None
     payees: PayeeService | None = None
     tags: TagService | None = None
+    vehicles: VehicleService | None = None
     transactions: TransactionService | None = None
     journals: JournalService | None = None
     reporting: ReportingService | None = None
@@ -70,6 +71,7 @@ def assemble_application_services(
     import_repository: TransactionImportRepository | None = None,
     payee_repository: PayeeRepository | None = None,
     tag_repository: TagRepository | None = None,
+    vehicle_repository: TagRepository | None = None,
     transaction_repository: TransactionRepository | None = None,
     journal_repository: JournalRepository | None = None,
     asset_repository: AssetRepository | None = None,
@@ -135,6 +137,7 @@ def assemble_application_services(
         else None,
         payees=payees,
         tags=tags,
+        vehicles=VehicleService(vehicle_repository) if vehicle_repository is not None else None,
         transactions=transactions,
         journals=journals,
         assets=AssetService(asset_repository, journals=journals)

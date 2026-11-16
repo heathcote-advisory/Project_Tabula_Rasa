@@ -12,7 +12,7 @@ from tabula_rasa.errors import StorageConflictError, StorageNotFoundError, Stora
 
 # SQL identifiers are infrastructure constants, never request values.
 AGGREGATE_TABLES = {
-    "account": "accounts", "category": "categories", "payee": "payees", "tag": "tags",
+    "vehicle": "vehicles", "account": "accounts", "category": "categories", "payee": "payees", "tag": "tags",
     "entry": "entries", "mixed_use": "mixed_use_sources", "schedule": "recurring_schedules",
     "asset": "fixed_assets", "mileage": "mileage_records", "document": "documents",
     "import_batch": "import_batches", "migration_run": "migration_runs",

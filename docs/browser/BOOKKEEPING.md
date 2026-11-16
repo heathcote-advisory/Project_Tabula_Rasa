@@ -9,7 +9,9 @@ The [cutover procedure](../accounting/CUTOVER.md) separately controls live autho
 
 ## Business selection
 
-Each book has one fixed USD or CAD currency selected at creation. The server-owned
+Each book has one USD or CAD currency, initially selected at creation. Owner/Admin
+can explicitly change its label in Business & members without converting amounts;
+see [Business settings](../identity/WORKSPACES.md#business-currency-settings). The server-owned
 business/session metadata supplies the unit beside the business and role, and
 above monetary content on desktop and mobile. Entry forms, ledger and reports
 use that unit without converting, rescaling or rounding stored values. Switching
@@ -284,3 +286,6 @@ Declared field errors identify the affected labeled control without exposing
 submitted values or internal server messages. See the
 [browser-quality gate](TESTING.md) for repeatable coverage
 and links to the release/acceptance owners.
+
+Managed vehicle selection and history are defined in
+[Mileage vehicles](MILEAGE_AND_RECEIPTS.md#vehicle-management).

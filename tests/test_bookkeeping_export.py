@@ -12,16 +12,16 @@ from scripts import export_postgres_entity as command
 from tabula_rasa.application.entity_export import EntityExportSnapshot, ExportError
 from tabula_rasa.bookkeeping_export.files import private_output_path, read_artifact, write_artifact
 from tabula_rasa.bookkeeping_export.format import build_artifact, canonical_json, encoded_value, parse_artifact, validate_artifact
-from tabula_rasa.bookkeeping_export.schema import DOMAINS
+from tabula_rasa.bookkeeping_export.schema import DOMAINS, SUPPORTED_DATABASE_REVISION, domains_for_revision
 
 
-def empty_snapshot():
-    return EntityExportSnapshot("alpha", "0005_bookkeeping_cutover", "2026-10-05T12:00:00.123456Z", {
+def empty_snapshot(revision=SUPPORTED_DATABASE_REVISION):
+    return EntityExportSnapshot("alpha", revision, "2026-10-05T12:00:00.123456Z", {
         name: ({"id": "alpha", "name": "Synthetic entity", "currency_code": "USD",
                 "incarnation_id": "synthetic-incarnation", "version": 1,
                 "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
                 "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc)},) if name == "business_entities" else ()
-        for name in DOMAINS
+        for name in domains_for_revision(revision)
     })
 
 
@@ -99,7 +99,7 @@ def test_operator_offline_validation_and_schema_do_not_construct_database(tmp_pa
     monkeypatch.setenv("TABULA_RASA_DATABASE_URL", "private-url-and-credential-sentinel")
     assert command.main(["--validate", str(path), "--entity", "alpha"]) == 0
     output = json.loads(capsys.readouterr().out)
-    assert output == {"status": "complete", "format_version": 1, "diagnostic_count": 0}
+    assert output == {"status": "complete", "format_version": 2, "diagnostic_count": 0}
     assert command.main(["--schema"]) == 0
     schema = json.loads(capsys.readouterr().out)
     assert set(schema["properties"]["domains"]["required"]) == set(DOMAINS)
@@ -125,13 +125,14 @@ def test_manifest_rejects_unsupported_versions_dates_and_byte_boundary():
 
 @pytest.mark.parametrize("revision", ["0004_mileage_order", "0005_bookkeeping_cutover",
                                       "0006_identity_control_plane", "0007_identity_sessions", "0008_owner_lock_scope",
-                                      "0009_external_connections", "0010_workspace_lifecycle", "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls", "0014_document_locations", "0015_support_controls", "0016_business_tenancy", "0017_customer_exports", "0018_drive_oauth", "0019_beta_admission", "0020_book_currency", "0021_customer_lifecycle", "0022_drive_recovery_binding"])
+                                      "0009_external_connections", "0010_workspace_lifecycle", "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls", "0014_document_locations", "0015_support_controls", "0016_business_tenancy", "0017_customer_exports", "0018_drive_oauth", "0019_beta_admission", "0020_book_currency", "0021_customer_lifecycle", "0022_drive_recovery_binding", "0023_business_currency"])
 def test_control_plane_revision_preserves_the_existing_v1_portable_inventory(revision):
     from jsonschema import Draft202012Validator
     from tabula_rasa.bookkeeping_export.schema import json_schema
-    artifact = build_artifact(replace(empty_snapshot(), database_schema_version=revision))
+    artifact = build_artifact(empty_snapshot(revision))
+    assert artifact["manifest"]["format_version"] == 1
     assert parse_artifact(canonical_json(artifact), entity_id="alpha") == artifact
-    Draft202012Validator(json_schema()).validate(artifact)
+    Draft202012Validator(json_schema(format_version=1)).validate(artifact)
 
 
 @pytest.mark.parametrize("revision", ["0003_migration_provenance", "unreviewed-revision"])

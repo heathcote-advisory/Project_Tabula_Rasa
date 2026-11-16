@@ -10,6 +10,7 @@ import { ConfirmationDialog } from '../../components/ConfirmationDialog';
 import { roleNames, type Role } from '../../app/roles';
 import { notifyPeerAuthorityCheck } from '../../app/authSignals';
 import { uncertainIdentityCommand } from './commandOutcome';
+import { BusinessCurrency } from './BusinessCurrency';
 
 function MemberEditor({ member, owner, onSave, onGrant }: { member: Schemas['Member']; owner: boolean; onSave: (role: Role, active: boolean) => Promise<void>; onGrant: () => Promise<void> }) {
   const actor = useEntity().actor_id;
@@ -128,7 +129,8 @@ export function WorkspacePage() {
   const session = useEntity();
   return <div className="workflowSections"><PageHeader title="Business & members" description={session.entity.name} />
     <p>Business reference: {session.entity.id}</p>
-    <p>Manage members and invitations for the selected business.</p>
+    <p>Manage business settings, members and invitations for the selected business.</p>
+    {session.capabilities.includes('members:manage') && !session.trusted_development && !session.closure_expires_at && <BusinessCurrency />}
     {session.capabilities.includes('members:manage') && !session.trusted_development ? <MemberAdministration /> : <p>Business administration requires Owner or Admin access.</p>}
     {!session.trusted_development && <InvitationAcceptance session={session} />}
   </div>;

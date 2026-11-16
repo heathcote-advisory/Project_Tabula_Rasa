@@ -14,6 +14,7 @@ from tabula_rasa.reference_data import (
     normalize_payee_name,
     normalize_tag_name,
     validate_account_classification,
+    vehicle_name,
 )
 
 from .contracts import (
@@ -246,19 +247,23 @@ class PayeeService:
         return self._repository.remove(payee_id, expected=expected)
 
 
-class TagService:
-    """Manage tag identity through one profile's supplied repository."""
+class ManagedReferenceService:
+    """Manage named references through one profile's supplied repository."""
 
-    def __init__(self, repository: TagRepository) -> None:
+    def __init__(self, repository: TagRepository, *, label="Tag", normalize=normalize_tag_name) -> None:
         self._repository = repository
+        self.label, self.normalize = label, normalize
 
     def list(self, *, active_only: bool = False) -> list[ManagedReferenceRecord]:
         return self._repository.list(active_only=active_only)
 
+    def _name(self, value):
+        return _managed_name(value, self.label, self.normalize)
+
     def create(self, name: str, *, active: bool = True) -> ManagedReferenceRecord:
         return self._repository.create(
-            _managed_name(name, "Tag", normalize_tag_name),
-            active=as_bool(active, "Tag active"),
+            self._name(name),
+            active=as_bool(active, self.label + " active"),
         )
 
     def update(
@@ -268,10 +273,13 @@ class TagService:
         expected: ExpectedRecord | None = None,
         **changes: Unpack[ManagedReferenceChanges],
     ) -> ManagedReferenceRecord:
-        tag_id = clean_text(tag_id, "Tag", required=True)
+        tag_id = clean_text(tag_id, self.label, required=True)
+        normalized = _managed_changes(changes, self.label, self.normalize)
+        if 'name' in changes:
+            normalized['name'] = self._name(changes['name'])
         return self._repository.update(
             tag_id,
-            changes=_managed_changes(changes, "Tag", normalize_tag_name),
+            changes=normalized,
             expected=expected,
         )
 
@@ -279,6 +287,16 @@ class TagService:
         self, tag_id: str, name: str, *, expected: ExpectedRecord | None = None
     ) -> ManagedReferenceRecord:
         return self.update(tag_id, name=name, expected=expected)
+
+    def remove(
+        self, tag_id: str, *, expected: ExpectedRecord | None = None
+    ) -> ManagedMutationResult:
+        tag_id = clean_text(tag_id, self.label, required=True)
+        return self._repository.remove(tag_id, expected=expected)
+
+
+class TagService(ManagedReferenceService):
+    """Manage tags using the shared name/active workflow."""
 
     def merge(
         self,
@@ -290,8 +308,12 @@ class TagService:
         target_id, source_ids = normalize_merge_ids(target_id, source_ids, "tag")
         return self._repository.merge(target_id, source_ids, expected=expected)
 
-    def remove(
-        self, tag_id: str, *, expected: ExpectedRecord | None = None
-    ) -> ManagedMutationResult:
-        tag_id = clean_text(tag_id, "Tag", required=True)
-        return self._repository.remove(tag_id, expected=expected)
+
+
+class VehicleService(ManagedReferenceService):
+    """Manage exact vehicle labels without merging historical spelling variants."""
+    def __init__(self, repository):
+        super().__init__(repository, label='Vehicle', normalize=str)
+
+    def _name(self, value):
+        return vehicle_name(value)

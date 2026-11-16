@@ -10,7 +10,8 @@ from .mutations import ProtectedMutation
 class MileageChanges(DTO):
     trip_date: str
     miles: DecimalString
-    vehicle: str
+    vehicle: str = ''
+    vehicle_id: str | None = None
     start_location: str
     destination: str
     business_purpose: str
@@ -29,6 +30,7 @@ class Mileage(DTO):
     trip_date: str
     miles: DecimalString
     vehicle: str
+    vehicle_id: str | None = None
     start_location: str
     destination: str
     business_purpose: str

@@ -60,7 +60,7 @@ export function Shell() {
       <main ref={main} id="main" tabIndex={-1} className={styles.main} key={location.key}>{isEntryRoute(location.pathname) ? <WorkflowNav label="Entries" routes={entryRoutes} canWrite={session.capabilities.includes('bookkeeping:write')} />
         : matchesRoute(location.pathname, '/mileage') ? <WorkflowNav label="Mileage workflows" routes={mileageRoutes} canWrite={session.capabilities.includes('bookkeeping:write')} />
           : isReferenceRoute(location.pathname) ? <WorkflowNav label="Reference data" routes={referenceRoutes} canWrite={session.capabilities.includes('bookkeeping:write')} /> : null}
-        <p className="muted">All monetary amounts are in {session.entity.currency_code}. Each business keeps its own fixed currency.</p>
+        <p className="muted">All monetary amounts are in {session.entity.currency_code}. Currency labels do not convert numeric amounts.</p>
         {session.closure_expires_at && <p role="status" className="notice warning">Business closure is in progress. Bookkeeping is read-only until ordinary access ends on {new Date(session.closure_expires_at).toLocaleString()}. Owners can export or cancel closure from <Link to="/data">Data &amp; backup</Link>.</p>}
         <Outlet /></main>
     </div>

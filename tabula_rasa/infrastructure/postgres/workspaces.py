@@ -143,6 +143,40 @@ class PostgresWorkspaceRepository:
                 m.authorization_version FROM memberships m JOIN identity_users u ON u.id=m.user_id
                 WHERE m.organization_id=:org ORDER BY m.user_id'''), {'org': org}).mappings()]
 
+    def _settings_access(self, connection, actor, business_id, *, lock=False):
+        business = connection.execute(text(ENTITY_ACCESS_SQL + ' AND e.entity_id=:business'),
+            {'user': actor, 'business': business_id}).mappings().first()
+        if business is None:
+            raise IdentityError('forbidden')
+        if lock:
+            self._manage(connection, actor, business['organization_id'])
+            business = self._business_access(connection, actor, business['organization_id'])
+        require_capability(business['role'], 'members:manage')
+        if business['closure_expires_at'] is not None:
+            raise IdentityError('forbidden')
+
+    def business_settings(self, actor, business_id):
+        with identity_operation(self.database, read_only=True) as connection:
+            self._settings_access(connection, actor, business_id)
+            return dict(connection.execute(text('SELECT currency_code,version FROM business_entities WHERE id=:id'),
+                {'id': business_id}).mappings().one())
+
+    def change_currency(self, actor, business_id, currency, version):
+        if currency not in {'USD', 'CAD'} or not isinstance(version, int) or version < 1:
+            raise IdentityError('validation')
+        with audit_context(self.database, AuditContext('user', actor, 'business.currency', business_id)), identity_operation(self.database) as connection:
+            # Match closure's drain order before taking user/organization locks.
+            connection.execute(text('SELECT pg_advisory_xact_lock_shared(346,hashtext(:scope))'), {'scope': business_id})
+            self._settings_access(connection, actor, business_id, lock=True)
+            row = connection.execute(text('SELECT currency_code,version FROM business_entities WHERE id=:id FOR UPDATE'),
+                {'id': business_id}).mappings().one()
+            if row['version'] != version:
+                raise IdentityError('stale')
+            if row['currency_code'] == currency:
+                return dict(row)
+            return dict(connection.execute(text('''UPDATE business_entities SET currency_code=:currency
+                WHERE id=:id RETURNING currency_code,version'''), {'id': business_id, 'currency': currency}).mappings().one())
+
     def change_member(self, actor, org, target, role, active, version, *, session=None, ownership=False):
         with identity_operation(self.database) as connection:
             beta.lock_program(connection)

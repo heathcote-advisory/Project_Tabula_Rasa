@@ -219,7 +219,7 @@ def test_concurrent_confirmation_and_durable_export_boundary(database, lifecycle
     from tabula_rasa.application.entity_export import EntityExportService
     from tabula_rasa.infrastructure.postgres.entity_export import PostgresEntityExportRepository
     artifact = EntityExportService(PostgresEntityExportRepository(database, 'alpha')).export()
-    assert len(artifact['domains']) == 26
+    assert len(artifact['domains']) == 27
     assert not any('lifecycle' in key for key in artifact['domains'])
     with database.transaction(read_only=True) as c:
         assert c.scalar(text("SELECT count(*) FROM customer_lifecycle_events WHERE request_id=:id AND action='confirmed'"), {'id': row['id']}) == 1

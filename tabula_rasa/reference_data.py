@@ -13,6 +13,13 @@ from tabula_rasa.errors import StorageValidationError
 from tabula_rasa.hierarchy import HierarchyValidationError, validate_two_level_hierarchy
 
 
+def vehicle_name(value):
+    """Keep exact historical spelling/spacing; reject empty vehicle labels."""
+    if not isinstance(value, str) or not value.strip():
+        raise StorageValidationError('Vehicle name is required.')
+    return value
+
+
 ACCOUNT_TYPES = {
     "Bank",
     "Cash",

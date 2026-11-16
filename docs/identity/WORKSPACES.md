@@ -304,3 +304,35 @@ administrator or operator through their private channel. If registration, email
 verification or factor enrollment fails, use the signed-out guidance or existing
 Sign in. [Provider setup](PROVIDER_SETUP.md#hosted-end-user-self-registration) owns
 operator troubleshooting and recovery.
+
+## Business currency settings
+
+In **Business & members**, Owner/Admin can choose **Business currency** (USD or
+CAD), select **Save currency**, and explicitly confirm **Change currency label**.
+The confirmation names the business/reference and explains that 100.00 USD
+becomes 100.00 CAD (or the reverse) with no exchange rate or FX conversion.
+Existing and future amounts keep their exact numeric values, precision, signs,
+rounding, recurrence and mixed-use rules. Country, cohort admission, ownership
+and billing remain separate. The business root owns the sole current currency
+setting. New-business setup still requires US/USD or
+Canada/CAD with its existing admission approval; editing a label grants no access.
+
+`GET /api/v1/businesses/{business_id}/settings` loads currency and version.
+`PATCH /api/v1/businesses/{business_id}/settings/currency` requires
+`currency_code`, the loaded `version`, and `confirm_label_change: true`, plus
+Origin/CSRF protection. Fresh active Owner/Admin membership is rechecked at the
+mutation boundary. Other roles, foreign businesses and closed businesses are
+denied. Concurrent/stale edits conflict, including a change away and back.
+A no-op does not advance the version. One transaction changes only root currency,
+version and timestamp and records actor, before/after codes and timestamp in
+private audit history. No financial or receipt rows are rewritten.
+
+Session cache scope includes the settings version. Confirmed or uncertain commands
+request local and peer authority refresh; changed scope clears private queries
+and drafts. Other visible sessions also refresh on focus/pageshow/visibility and
+every 60 seconds. Server requests resolve current metadata. Current exports and
+explicit import-currency validation use the new unit; archived exports remain
+unchanged. After a rejected or uncertain save, reload Business & members to
+inspect the current setting before another deliberate edit. Commands never retry
+automatically. Apply forward revision `0023_business_currency` before serving
+this workflow; it replaces the original immutable currency-update guard.

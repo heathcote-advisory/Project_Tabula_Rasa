@@ -9,6 +9,15 @@ from tabula_rasa.application.workspaces import BOOTSTRAP_ID_PATTERN
 Role = Literal['owner', 'admin', 'editor', 'accountant', 'read_only']
 
 
+class BusinessSettings(DTO):
+    currency_code: Literal['USD', 'CAD']
+    version: int = Field(ge=1)
+
+
+class BusinessCurrencyChange(BusinessSettings):
+    confirm_label_change: Literal[True]
+
+
 class BusinessCreateRequest(DTO):
     request_id: str = Field(min_length=16, max_length=128, pattern=BOOTSTRAP_ID_PATTERN)
     business_name: str = Field(min_length=1, max_length=160)
@@ -103,7 +112,6 @@ class BetaRequestStatus(DTO):
     request_id: str
     business_name: str
     country: Literal['US', 'CA']
-    currency: Literal['USD', 'CAD']
     state: str
 
 

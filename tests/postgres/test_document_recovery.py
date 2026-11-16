@@ -81,7 +81,7 @@ def test_dry_run_optional_copy_promotion_links_originals_and_edit_copy_contract(
     with database.transaction(read_only=True) as connection:
         originals = connection.execute(text('SELECT storage_key FROM document_locations WHERE entity_id=\'alpha\'')).scalars().all()
     assert set(originals) == {item.storage_key for item in expected}
-    assert len(create_postgres_export_service(database, 'alpha').export()['domains']) == 26
+    assert len(create_postgres_export_service(database, 'alpha').export()['domains']) == 27
 
 
 def test_partial_provider_failure_restart_and_stale_metadata_are_blocking(database):
