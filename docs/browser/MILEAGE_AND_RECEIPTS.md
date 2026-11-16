@@ -103,9 +103,12 @@ PATCH with a loaded baseline edits name/active, and protected DELETE refuses
 referenced rows. Mileage commands carry `vehicle_id`; the returned `vehicle`
 is the current display label. Committed source imports and explicit source
 migration share the exact-label catalog mapper; preview never creates vehicles.
-Catalog versions, audit capture, closure guards and selected-business request
+Catalog versions, audit capture, closure/cutover guards and selected-business request
 context reuse their existing owners. See [canonical export](../accounting/EXPORT.md)
 for current catalog/reference encoding and original labels.
+The maintenance backfill preserves existing cutover authority and divergence;
+subsequent vehicle writes require an active backend and record divergence just
+like other bookkeeping mutations.
 
 ## Transaction receipts
 

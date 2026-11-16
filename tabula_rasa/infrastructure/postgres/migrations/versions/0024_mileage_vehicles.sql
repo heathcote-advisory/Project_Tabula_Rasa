@@ -2,6 +2,7 @@ LOCK TABLE mileage_records IN SHARE ROW EXCLUSIVE MODE;
 -- Only this maintenance transaction may backfill metadata in closed books.
 -- Re-enable the existing guard before commit; failure rolls back its state too.
 ALTER TABLE mileage_records DISABLE TRIGGER customer_closure_guard;
+ALTER TABLE mileage_records DISABLE TRIGGER bookkeeping_cutover_guard;
 CREATE TABLE vehicles (
     entity_id text NOT NULL REFERENCES business_entities(id),
     id text NOT NULL CHECK (btrim(id) <> ''),
@@ -46,6 +47,9 @@ UPDATE mileage_records SET version=version+1 WHERE vehicle_id IS NULL;
 -- Complete deferred integrity/audit events before changing trigger metadata.
 SET CONSTRAINTS ALL IMMEDIATE;
 ALTER TABLE mileage_records ENABLE TRIGGER customer_closure_guard;
+ALTER TABLE mileage_records ENABLE TRIGGER bookkeeping_cutover_guard;
 SET CONSTRAINTS ALL DEFERRED;
 CREATE TRIGGER customer_closure_guard BEFORE INSERT OR UPDATE OR DELETE ON vehicles
     FOR EACH ROW EXECUTE FUNCTION guard_customer_closure();
+CREATE TRIGGER bookkeeping_cutover_guard BEFORE INSERT OR UPDATE OR DELETE ON vehicles
+    FOR EACH ROW EXECUTE FUNCTION guard_bookkeeping_cutover();

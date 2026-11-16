@@ -122,6 +122,22 @@ def test_upgrade_preserves_two_claimed_ledgers_provenance_documents_and_provider
     for module in ('migration', 'migration_reconciliation', 'cutover'):
         monkeypatch.setattr(f'tabula_rasa.infrastructure.postgres.{module}.head_revision',
                             lambda: '0015_support_controls')
+    from tabula_rasa.infrastructure.postgres import migration, migration_readback, migration_secondary
+    # The historical loader predates the managed vehicle catalog and FK.
+    monkeypatch.setattr(migration, 'ROOT_TABLES', tuple(table for table in migration.ROOT_TABLES if table != 'vehicles'))
+    monkeypatch.setattr(migration_secondary, 'ensure_vehicle_for_label', lambda *_: None)
+    original_insert = migration_secondary.insert
+    def historical_insert(connection, table, values):
+        if table == 'mileage_records':
+            values = {key: value for key, value in values.items() if key != 'vehicle_id'}
+        return original_insert(connection, table, values)
+    monkeypatch.setattr(migration_secondary, 'insert', historical_insert)
+    original_projection = migration_readback.source_projection
+    def historical_projection(connection, scope, title, row):
+        if title == 'Mileage':
+            row = {**row, 'vehicle_id': None}
+        return original_projection(connection, scope, title, row)
+    monkeypatch.setattr(migration_readback, 'source_projection', historical_projection)
     identity = PostgresIdentityRepository(database)
     controller = PostgresCutoverController(database)
     expected = {}
@@ -151,7 +167,16 @@ def test_upgrade_preserves_two_claimed_ledgers_provenance_documents_and_provider
     assert after == before
     assert tenancy_inventory(database)['counts']['external_connections'] == 2
     for profile in expected:
-        assert create_postgres_export_service(database, profile).export()['domains'] == expected[profile]
+        actual = create_postgres_export_service(database, profile).export()['domains']
+        vehicles = {row['id']: row['name'] for row in actual.pop('vehicles')}
+        for row in actual['mileage_records']:
+            assert vehicles[row.pop('vehicle_id')] == row['vehicle']
+        # The backfill intentionally advances mileage baselines and audit digests.
+        for domains in (actual, expected[profile]):
+            for row in domains['mileage_records']:
+                row.pop('version')
+                row.pop('updated_at')
+        assert actual == expected[profile]
         assert status(database, profile) == authority[profile]
 
 
