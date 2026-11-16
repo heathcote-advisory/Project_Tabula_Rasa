@@ -119,7 +119,7 @@ completeness, relationships and accounting meaning beyond JSON Schema.
 | Manifest field | Meaning |
 | --- | --- |
 | `format`, `format_version` | `tabula-rasa-bookkeeping`, integer `2` for current exports; independent of Sheets/archive format 13 |
-| `database_schema_version` | Observed supported PostgreSQL revision; current v2 uses `0024_mileage_vehicles`, while archived v1 revisions through `0023_business_currency` retain their original inventory |
+| `database_schema_version` | Observed supported PostgreSQL revision; v2 starts at `0024_mileage_vehicles` and supports the current `0025_enrollment_drive_setup` control-plane revision, while archived v1 revisions through `0023_business_currency` retain their original inventory |
 | `entity_id` | Explicit selected business entity; also present on every entity-local record |
 | `snapshot_at` | Database transaction-start instant in UTC; all reads use that transaction's coherent snapshot |
 | `counts` | Count for every included canonical collection, including zero counts |

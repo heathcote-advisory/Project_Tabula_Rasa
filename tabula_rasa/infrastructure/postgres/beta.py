@@ -89,7 +89,7 @@ def require_open(program, *, creation=False):
         raise IdentityError("beta_paused")
 
 
-def prepare_business(connection, actor, request_id, name, country, currency):
+def prepare_business(connection, actor, request_id, name, country, currency, *, verified=False):
     program = lock_program(connection)
     if (country, currency) not in {("US", "USD"), ("CA", "CAD")}:
         raise IdentityError("beta_eligibility")
@@ -107,18 +107,29 @@ def prepare_business(connection, actor, request_id, name, country, currency):
         # Exempt only a new USD request, never a request already bound to admission.
         if internal(connection, actor) and (country, currency) == ("US", "USD"):
             return None
+        self_service = program["enrollment_mode"] == "self_service"
+        if self_service:
+            require_open(program, creation=True)
+            if not verified:
+                raise IdentityError("forbidden")
         key = uuid4().hex
         connection.execute(
-            text("""INSERT INTO beta_admissions(id,user_id,request_id,business_name,country)
-            VALUES (:id,:user,:request,:name,:country)"""),
+            text("""INSERT INTO beta_admissions(id,user_id,request_id,business_name,country,state)
+            VALUES (:id,:user,:request,:name,:country,:state)"""),
             dict(
                 id=key,
                 user=actor,
                 request=request_id,
                 name=name,
                 country=country,
+                state='approved' if self_service else 'pending',
             ),
         )
+        if self_service:
+            PostgresBeta._approve_user(connection, key, actor)
+            check_capacity(connection, program)
+            event(connection, actor, "self_service_admitted", key, revision=program["revision"])
+            return None
         event(connection, actor, "requested", key)
         return {"state": "pending", "entity_id": None, "organization_id": None}
     if (row["business_name"], row["country"]) != (
@@ -241,7 +252,7 @@ class PostgresBeta:
     def __init__(self, database):
         self.database = database
 
-    def status(self, actor):
+    def status(self, actor, *, verified=False):
         with identity_operation(self.database, read_only=True) as connection:
             program = (
                 connection.execute(text("SELECT * FROM beta_program WHERE id=true"))
@@ -262,6 +273,7 @@ class PostgresBeta:
                 "invitations_paused": program["suspended"]
                 or program["invitations_paused"],
                 "internal": internal(connection, actor),
+                "self_service": verified and program["enrollment_mode"] == "self_service",
                 "requests": requests,
             }
 
@@ -303,7 +315,16 @@ class PostgresBeta:
             ):
                 raise IdentityError("validation")
             target = command.get("admission_id") or "program"
-            if operation == "configure":
+            if operation == "set_enrollment_mode":
+                target = "program"
+                mode = command.get("enrollment_mode")
+                if mode not in {"approval_required", "self_service"} or (
+                    mode == "self_service" and program["stage"] != "expanded"
+                ):
+                    raise IdentityError("validation")
+                connection.execute(text("UPDATE beta_program SET enrollment_mode=:mode WHERE id=true"),
+                                   {"mode": mode})
+            elif operation == "configure":
                 stage = command["stage"]
                 cap, users = command["business_cap"], command.get("user_cap")
                 if (
@@ -316,6 +337,7 @@ class PostgresBeta:
                         or not 1 <= users <= 20
                     )
                     or stage not in {"initial", "expanded"}
+                    or stage != "expanded" and program["enrollment_mode"] == "self_service"
                 ):
                     raise IdentityError("validation")
                 connection.execute(
@@ -431,14 +453,14 @@ class PostgresBeta:
                     k: v
                     for k, v in command.items()
                     if k
-                    in {
+                    in ({"enrollment_mode"} if operation == "set_enrollment_mode" else {
                         "stage",
                         "business_cap",
                         "user_cap",
                         "creation_paused",
                         "invitations_paused",
                         "suspended",
-                    }
+                    })
                 },
             )
             return self._snapshot(

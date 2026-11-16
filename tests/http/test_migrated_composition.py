@@ -159,9 +159,9 @@ def test_native_workspace_bootstrap_remains_available_for_independent_users(monk
     bootstrap = Mock(side_effect=lambda actor, *args, **kwargs: {'state': 'ready', 'entity_id': actor})
     monkeypatch.setattr(runtime.workspaces.repository, 'bootstrap', bootstrap)
     for actor in ('alpha', 'beta'):
-        assert runtime.workspaces.bootstrap(SimpleNamespace(user_id=actor), 'request-' + actor,
+        assert runtime.workspaces.bootstrap(SimpleNamespace(user_id=actor, verified_email=None), 'request-' + actor,
                                              'Workspace', 'Business') == {'state': 'ready', 'entity_id': actor}
-        bootstrap.assert_called_with(actor, 'request-' + actor, 'Workspace', 'Business', None, country='US', currency='USD')
+        bootstrap.assert_called_with(actor, 'request-' + actor, 'Workspace', 'Business', None, country='US', currency='USD', verified=False)
 
 
 @pytest.mark.parametrize('mismatch', ['database', 'environment'])

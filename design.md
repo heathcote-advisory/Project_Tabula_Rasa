@@ -229,9 +229,13 @@ workbooks, Google grants or ledger data.
 a Google Drive connection section within Data & backup for the selected
 business. It shows safe status and explicit confirmed Connect/Reconnect/
 Disconnect actions and requires fresh login. With customer OAuth enabled, Connect
-redirects to Google consent, provisions a dedicated business folder and returns with
-connected account email. Connecting/incomplete setup has explicit retry guidance;
-reconnect preserves the same account/folders. For enrolled connections with
+redirects to Google consent. On return, first-time setup requires a folder name
+and a confirmed destination before creating a dedicated business root. The name
+starts with a business-name default. The destination starts at My Drive root,
+with a folder-only Google Picker when configured. Canceling before creation leaves
+the business unconnected. Setup shows the Google account email and offers explicit
+retry for interrupted provisioning.
+Reconnect preserves the same account/folders. For enrolled connections with
 unreadable credential custody, the panel shows Reconnect required and bookkeeping
 remains available. Other deployments retain operator
 provisioning. Disconnect preserves files/links and explains separate Google revocation. No provider tokens, secret references,
@@ -1198,7 +1202,7 @@ beta notice below the business actions and forms, using existing surfaces and st
 Asynchronous enrollment status must not shift controls during a pointer interaction.
 Scope and service limitations sit in a keyboard-accessible disclosure. Business setup collects
 U.S./USD or Canada/CAD. The review step states the initial currency and that
-Owner/Admin can later change its label without converting amounts. Canadian admission requires separate release/cohort approval. Create Business can return pending without creating a ledger. The
+Owner/Admin can later change its label without converting amounts. Canadian admission requires separate release/cohort approval. In approval-required mode, Create Business can return pending without creating a ledger. The authorized self-service mode offers direct creation for eligible verified accounts within the program caps and freezes. Existing requests keep their original approval state. The
 form preserves the exact request for explicit retry after approval, including
 refresh recovery, and never treats a pending result as successful creation.
 Named collaborators need separate operator approval and retain the existing

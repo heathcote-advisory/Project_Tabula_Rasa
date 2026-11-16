@@ -16,6 +16,39 @@ from tests.drive_fixtures import drive_folder
 from ._support import FakeResponse, DriveSession, drive_error, drive_settings, managed_folder, oauth_config
 
 class TestGoogleDriveFolders:
+    @pytest.mark.parametrize("invalid", ["trashed", "readonly", "managed", "inaccessible"])
+    def test_storage_parent_requires_accessible_writable_nonmanaged_folder(self, invalid):
+        parent = drive_folder("picked-parent", "Books")
+        parent["capabilities"] = {"canAddChildren": invalid != "readonly"}
+        parent["trashed"] = invalid == "trashed"
+        if invalid == "managed":
+            parent["appProperties"] = {"tabulaRasaProfile": "different-business"}
+        reply = FakeResponse(404, {}) if invalid == "inaccessible" else FakeResponse(200, parent)
+        client = GoogleDriveClient(oauth_config(), drive_settings(), session=DriveSession([reply]))
+        with pytest.raises(GoogleDriveAccessError):
+            client.storage_parent("picked-parent")
+
+    def test_storage_parent_resolves_my_drive_alias(self):
+        folder = {**drive_folder("my-drive-root", "My Drive"), "capabilities": {"canAddChildren": True}}
+        transport = DriveSession([FakeResponse(200, folder)])
+        client = GoogleDriveClient(oauth_config(), drive_settings(), session=transport)
+        assert client.storage_parent("root") == "my-drive-root"
+        assert transport.requests[0][1].endswith("/files/root")
+
+    def test_selected_parent_with_reserved_id_reconciles_uncertain_creation(self):
+        folder = drive_folder("reserved-folder", "Business books", parent_id="picked-parent",
+                              profile_key="north", kind="storage-root")
+        transport = DriveSession([FakeResponse(200, {"files": []}), FakeResponse(503, {}), FakeResponse(200, folder)])
+        client = GoogleDriveClient(oauth_config(), drive_settings(), session=transport)
+        result = client.create_storage_root("north", "Business books", parent_id="picked-parent",
+                                            file_id="reserved-folder")
+        assert result == {"id": "reserved-folder", "name": "Business books"}
+        assert [method for method, _, _ in transport.requests] == ["GET", "POST", "GET"]
+        metadata = json.loads(transport.requests[1][2]["data"])
+        assert metadata["id"] == "reserved-folder"
+        assert metadata["parents"] == ["picked-parent"]
+        assert transport.requests[-1][1].endswith("/files/reserved-folder")
+
     def test_freshly_validates_profile_root_and_managed_children(self) -> None:
         root = drive_folder("rootfolder123", "North Storage")
         receipt = drive_folder(
