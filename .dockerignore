@@ -20,3 +20,9 @@
 !deploy/
 !deploy/commercial/
 !deploy/commercial/Dockerfile
+!docs/
+!docs/TERMS_OF_USE.md
+!docs/PRIVACY_POLICY.md
+!docs/legal/
+!docs/legal/BETA_TERMS.md
+!docs/legal/BETA_PRIVACY.md

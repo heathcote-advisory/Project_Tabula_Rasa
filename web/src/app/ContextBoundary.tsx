@@ -177,11 +177,11 @@ export function ContextBoundary({ children, onScopeChange }: { children: ReactNo
   </section></main>;
   if (!state.session) return <main className="standalone"><LoadingState label="Loading business context…" /></main>;
   if (state.session.state === 'needs_setup' || window.location.pathname === '/invitations') return <main className="standalone"><section className="surface">
-    <PolicyAcknowledgement key={'policies:' + state.session.actor_id} session={state.session} />
     {state.session.state === 'needs_setup' ? <Onboarding key={state.session.actor_id} session={state.session} />
       : <><PageHeader title="Join an invited business" /><InvitationAcceptance key={state.session.actor_id} session={state.session} /><div className="actions"><a className="button" href="/">Return to your dashboard</a></div></>}
     <CustomerLifecycle key={'lifecycle:' + state.session.actor_id + state.session.cache_scope} session={state.session} />
-    <div className="actions"><ActionButton onClick={() => void logout()}>Sign out</ActionButton></div></section></main>;
+    <div className="actions"><ActionButton onClick={() => void logout()}>Sign out</ActionButton></div>
+    <PolicyAcknowledgement key={'policies:' + state.session.actor_id} session={state.session} /></section></main>;
   async function select(id: string) {
     if (!state.session || state.session.state === 'needs_setup' || selecting.current) return;
     selecting.current = true;

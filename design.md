@@ -1231,6 +1231,8 @@ Named users explicitly acknowledge an active beta bundle with an unchecked
 Terms acceptance/Privacy receipt checkbox. Existing users see materially changed
 bundles again; existing bookkeeping, export and closure access remains available.
 Creating/joining a business requires the current acknowledgement on the server.
+The asynchronous acknowledgement panel follows workflow actions, so late policy
+status cannot move business creation, invitation or bookkeeping click targets.
 Status/acceptance failures remain visible with reload guidance; no automatic
 acceptance, research enrollment or silent continued-use acceptance is recorded.
 

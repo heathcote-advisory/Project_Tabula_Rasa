@@ -405,12 +405,19 @@ def test_onboarding_invitee_joins_existing_workspace_without_new_ownership(named
         peer = context.new_page()
         peer.add_init_script("Object.defineProperty(document, 'visibilityState', {get: () => 'hidden'})")
         status_routes = []
+        policy_routes = []
         peer.route('**/api/v1/beta/status', lambda route: status_routes.append(route))
+        peer.route('**/api/v1/policies/acknowledgement', lambda route: policy_routes.append(route))
         with peer.expect_request('**/api/v1/beta/status'):
             peer.goto(origin)
         create = peer.get_by_role('button', name='Create your first business', exact=True)
         expect(create).to_be_visible()
         before_status = create.bounding_box()
+        # Policy status settles independently and must not move business actions.
+        assert len(policy_routes) == 1
+        policy_routes[0].fulfill(response=context.request.get(origin + '/api/v1/policies/acknowledgement'))
+        expect(peer.get_by_text('Checking policy version…', exact=True)).to_have_count(0)
+        assert create.bounding_box() == before_status
         # Deliver status after controls are usable: it must not move a click target.
         assert len(status_routes) == 1
         status_routes[0].fulfill(response=context.request.get(origin + '/api/v1/beta/status'))
