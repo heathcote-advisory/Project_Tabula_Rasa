@@ -55,6 +55,10 @@ export function createApi(fetcher: typeof fetch = (...args) => fetch(...args)) {
   const mutationParams = (session: Session, id: string) => ({ params: { path: path(session, id) }, headers: headers(session.csrf_token) });
   const createParams = (session: Session) => ({ ...listParams(session), headers: headers(session.csrf_token) });
   return {
+    publicPolicies: (signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/public/policies', { signal }))),
+    policyStatus: (signal?: AbortSignal) => safe(async () => unwrap(await client.GET('/api/v1/policies/acknowledgement', { signal }))),
+    acceptPolicies: (s: SessionState, digest: string) => safe(async () => unwrap(await client.POST(
+      '/api/v1/policies/acknowledgement', { body: { digest, accepted: true }, headers: headers(s.csrf_token) }))),
     lifecycleStatus: (businessId?: string, signal?: AbortSignal) => safe(async () => unwrap(await client.GET(
       '/api/v1/customer-lifecycle', { params: { query: { business_id: businessId } }, signal, headers: headers() }))),
     requestLifecycle: (s: SessionState, body: Schemas['LifecycleRequest']) => safe(async () => unwrap(await client.POST(

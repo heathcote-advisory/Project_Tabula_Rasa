@@ -4853,6 +4853,50 @@
         "title": "PeriodList",
         "type": "object"
       },
+      "PolicyAcceptance": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "accepted"
+        ],
+        "title": "PolicyAcceptance",
+        "type": "object"
+      },
+      "PolicyStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "boolean"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "digest",
+          "required",
+          "acknowledged"
+        ],
+        "title": "PolicyStatus",
+        "type": "object"
+      },
       "Posting": {
         "additionalProperties": false,
         "properties": {
@@ -4942,6 +4986,57 @@
           "baseline"
         ],
         "title": "ProtectedMutation",
+        "type": "object"
+      },
+      "PublicPolicies": {
+        "additionalProperties": false,
+        "properties": {
+          "beta": {
+            "title": "Beta",
+            "type": "boolean"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "effective_date": {
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "privacy": {
+            "title": "Privacy",
+            "type": "string"
+          },
+          "support_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Email"
+          },
+          "terms": {
+            "title": "Terms",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "effective_date",
+          "terms",
+          "privacy",
+          "support_email",
+          "beta",
+          "digest"
+        ],
+        "title": "PublicPolicies",
         "type": "object"
       },
       "QuickBooksImportPreview": {
@@ -20022,6 +20117,287 @@
         "summary": "Respond Invitation",
         "tags": [
           "Business access"
+        ]
+      }
+    },
+    "/api/v1/policies/acknowledgement": {
+      "get": {
+        "operationId": "policy_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Identity required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Operation denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Duplicate or concurrent change"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Transport or domain validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unexpected failure"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "summary": "Policy Status",
+        "tags": [
+          "Customer policies"
+        ]
+      },
+      "post": {
+        "operationId": "accept_policies",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyAcceptance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Identity required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Operation denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Duplicate or concurrent change"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Transport or domain validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unexpected failure"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "summary": "Accept Policies",
+        "tags": [
+          "Customer policies"
+        ]
+      }
+    },
+    "/api/v1/public/policies": {
+      "get": {
+        "operationId": "public_policies",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPolicies"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Identity required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Operation denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Duplicate or concurrent change"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Transport or domain validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unexpected failure"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "summary": "Public Policies",
+        "tags": [
+          "Customer policies"
         ]
       }
     },

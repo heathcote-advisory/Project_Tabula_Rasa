@@ -174,6 +174,9 @@ def revoke_invitation(organization_id: str, invitation_id: str, request: Request
              responses={410: {'model': ErrorEnvelope, 'description': 'Invitation expired'}})
 def respond_invitation(body: InvitationResponse, request: Request):
     service, session = workflow(request)
+    if body.accept and request.app.state.customer_policies.beta:
+        from .customer_policies import require_acknowledgement
+        require_acknowledgement(request, session)
     return service.respond(session, body.credential.get_secret_value(), body.accept)
 
 

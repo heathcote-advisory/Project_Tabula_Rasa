@@ -853,3 +853,14 @@ Business currency revision `0023_business_currency` also removes the redundant
 US/USD and CA/CAD directly from the submitted initial setup. The current unit
 lives only on the business root. This migration does not change ledger amounts
 or introduce FX behavior.
+
+## Customer policy acknowledgement storage
+
+Forward revision `0025_customer_policies` adds personal, immutable acknowledgement
+evidence (actor, bundle digest, policy version and server timestamp) without
+backfilling existing users. It adds no canonical bookkeeping fields. The runtime
+needs SELECT/INSERT only on `customer_policy_acknowledgements`; no deletion,
+sequence or ownership grant is needed. Apply through the maintained maintenance
+rollout and retain evidence with identity/control-plane database recovery,
+separately from customer financial exports. Reviewed bundle publication and
+deployed synthetic validation follow [customer legal readiness](../legal/READINESS.md).

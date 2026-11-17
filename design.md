@@ -1215,3 +1215,28 @@ separate release requirements; no legal acceptance or mailbox is invented.
 Operator controls have no tenant role or paid-plan UI. The
 [admission procedure](docs/operations/BETA_ADMISSION.md) owns program state and
 release handoff; it does not authorize external enrollment.
+
+## Customer policies and private help
+
+**Current behavior:** Public `/terms` and `/privacy` show the effective version and
+effective date without mounting private queries. Signed-out, setup and business
+screens link policies and `/help`. Internal policies stay effective by default;
+editorial beta candidates require exact reviewed-content publication configuration.
+Named users explicitly acknowledge an active beta bundle with an unchecked
+Terms acceptance/Privacy receipt checkbox. Existing users see materially changed
+bundles again; existing bookkeeping, export and closure access remains available.
+Creating/joining a business requires the current acknowledgement on the server.
+Status/acceptance failures remain visible with reload guidance; no automatic
+acceptance, research enrollment or silent continued-use acceptance is recorded.
+
+Help is available signed out. It collects category, optional bounded safe request
+and release references, and a separate unchecked qualitative research choice.
+It never attaches selected-business context, receipts, logs or credentials. An
+explicit review checkbox enables a draft preview; a second deliberate action
+opens the user's mail client. Nothing is submitted by the application. Users
+review and send there, or copy the draft when a mail client is unavailable.
+Changes invalidate the preview; withdrawing research clears its answers. Drafts
+are memory-only. Best-effort two-business-day ordinary response, weekly triage,
+independent P0 escalation and absence of a fix/24-hour staffing guarantee are visible.
+[Legal readiness](docs/legal/READINESS.md) and [feedback operations](docs/operations/BETA_FEEDBACK.md)
+own publication, custody, provider evidence and manual release checkpoints.

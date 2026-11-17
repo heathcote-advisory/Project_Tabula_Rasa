@@ -21,6 +21,8 @@ class RoutePolicy:
 # IDs are server route metadata, never request claims. Identity handlers share
 # the session guard; logout retains its documented outage-clearing path.
 ROUTE_POLICIES = MappingProxyType({
+    'policy_status': RoutePolicy('GET', 'session', 'identity'),
+    'accept_policies': RoutePolicy('POST', 'session', 'identity'),
     'customer_lifecycle_status': RoutePolicy('GET', 'session', 'identity'),
     'request_customer_lifecycle': RoutePolicy('POST', 'session', 'identity'),
     'change_customer_lifecycle': RoutePolicy('POST', 'session', 'identity'),
@@ -107,6 +109,7 @@ ROUTE_POLICIES = MappingProxyType({
 # Only these exact application routes serve public, non-private content.
 # A new path outside /api must not silently bypass the central dependency.
 PUBLIC_ROUTES = MappingProxyType({
+    'public_policies': ('/api/v1/public/policies', frozenset({'GET'})),
     'liveness': ('/health/live', frozenset({'GET'})),
     'readiness': ('/health/ready', frozenset({'GET'})),
     'version': ('/version', frozenset({'GET'})),
@@ -168,6 +171,11 @@ def authorize_request(request: Request):
             session = identity.authenticated(request)
             if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
                 require_csrf(request, session.csrf_token)
+            if (request.app.state.customer_policies.beta and request.method == 'POST'
+                    and policy.action == 'session' and getattr(route, 'operation_id', '') in {
+                        'create_business', 'bootstrap_workspace', 'bootstrap_business'}):
+                from .routes.customer_policies import require_acknowledgement
+                require_acknowledgement(request, session)
 
 
 def validate_routes(app):

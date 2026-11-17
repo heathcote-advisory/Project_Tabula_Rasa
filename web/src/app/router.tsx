@@ -20,7 +20,15 @@ import { WorkspacePage } from '../features/identity/WorkspacePage';
 import { ExpenseToRecurring } from '../features/secondary/ExpenseToRecurring';
 import { DataBackupPage } from '../features/imports/DataBackupPage';
 
-const routes = [{
+import { PublicHomePage, PublicPolicyPage } from '../features/identity/PolicyPages';
+import { HelpPage } from '../features/identity/HelpPage';
+
+const routes = [
+  { path: '/about', element: <PublicHomePage /> },
+  { path: '/terms', element: <PublicPolicyPage kind="terms" /> },
+  { path: '/privacy', element: <PublicPolicyPage kind="privacy" /> },
+  { path: '/help', element: <HelpPage /> },
+{
   element: <AuthorizedShell />,
   errorElement: <RouteError />,
   children: [

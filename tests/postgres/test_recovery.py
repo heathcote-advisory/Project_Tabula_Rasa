@@ -37,7 +37,7 @@ def test_representative_recovery_verification_is_read_only_and_isolates_two_enti
         result = verify(database, expected_alpha)
         assert result == {
             "status": "matched", "scope": "entity_bookkeeping",
-            "database_schema_version": "0024_mileage_vehicles",
+            "database_schema_version": "0025_customer_policies",
             "content_sha256": expected_alpha["manifest"]["content_sha256"], "later_state_distinct": False,
             "diagnostic_count": 0,
         }

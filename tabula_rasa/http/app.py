@@ -30,6 +30,7 @@ from .errors import (
 from .models.common import Health, Version
 from .routes import accounting, accounts, auth, documents, financial_csv, imports, mileage, mileage_imports, references, reporting, secondary, session
 from .routes import connections, customer_export, customer_lifecycle, maps_quota, periods, support
+from .routes import customer_policies
 
 logger = logging.getLogger("tabula_rasa.http")
 
@@ -39,6 +40,9 @@ def create_app(*, settings=None, runtime_factory=None, schema_only=False, static
     @asynccontextmanager
     async def lifespan(app):
         app.state.settings = settings or HttpSettings.from_environment()
+        from tabula_rasa.application.customer_policies import load_policies
+        import os
+        app.state.customer_policies = load_policies(os.environ)
         app.state.alpha_workers = CapacityLimiter(2)
         factory = runtime_factory or open_runtime
         if not logger.hasHandlers():
@@ -207,6 +211,7 @@ def create_app(*, settings=None, runtime_factory=None, schema_only=False, static
     app.include_router(financial_csv.router)
     app.include_router(customer_export.router)
     app.include_router(customer_lifecycle.router)
+    app.include_router(customer_policies.router)
     app.include_router(reporting.router)
     app.include_router(secondary.router)
     app.include_router(periods.router)

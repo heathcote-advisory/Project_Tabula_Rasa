@@ -84,7 +84,7 @@ def audited_keys(revision):
         return {table: keys for table, keys in AUDITED_KEYS.items() if table not in {'support_actions', 'customer_export_actions'}}
     if revision in {'0015_support_controls', '0016_business_tenancy'}:
         return {table: keys for table, keys in AUDITED_KEYS.items() if table != 'customer_export_actions'}
-    return {**AUDITED_KEYS, "vehicles": ("id",)} if revision == "0024_mileage_vehicles" else AUDITED_KEYS
+    return {**AUDITED_KEYS, "vehicles": ("id",)} if revision in {"0024_mileage_vehicles", "0025_customer_policies"} else AUDITED_KEYS
 
 
 class AuditReader:
