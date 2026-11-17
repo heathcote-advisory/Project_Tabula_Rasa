@@ -206,7 +206,12 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
             )
             if deploy == prior_deploy["id"]:
                 raise release.ReleaseError("Render did not create a new deployment for the requested restart.")
-            smoke(origin, candidate["release"])
+            try:
+                smoke(origin, candidate["release"], previous_release=previous["release"])
+            except release.ReleaseError:
+                raise
+            except Exception:
+                raise release.ReleaseError("Post-deployment named-user smoke failed; inspect public release handover and access checks.") from None
             live = release.active_deployment(service, token, read=read)
             if live is None or live["id"] != deploy:
                 raise release.ReleaseError("The new deployment is no longer active after smoke.")

@@ -17,6 +17,17 @@ artifacts cannot enter the build context. Server secrets are never build args.
 The release SHA is visible at `/version`; OCI labels record SHA and Alembic head.
 The browser uses relative API URLs and requires no per-environment build.
 
+Named-user rolling promotions pass the verified prior release to the shared
+public smoke check. After Render reports the candidate live, the version check
+may still reach the prior instance during traffic handover. Only that exact
+prior revision may be retried: at most 21 version probes, each with a five-second
+request timeout, separated by three seconds. The expected candidate must be
+observed before access-boundary checks can pass. An unrelated/malformed revision,
+failed readiness or access check, or exhausted handover budget stops qualification.
+Preflight and maintenance smoke checks without a prior revision remain strict.
+This never retries a deployment or migration and does not replace the successful
+build, staging job and retained release artifact required for production.
+
 `commercial-image.yml` follows successful **push-to-main Repository CI** and
 builds/publishes a `linux/amd64` GHCR image tagged by SHA. Its summary records the
 immutable digest and expected schema head. Repository CI also builds/imports

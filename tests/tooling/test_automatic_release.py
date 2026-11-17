@@ -94,7 +94,7 @@ def test_production_attempt_is_recorded_and_a_failed_digest_requires_rearming():
     assert all("body" not in call.kwargs for call in github.call_args_list)
 
 
-@pytest.mark.parametrize("outcome", ["promote", "unchanged", "staging_changed", "failed_smoke"])
+@pytest.mark.parametrize("outcome", ["promote", "unchanged", "staging_changed", "failed_smoke", "unexpected_smoke_error"])
 def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkeypatch, outcome):
     from tabula_rasa.deployment import production, schema_window
 
@@ -132,14 +132,18 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
     ]))
     smoke = Mock(side_effect=[None, release.ReleaseError("New image smoke failed.")]
                  if outcome == "failed_smoke" else None)
+    if outcome == "unexpected_smoke_error":
+        smoke.side_effect = [None, RuntimeError("sensitive fixture diagnostic")]
 
     def invoke():
         return automatic_release.run(environ, read=Mock(), verify=Mock(), database=Mock(),
                                      smoke=smoke, now=lambda: NOW)
 
-    if outcome in {"staging_changed", "failed_smoke"}:
-        with pytest.raises(release.ReleaseError):
+    if outcome in {"staging_changed", "failed_smoke", "unexpected_smoke_error"}:
+        with pytest.raises(release.ReleaseError) as error:
             invoke()
+        if outcome == "unexpected_smoke_error":
+            assert str(error.value) == "Post-deployment named-user smoke failed; inspect public release handover and access checks."
         if outcome == "staging_changed":
             record.assert_not_called()
             deploy.assert_not_called()
@@ -155,7 +159,8 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
         assert result["image"] == IMAGE and result["restarted"]
         assert deploy.call_args.args[2] == IMAGE and evidence.call_count == 2
         assert smoke.call_args_list == [call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], PRIOR["release"]),
-                                        call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], candidate["release"])]
+                                        call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], candidate["release"],
+                                             previous_release=PRIOR["release"])]
         status.assert_called_once_with("success")
 
 

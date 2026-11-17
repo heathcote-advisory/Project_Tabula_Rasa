@@ -1,5 +1,7 @@
 """Mode-specific deployment probes; named login acceptance is a separate rehearsal."""
 
+import time
+
 
 def access_mode(environ, *, require_alpha_credentials=True):
     mode = environ.get('TABULA_RASA_ACCESS_MODE')
@@ -15,12 +17,20 @@ def access_mode(environ, *, require_alpha_credentials=True):
     return mode
 
 
-def named_probe(context, release):
+def named_probe(context, release, *, previous_release=None, sleep=time.sleep):
     """Anonymous HTTP boundary, including forged legacy credentials/selectors."""
     if context.request.get('/health/ready').status != 200:
         raise ValueError('Readiness failed.')
-    if context.request.get('/version').json() != {'release': release}:
-        raise ValueError('Release identity mismatch.')
+    checks = 21 if previous_release is not None else 1
+    for attempt in range(checks):
+        observed = context.request.get('/version', timeout=5000).json()
+        if observed == {'release': release}:
+            break
+        if previous_release is None or observed != {'release': previous_release}:
+            raise ValueError('Release identity mismatch.')
+        if attempt == checks - 1:
+            raise ValueError('Release handover did not converge.')
+        sleep(3)
     for headers in ({}, {'Authorization': 'Basic c3ludGhldGljOnN5bnRoZXRpYw=='},
                     {'Cookie': 'tabula_entity=alpha-synthetic; tabula_dev_session=synthetic',
                      'X-Forwarded-For': '127.0.0.1'}):
@@ -38,7 +48,7 @@ def named_probe(context, release):
             raise ValueError('Routing failure.')
 
 
-def named_smoke(origin, release):
+def named_smoke(origin, release, *, previous_release=None):
     """No provider credentials, login transactions, session storage or private reads.
 
     Readiness checks PostgreSQL. This verifies the public sign-in shell and
@@ -50,7 +60,7 @@ def named_smoke(origin, release):
         browser = playwright.chromium.launch()
         try:
             with browser.new_context(base_url=origin) as context:
-                named_probe(context, release)
+                named_probe(context, release, previous_release=previous_release)
                 page = context.new_page()
                 page.goto('/accounts')
                 expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
