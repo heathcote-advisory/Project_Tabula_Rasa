@@ -22,9 +22,11 @@ No session, tenant, current URL, logs, screenshots or receipts are attached.
 
 Email threads in the LLC Gmail mailbox are the private case record. Only the
 LLC owner currently has access. The owner may manually move selected cases to
-Google Drive under the same LLC account for long-term retention; keep those
-records restricted to the owner and preserve the original receipt date and
-case context. This operator-held case custody is separate from customer-owned
+a dedicated, non-shared Google Drive folder under the same LLC account for
+long-term retention. Before each move, verify the folder and case's effective
+access, including inherited parent sharing; do not archive under a shared
+parent. Keep records restricted to the owner and preserve the original receipt
+date and case context. This operator-held case custody is separate from customer-owned
 Drive receipt folders and the application's business-specific OAuth grants.
 There is no automatic case archival or expiry. Reassess access and disclosures
 before adding another reviewer or changing custody.
