@@ -94,6 +94,49 @@ def test_production_attempt_is_recorded_and_a_failed_digest_requires_rearming():
     assert all("body" not in call.kwargs for call in github.call_args_list)
 
 
+@pytest.mark.parametrize("include_source", [True, False])
+def test_scheduled_worker_fence_uses_qualified_schemas_instead_of_manual_list(monkeypatch, include_source):
+    from tabula_rasa.deployment import production, schema_window, worker_compatibility
+    from tests.tooling.test_worker_compatibility import ENV as WORKER_ENV
+
+    environ = {**ENV, **WORKER_ENV, "TABULA_RASA_ENVIRONMENT": "production",
+               "COMMERCIAL_AUTO_PRODUCTION_ENABLED": "true", "STAGING_RENDER_SERVICE_ID": "srv-stageother",
+               "STAGING_RENDER_API_KEY": "fixture", "WINDOW_WORKER_ROLE": "recurring_worker",
+               "WINDOW_WORKER_COMPATIBLE_SCHEMAS": "obsolete_manual_declaration"}
+    worker = {"version": 1, "worker": worker_compatibility.identity(environ),
+              "candidate": {**CANDIDATE, "image": IMAGE}, "run_id": "123", "run_attempt": 1,
+              "status": "passed", "results": [
+                  {"schema": schema, "success": True, "checks": worker_compatibility.CHECKS}
+                  for schema in ([PRIOR["schema"]] if include_source else []) + [CANDIDATE["schema"]]
+              ]}
+    monkeypatch.setattr(release, "live_image", Mock(side_effect=[(IMAGE, CANDIDATE), (PRIOR_IMAGE, PRIOR)]))
+    monkeypatch.setattr(schema_window, "service_state", Mock(return_value={
+        "suspended": "not_suspended", "autoDeployTrigger": "off",
+        "serviceDetails": {"healthCheckPath": "/health/ready", "runtime": "image"},
+    }))
+    monkeypatch.setattr(production, "verify_render_origin", Mock())
+    monkeypatch.setattr(production, "verify_render_database", Mock(return_value="runtime"))
+    monkeypatch.setattr(production, "render_setting", lambda service, token, key, **_: {
+        "ENVIRONMENT": "production", "ACCESS_MODE": "named_user", "PUBLIC_ORIGIN": ENV["TABULA_RASA_PUBLIC_ORIGIN"],
+    }[key])
+    monkeypatch.setattr(automatic_release, "staging_run", Mock(return_value="123"))
+    monkeypatch.setattr(production, "staging_evidence", Mock(return_value={
+        "staging_image": IMAGE, "staging_attempt": 1, "worker_compatibility": worker,
+    }))
+    monkeypatch.setattr(release, "verify_prior_release", Mock())
+    monkeypatch.setattr(schema_window, "verify_no_jobs", Mock())
+    maintenance = Mock(return_value={"status": "smoke_passed"})
+    if include_source:
+        automatic_release.run(environ, read=Mock(), verify=Mock(), maintenance=maintenance, now=lambda: NOW)
+        assert maintenance.call_args.args[0]["WINDOW_WORKER_COMPATIBLE_SCHEMAS"] == ",".join(
+            [PRIOR["schema"], CANDIDATE["schema"]]
+        )
+    else:
+        with pytest.raises(release.ReleaseError, match="both release schemas"):
+            automatic_release.run(environ, read=Mock(), verify=Mock(), maintenance=maintenance, now=lambda: NOW)
+        maintenance.assert_not_called()
+
+
 @pytest.mark.parametrize("outcome", ["promote", "unchanged", "staging_changed", "failed_smoke", "unexpected_smoke_error"])
 def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkeypatch, outcome):
     from tabula_rasa.deployment import production, schema_window
