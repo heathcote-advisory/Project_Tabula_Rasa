@@ -90,4 +90,4 @@ Continued use of the Application after updated Terms become effective constitute
 Questions regarding these Terms may be directed to:
 
 **Heathcote Advisory LLC**  
-Email: [yaodongy1018@gmail.com](mailto:yaodongy1018@gmail.com)
+Email: [heathcoteadvisoryllc@gmail.com](mailto:heathcoteadvisoryllc@gmail.com)

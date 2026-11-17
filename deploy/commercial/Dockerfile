@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements-api.txt -r requirements-postgres.
     && groupadd --gid 1000 render-secrets \
     && useradd --uid 10001 --gid 1000 --create-home app
 COPY tabula_rasa ./tabula_rasa
+COPY docs/TERMS_OF_USE.md docs/PRIVACY_POLICY.md ./docs/
+COPY docs/legal/BETA_TERMS.md docs/legal/BETA_PRIVACY.md ./docs/legal/
 COPY --from=browser /build/web/dist ./web/dist
 ARG RELEASE_ID
 ARG SCHEMA_REVISION

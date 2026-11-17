@@ -91,6 +91,39 @@ def cohort(database):
     )
 
 
+def test_self_service_requires_personal_current_policy_acknowledgement(database, cohort, monkeypatch):
+    from tabula_rasa.application.customer_policies import beta_candidate
+
+    policies = beta_candidate('heathcoteadvisoryllc@gmail.com', '2026-11-16')
+    monkeypatch.setenv('TABULA_RASA_LEGAL_APPROVED_SHA256', policies.digest)
+    monkeypatch.setenv('TABULA_RASA_SUPPORT_EMAIL', policies.support_email)
+    monkeypatch.setenv('TABULA_RASA_LEGAL_EFFECTIVE_DATE', policies.effective_date)
+    client, auth, _, person, _, _, _, command, configure, _, _, _ = cohort
+    configure(stage='expanded', business_cap=3, user_cap=2)
+    command('set_enrollment_mode', enrollment_mode='self_service')
+    alice_raw, alice = person('alice')
+    bob_raw, bob = person('bob')
+    body = {'request_id': uuid4().hex, 'business_name': 'Synthetic self-service', 'country': 'US', 'currency': 'USD'}
+    with client:
+        client.cookies.set(auth.session_cookie, alice_raw, domain='127.0.0.1', path='/')
+        client.cookies.set(auth.csrf_cookie, alice.csrf_token, domain='127.0.0.1', path='/')
+        headers = {'origin': auth.settings.public_origin, 'x-csrf-token': alice.csrf_token}
+        assert client.post('/api/v1/businesses', headers=headers, json=body).status_code == 422
+        assert auth.sessions.identity.allowed_entities(alice.user_id) == ()
+        accepted = client.post('/api/v1/policies/acknowledgement', headers=headers,
+            json={'digest': policies.digest, 'accepted': True})
+        assert accepted.status_code == 200
+        result = client.post('/api/v1/businesses', headers=headers, json=body)
+        assert result.status_code == 200 and result.json()['state'] == 'ready'
+        client.cookies.set(auth.session_cookie, bob_raw, domain='127.0.0.1', path='/')
+        client.cookies.set(auth.csrf_cookie, bob.csrf_token, domain='127.0.0.1', path='/')
+        headers['x-csrf-token'] = bob.csrf_token
+        assert not client.get('/api/v1/policies/acknowledgement').json()['acknowledged']
+        assert client.post('/api/v1/businesses', headers=headers,
+            json={**body, 'request_id': uuid4().hex}).status_code == 422
+        assert auth.sessions.identity.allowed_entities(bob.user_id) == ()
+
+
 def test_self_service_preserves_request_bindings_caps_and_business_isolation(database, cohort):
     _, auth, _, person, _, _, beta, command, configure, service, request, _ = cohort
     _, alice = person("alice")

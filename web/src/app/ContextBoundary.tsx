@@ -1,3 +1,4 @@
+import { PolicyAcknowledgement, PolicyLinks } from '../features/identity/PolicyPages';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError, type Schemas, type SessionState } from '../api/client';
 import { ErrorNotice, LoadingState } from '../components/States';
@@ -168,7 +169,7 @@ export function ContextBoundary({ children, onScopeChange }: { children: ReactNo
       <p>Creating an account does not create a business or grant access. After registration, join your invited business using the credential shared privately by its administrator. Business creation requires separate approval.</p>
       <p>If registration is unavailable or you cannot complete email verification or factor setup, contact your service operator through your existing private support channel. You can still use Sign in with an existing account.</p>
       <p>If your login was closed or disabled, contact your service operator through your existing private support channel. Signing in does not reactivate a closed login.</p>
-      <div className="actions"><a className="button" href={window.location.pathname === '/invitations' ? '/api/v1/auth/login?return_path=/invitations' : '/api/v1/auth/login'}>Sign in</a>
+      <PolicyLinks /><div className="actions"><a className="button" href={window.location.pathname === '/invitations' ? '/api/v1/auth/login?return_path=/invitations' : '/api/v1/auth/login'}>Sign in</a>
         <a className="button" href="/api/v1/auth/register?return_path=/invitations">Create account</a></div></section></main>;
   if (state.error) return <main className="standalone"><section className="surface"><PageHeader title="Project Tabula Rasa" />
     <ErrorNotice error={state.error} operation="read" onReview={() => { setState({}); setGeneration(value => value + 1); }} />
@@ -179,7 +180,8 @@ export function ContextBoundary({ children, onScopeChange }: { children: ReactNo
     {state.session.state === 'needs_setup' ? <Onboarding key={state.session.actor_id} session={state.session} />
       : <><PageHeader title="Join an invited business" /><InvitationAcceptance key={state.session.actor_id} session={state.session} /><div className="actions"><a className="button" href="/">Return to your dashboard</a></div></>}
     <CustomerLifecycle key={'lifecycle:' + state.session.actor_id + state.session.cache_scope} session={state.session} />
-    <div className="actions"><ActionButton onClick={() => void logout()}>Sign out</ActionButton></div></section></main>;
+    <div className="actions"><ActionButton onClick={() => void logout()}>Sign out</ActionButton></div>
+    <PolicyAcknowledgement key={'policies:' + state.session.actor_id} session={state.session} /></section></main>;
   async function select(id: string) {
     if (!state.session || state.session.state === 'needs_setup' || selecting.current) return;
     selecting.current = true;

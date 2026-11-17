@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from tabula_rasa.http.app import create_app
-from tabula_rasa.http.authorization import ROUTE_POLICIES, validate_routes
+from tabula_rasa.http.authorization import ROUTE_POLICIES, public_route, validate_routes
 from tabula_rasa.http.config import HttpSettings
 from tests.http.test_transport import FakeRuntime, SETTINGS
 
@@ -16,12 +16,12 @@ from tests.http.test_transport import FakeRuntime, SETTINGS
 def test_complete_private_transport_inventory_matches_policy():
     app = create_app(schema_only=True)
     routes = [r for r in iter_route_contexts(app.routes)
-              if isinstance(r.original_route, APIRoute) and r.path.startswith('/api/')]
+              if isinstance(r.original_route, APIRoute) and r.path.startswith('/api/') and not public_route(r)]
     schema = app.openapi()
     operations = {value['operationId'] for methods in schema['paths'].values()
                   for method, value in methods.items() if method in {'get', 'post', 'put', 'patch', 'delete'}}
     assert {r.operation_id for r in routes} == set(ROUTE_POLICIES)
-    assert operations == set(ROUTE_POLICIES) | {'liveness', 'readiness', 'version'}
+    assert operations == set(ROUTE_POLICIES) | {'liveness', 'readiness', 'version', 'public_policies'}
     validate_routes(app)
     # Schema-only generation must audit dependencies without a DB or secrets.
     assert not hasattr(app.state, 'runtime')

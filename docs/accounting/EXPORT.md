@@ -119,7 +119,7 @@ completeness, relationships and accounting meaning beyond JSON Schema.
 | Manifest field | Meaning |
 | --- | --- |
 | `format`, `format_version` | `tabula-rasa-bookkeeping`, integer `2` for current exports; independent of Sheets/archive format 13 |
-| `database_schema_version` | Observed supported PostgreSQL revision; v2 starts at `0024_mileage_vehicles` and supports the current `0025_enrollment_drive_setup` control-plane revision, while archived v1 revisions through `0023_business_currency` retain their original inventory |
+| `database_schema_version` | Observed supported PostgreSQL revision; current v2 uses `0026_customer_policies` (also accepting archived `0024_mileage_vehicles` and `0025_enrollment_drive_setup`), while archived v1 revisions through `0023_business_currency` retain their original inventory |
 | `entity_id` | Explicit selected business entity; also present on every entity-local record |
 | `snapshot_at` | Database transaction-start instant in UTC; all reads use that transaction's coherent snapshot |
 | `counts` | Count for every included canonical collection, including zero counts |
@@ -255,3 +255,7 @@ Owner/Admin may explicitly change the existing business currency label through
 [Business settings](../identity/WORKSPACES.md#business-currency-settings). New
 exports use the current root unit without modifying numbers; archived exports
 retain their original labels. Currency edits alone add no canonical fields.
+
+Personal legal acknowledgement evidence is control-plane data and is excluded from
+canonical bookkeeping exports. The policy migration adds no financial fields;
+format v2 and the vehicle inventory remain unchanged.

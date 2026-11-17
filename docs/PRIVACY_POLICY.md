@@ -136,4 +136,4 @@ The effective date above will be revised when material changes are made.
 Questions regarding this Privacy Policy may be directed to:
 
 **Heathcote Advisory LLC**  
-Email: [yaodongy1018@gmail.com](mailto:yaodongy1018@gmail.com)
+Email: [heathcoteadvisoryllc@gmail.com](mailto:heathcoteadvisoryllc@gmail.com)

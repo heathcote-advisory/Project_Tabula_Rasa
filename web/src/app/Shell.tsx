@@ -1,3 +1,4 @@
+import { PolicyAcknowledgement } from '../features/identity/PolicyPages';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useEntity } from './context';
@@ -50,6 +51,7 @@ export function Shell() {
       </nav>
       {!session.trusted_development && <Link to="/businesses">My Businesses</Link>}
       {!session.trusted_development && <Link to="/business/members">Business & members</Link>}
+      <Link to="/help">Help &amp; feedback</Link>
       <p className={styles.footer}>Bookkeeping with clarity.</p>
       {!session.trusted_development && <button onClick={auth.logout}>Sign out</button>}
       <MapsUsagePanel />
@@ -62,7 +64,8 @@ export function Shell() {
           : isReferenceRoute(location.pathname) ? <WorkflowNav label="Reference data" routes={referenceRoutes} canWrite={session.capabilities.includes('bookkeeping:write')} /> : null}
         <p className="muted">All monetary amounts are in {session.entity.currency_code}. Currency labels do not convert numeric amounts.</p>
         {session.closure_expires_at && <p role="status" className="notice warning">Business closure is in progress. Bookkeeping is read-only until ordinary access ends on {new Date(session.closure_expires_at).toLocaleString()}. Owners can export or cancel closure from <Link to="/data">Data &amp; backup</Link>.</p>}
-        <Outlet /></main>
+        <Outlet />
+        {!session.trusted_development && <PolicyAcknowledgement session={session} />}</main>
     </div>
   </div>;
 }

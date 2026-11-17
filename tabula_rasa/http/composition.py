@@ -52,6 +52,8 @@ class PostgresRuntime:
         self.beta = PostgresBeta(database) if identity is not None else None
         from tabula_rasa.infrastructure.postgres.customer_lifecycle import PostgresCustomerLifecycle
         self.lifecycle = PostgresCustomerLifecycle(database) if identity is not None else None
+        from tabula_rasa.infrastructure.postgres.customer_policies import PostgresPolicyAcknowledgements
+        self.policy_acknowledgements = PostgresPolicyAcknowledgements(database) if identity is not None else None
         from tabula_rasa.application.workspaces import WorkspaceService
         from tabula_rasa.infrastructure.postgres.workspaces import PostgresWorkspaceRepository
         self.workspaces = (WorkspaceService(PostgresWorkspaceRepository(database), bootstrap_enabled=workspace_bootstrap)

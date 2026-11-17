@@ -69,6 +69,8 @@ migration and recovery coverage. [CI ownership](development/CI.md) defines requi
 retirement record](https://github.com/Roklion/Project_Tabula_Rasa/issues/377) retains
 historical caller/evidence decisions.
 
+[Customer legal readiness](legal/READINESS.md) owns reviewed policy publication and version acknowledgement. [Beta feedback](operations/BETA_FEEDBACK.md) owns private help, consent and qualitative learning. Both retain deployed/manual approval checkpoints before external admission.
+
 ## Local main-branch push guard
 
 Use `heathcote-advisory/Project_Tabula_Rasa` for current GitHub CLI and API

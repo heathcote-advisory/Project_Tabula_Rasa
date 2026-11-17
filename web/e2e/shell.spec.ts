@@ -71,5 +71,7 @@ test('unknown route and unavailable context are safe', async ({ page }) => {
   }));
   await page.goto('/');
   await expect(page.getByRole('alert')).toContainText('Business access is unavailable');
-  await expect(page.getByRole('navigation')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Main navigation' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Policies and help' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Help & feedback' })).toBeVisible();
 });
