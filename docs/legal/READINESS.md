@@ -95,6 +95,20 @@ Unknown/stale outcomes require reload, not automated repeated acceptance.
 
 ## Branding and final review checkpoint
 
+The selected Google app name is **Tabula Rasa**, with homepage
+`https://tabula-rasa-production.onrender.com` and support/developer contact
+`heathcoteadvisoryllc@gmail.com`. Policy URLs must use that same production
+origin and serve reviewed policy content before branding can be saved or
+submitted. A successful application-shell response alone does not prove that a
+policy page exists.
+
+The web document includes the public Google Search Console ownership meta tag
+for the production URL-prefix property held by the LLC account. This tag is a
+public ownership challenge, not a credential, OAuth grant or analytics script.
+Deploy it before completing the Search Console HTML-tag verification, then keep
+it in the served homepage to retain verification. Presence in source or a build
+does not establish deployed ownership verification or OAuth brand approval.
+
 Choose and verify the public domain before providing homepage, same-domain privacy
 and terms URLs. The homepage must describe the application, link policies and be
 accessible without signing in. The existing Google project, scopes, origins,
@@ -106,7 +120,7 @@ Recheck [Google's primary requirements](https://developers.google.com/identity/p
 at execution. Keep actual console/readback evidence or the precise applicable
 exemption/audience in release custody. No submission or settings change is implied.
 
-Open blockers before external admission: final public domain/identity, qualified
+Open blockers before external admission: verified public domain/identity, qualified
 legal review, exact provider/geography/retention evidence, verified contact and
 case custody, reviewed legal wording, deployed synthetic page/acceptance tests,
 Google brand publication and the release owner's written beta decision. Recovery
