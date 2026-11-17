@@ -166,7 +166,7 @@ def inventory(database, expected_database):
             c.profile_key, c.store_scope_key AS scope_key, c.status, c.revision,
             c.required_scopes, c.secret_ref AS connection_reference,
             (SELECT count(*) FROM documents d WHERE d.entity_id=e.id) AS documents,
-            (SELECT coalesce(sum(byte_size),0) FROM documents d WHERE d.entity_id=e.id) AS receipt_bytes
+            (SELECT coalesce(sum(byte_size),0)::bigint FROM documents d WHERE d.entity_id=e.id) AS receipt_bytes
             FROM business_entities e
             LEFT JOIN organization_entities o ON o.entity_id=e.id
             LEFT JOIN external_connections c ON c.entity_id=e.id AND c.provider='google_drive'
@@ -320,9 +320,10 @@ def main(argv=None):
                 database = open_database()
                 try:
                     report = inventory(database, args.database_sha256)
+                    content = json.dumps(report, sort_keys=True, indent=2)
                     # Never overwrite a retained private inventory.
                     with args.output.open('x', encoding='utf-8') as stream:
-                        json.dump(report, stream, sort_keys=True, indent=2)
+                        stream.write(content)
                 finally:
                     database.dispose()
                 print(json.dumps({'status': 'inventoried', 'scope': 'sql_metadata_only'}))

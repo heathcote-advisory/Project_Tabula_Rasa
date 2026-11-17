@@ -93,7 +93,7 @@ def test_capture_refuses_wrong_binding_budget_and_unavailable_provider(database,
     assert all(client.deletes == 0 for client in clients.values())
 
 
-def test_inventory_uses_sql_metadata_without_reading_grants(database, tmp_path, monkeypatch):
+def test_inventory_uses_sql_metadata_without_reading_grants(database, tmp_path, monkeypatch, capsys):
     config, _, _, _ = production(database, tmp_path, monkeypatch)
     def denied(*args, **kwargs):
         raise AssertionError('Inventory must not open custody or Drive.')
@@ -104,6 +104,16 @@ def test_inventory_uses_sql_metadata_without_reading_grants(database, tmp_path, 
     assert {row['entity_id'] for row in rows} == {'alpha', 'beta'}
     assert [row['documents'] for row in rows] == [2, 2]
     assert all(row['receipt_bytes'] > 0 and row['connection_reference'] for row in rows)
+    # The CLI must persist this private report as JSON, not just return SQL values.
+    assert json.loads(json.dumps(report))['businesses'] == rows
+    output = tmp_path / 'inventory.json'
+    arguments = ['inventory', '--database-sha256', config['database_sha256'], '--output', str(output)]
+    assert runner.main(arguments) == 0
+    assert json.loads(capsys.readouterr().out)['status'] == 'inventoried'
+    retained = output.read_bytes()
+    assert json.loads(retained)['businesses'] == rows
+    assert runner.main(arguments) == 1  # Existing private evidence is never overwritten.
+    assert output.read_bytes() == retained
     with pytest.raises(ValueError):
         runner.inventory(database, 'f'*64)
 

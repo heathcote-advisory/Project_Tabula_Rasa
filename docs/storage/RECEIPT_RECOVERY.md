@@ -169,6 +169,16 @@ capacity check without reviewing total host load. Keep status checks free of
 database/custody credentials. Their configuration still needs a small private
 scratch directory, but they never read plaintext or require a tmpfs capture.
 
+Check the NAS kernel's resource-controller support before relying on Docker CPU
+quotas. A host without the CFS quota controller rejects `--cpus` before container
+startup; that outcome establishes no production inventory or capture. Do not
+silently remove an approved limit. For a metadata-only inventory, an operator
+may separately approve low process priority plus a finite process CPU-time
+budget (`resource.RLIMIT_CPU`), retaining the memory/PID limits. Relative CPU
+shares are a scheduling weight, not an equivalent hard rate quota. Receipt
+capture needs its own measured resource decision and must not inherit a small
+inventory-only CPU-time budget.
+
 ```sh
 python -m scripts.nas_receipt_backup run --config /private/production-receipts.json
 python -m scripts.nas_receipt_backup status --config /private/production-receipts.json
