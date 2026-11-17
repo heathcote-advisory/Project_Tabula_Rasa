@@ -2,8 +2,8 @@
 from pathlib import Path
 from alembic import op
 
-revision = '0025_customer_policies'
-down_revision = '0024_mileage_vehicles'
+revision = '0026_customer_policies'
+down_revision = '0025_enrollment_drive_setup'
 branch_labels = None
 depends_on = None
 rollout = {

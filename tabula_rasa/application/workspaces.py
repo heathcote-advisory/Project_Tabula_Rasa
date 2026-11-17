@@ -38,7 +38,8 @@ class WorkspaceService:
     def bootstrap(self, session, request_id, workspace_name, business_name, organization_id=None, *, country="US", currency="USD"):
         if not self.bootstrap_enabled:
             raise IdentityError('forbidden')
-        return self.repository.bootstrap(session.user_id, request_id, workspace_name, business_name, organization_id, country=country, currency=currency)
+        return self.repository.bootstrap(session.user_id, request_id, workspace_name, business_name, organization_id, country=country, currency=currency,
+                                         verified=bool(session.verified_email))
 
     def create_business(self, session, request_id, business_name, *, country="US", currency="USD"):
         # The backing organization is private and never selected by the caller.

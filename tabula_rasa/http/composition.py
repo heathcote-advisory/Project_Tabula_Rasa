@@ -160,13 +160,14 @@ def open_runtime(settings):
             from .connections import TenantConnections
             connections = TenantConnections(database, settings.environment,
                 ConnectionSecrets.from_environment(dict(os.environ)))
-            from .drive_oauth import CALLBACK_PATH, CustomerDriveOAuth, load_customer_oauth
+            from .drive_oauth import CALLBACK_PATH, CustomerDriveOAuth, load_customer_oauth, load_picker
             customer_oauth = load_customer_oauth(dict(os.environ), settings.public_origin)
             if customer_oauth is not None:
                 if connections.secrets is None:
                     raise RuntimeError('Customer Drive requires protected persistent grant custody.')
                 connections.oauth = CustomerDriveOAuth(connections, customer_oauth,
-                                                       settings.public_origin + CALLBACK_PATH)
+                                                       settings.public_origin + CALLBACK_PATH,
+                                                       picker=load_picker(os.environ))
         def services(context):
             if connections is not None:
                 store = connections.document_store(context)

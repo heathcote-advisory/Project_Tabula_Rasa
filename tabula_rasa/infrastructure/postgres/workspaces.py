@@ -57,7 +57,7 @@ class PostgresWorkspaceRepository:
         require_capability(role, 'members:manage')
         return role
 
-    def bootstrap(self, actor, request_id, workspace_name, business_name, organization_id=None, *, country="US", currency="USD"):
+    def bootstrap(self, actor, request_id, workspace_name, business_name, organization_id=None, *, country="US", currency="USD", verified=False):
         require_bootstrap_id(request_id)
         names = [workspace_name, business_name]
         if any(not isinstance(name, str) or not name.strip() or len(name) > 160 for name in names):
@@ -82,7 +82,8 @@ class PostgresWorkspaceRepository:
             # new business to an existing permission container.
             if organization_id is not None:
                 raise IdentityError('forbidden')
-            pending = beta.prepare_business(connection, actor, request_id, business_name, country, currency)
+            pending = beta.prepare_business(connection, actor, request_id, business_name, country, currency,
+                                            verified=verified)
             if pending is not None:
                 return pending
             org = self.identity.create_organization(actor, workspace_name)

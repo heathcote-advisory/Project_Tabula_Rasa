@@ -644,6 +644,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/connections/google-drive/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Setup Drive */
+        post: operations["setup_drive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entities/{entity_id}/documents": {
         parameters: {
             query?: never;
@@ -2370,6 +2387,8 @@ export interface components {
              * @default true
              */
             creation_paused: boolean;
+            /** Enrollment Mode */
+            enrollment_mode?: ("approval_required" | "self_service") | null;
             /**
              * Invitations Paused
              * @default true
@@ -2379,7 +2398,7 @@ export interface components {
              * Operation
              * @enum {string}
              */
-            operation: "inspect" | "configure" | "approve" | "approve_user" | "deny" | "withdraw" | "suspend" | "resume" | "close" | "withdraw_user";
+            operation: "inspect" | "configure" | "set_enrollment_mode" | "approve" | "approve_user" | "deny" | "withdraw" | "suspend" | "resume" | "close" | "withdraw_user";
             /**
              * Reason
              * @default
@@ -2427,6 +2446,11 @@ export interface components {
             paused: boolean;
             /** Requests */
             requests: components["schemas"]["BetaRequestStatus"][];
+            /**
+             * Self Service
+             * @default false
+             */
+            self_service: boolean;
         };
         /** BootstrapRequest */
         BootstrapRequest: {
@@ -2602,6 +2626,7 @@ export interface components {
             authorization_status?: ("connecting" | "failed") | null;
             /** Authorized Account */
             authorized_account?: string | null;
+            folder_setup?: components["schemas"]["DriveFolderSetup"] | null;
             /**
              * Provider
              * @default google_drive
@@ -2707,6 +2732,42 @@ export interface components {
              * @default 0
              */
             needing_integrity: number;
+        };
+        /** DriveFolderSetup */
+        DriveFolderSetup: {
+            /** Default Name */
+            default_name: string;
+            /** Picker Available */
+            picker_available: boolean;
+            /** Reserved */
+            reserved: boolean;
+            /** Setup Id */
+            setup_id: string;
+        };
+        /** DriveSetupCommand */
+        DriveSetupCommand: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "picker" | "create" | "cancel";
+            /** Name */
+            name?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Revision */
+            revision: number;
+            /** Setup Id */
+            setup_id: string;
+        };
+        /** DriveSetupResult */
+        DriveSetupResult: {
+            /** Access Token */
+            access_token?: string | null;
+            /** Developer Key */
+            developer_key?: string | null;
+            /** Project Number */
+            project_number?: string | null;
         };
         /** EntityInfo */
         EntityInfo: {
@@ -8554,6 +8615,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectionAuthorization"];
+                };
+            };
+            /** @description Identity required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Operation denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Duplicate or concurrent change */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Transport or domain validation */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unexpected failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependency unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setup_drive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriveSetupCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveSetupResult"];
                 };
             };
             /** @description Identity required */

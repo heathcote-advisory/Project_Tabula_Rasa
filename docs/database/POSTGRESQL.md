@@ -856,7 +856,7 @@ or introduce FX behavior.
 
 ## Customer policy acknowledgement storage
 
-Forward revision `0025_customer_policies` adds personal, immutable acknowledgement
+Forward revision `0026_customer_policies` adds personal, immutable acknowledgement
 evidence (actor, bundle digest, policy version and server timestamp) without
 backfilling existing users. It adds no canonical bookkeeping fields. The runtime
 needs SELECT/INSERT only on `customer_policy_acknowledgements`; no deletion,

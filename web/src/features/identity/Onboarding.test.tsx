@@ -151,7 +151,7 @@ it('keeps creation pending and submits a business-only payload once', async () =
   const submit = screen.getByRole('button', { name: 'Create business' });
   fireEvent.click(submit); fireEvent.click(submit);
   expect(submit).toBeDisabled();
-  expect(await screen.findByText('Creating your ledger and selecting the business…')).toBeVisible();
+  expect(await screen.findByText('Submitting your business setup…')).toBeVisible();
   expect(create).toHaveBeenCalledTimes(1);
   expect(create.mock.calls[0][1]).toEqual({ request_id: expect.any(String), business_name: 'Business', country: 'US', currency: 'USD' });
   reject(new ApiError('validation'));

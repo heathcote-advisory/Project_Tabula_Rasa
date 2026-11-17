@@ -1,4 +1,4 @@
-# Invitation-only beta admission
+# Business enrollment and beta admission
 
 Admission is a small program control plane, independent of login, business RBAC,
 bookkeeping authority and commercial billing. React/FastAPI/PostgreSQL remain the
@@ -29,7 +29,7 @@ No tenant route provisions internal users or operators. Do not classify external
 customers as internal to bypass enrollment. Existing ledger access, jobs,
 connections, retained Sheets sources and export remain unchanged.
 
-A normal non-internal Create Business request records `pending` with its stable
+In the default `approval_required` mode, an external Create Business request records `pending` with its stable
 request ID, authenticated applicant, exact name and country. The submitted initial
 bookkeeping unit must match the creation-country rule; admission does not store
 a separate currency. It creates
@@ -85,6 +85,28 @@ no FX, numeric redenomination or cross-currency consolidation.
 Actual Canadian enrollment still requires selected-release verification and
 written cohort GO; implementation removes the code hold, not the release gate.
 
+## Self-service creation
+
+Forward revision `0025_enrollment_drive_setup` defaults every program to
+`approval_required`. Its existing caps, freezes, operator approvals and internal
+USD exemption continue to apply. Self-service is an explicit operator decision
+available in the `expanded` stage. For the currently supported US/USD and CA/CAD
+pairs, a verified authenticated identity can submit a fresh request and own the
+resulting independent business. The same aggregate business and distinct-user
+caps apply to manual and self-service admissions. Each self-service success
+records an admission, owner allocation, and audit event tied to the policy
+revision in the same transaction as workspace creation. Business creation
+honors the creation freeze and program suspension. Collaborator invitations
+remain separately approved and retain their independent freeze.
+
+A previously submitted request ID retains its original state and approval
+requirements. A pending request can be manually approved, an expired one can
+be reapproved, and an approved request can be retried within its original
+window. Self-service uses a fresh request ID for a deliberate new submission.
+Completed IDs always replay their original creation receipt, subject to existing
+access checks. Reverting mode or freezing creation preserves existing
+memberships, ledger access, connections and exports.
+
 ## Operator access and commands
 
 Use the existing named session, exact Origin, synchronizer CSRF token and recent
@@ -113,6 +135,9 @@ business names, approval documents or response inventories.
 - `suspend` / `resume`: freeze/resume new admission into an active cohort business.
   Resume requires a suspended business. `close` is terminal for new admissions;
   retained records and existing customer access/rights remain intact.
+- `set_enrollment_mode`: set `enrollment_mode` to `approval_required` or
+  `self_service`. This command preserves all caps and freezes. Switch back to
+  `approval_required` before returning to the initial stage.
 - `configure`: explicit stage, caps, independent `creation_paused` and
   `invitations_paused` flags and program `suspended` flag. Program suspension is
   an enrollment freeze, not global authentication or tenant revocation.
@@ -145,8 +170,18 @@ For example, a **synthetic-only** initial configuration payload is:
 
 Use actual current revisions from inspection. Later expansion requires a separate
 owner/operational decision and reference; never copy this example into production.
-No public waitlist, bulk invitation sender, operator dashboard or entitlement
-engine is introduced. Credentials are still delivered only through the existing
+For a synthetic self-service rehearsal, configure the expanded stage with the
+approved caps while creation is paused, call `set_enrollment_mode` with the
+current revision and synthetic approval reference, then open creation using
+`configure`. Keep invitations paused unless separately testing them. Inspect
+the counts, mode-change event and self-service events. To pause, set
+`creation_paused` or suspend the program. To revert, set `approval_required`
+and review the resulting freezes before reopening.
+
+Production self-service requires the exact written enrollment decision for the
+release, geography, cohort and limits under the [external beta release gate](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/348).
+Public or paid availability also requires the applicable commercial approvals.
+Deployment alone leaves the default mode in effect. Credentials are still delivered only through the existing
 private invitation workflow.
 
 ## Synthetic rehearsal and release handoff

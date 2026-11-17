@@ -74,7 +74,7 @@ target domain/release and publication decision privately.
    `TABULA_RASA_LEGAL_APPROVED_SHA256` to that digest through approved deployment.
    Absent approval configuration serves the internal policies. A configured
    mismatched digest fails startup, rather than publishing changed text.
-4. Apply migration `0025_customer_policies` through the maintained schema rollout.
+4. Apply migration `0026_customer_policies` through the maintained schema rollout.
    Grant the named runtime SELECT/INSERT on `customer_policy_acknowledgements`,
    without UPDATE/DELETE/TRUNCATE or ownership. No existing users are backfilled.
 5. Verify anonymous pages, HTTPS, version/date and exact content in deployed

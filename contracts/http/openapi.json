@@ -1305,6 +1305,21 @@
             "title": "Creation Paused",
             "type": "boolean"
           },
+          "enrollment_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approval_required",
+                  "self_service"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollment Mode"
+          },
           "invitations_paused": {
             "default": true,
             "title": "Invitations Paused",
@@ -1314,6 +1329,7 @@
             "enum": [
               "inspect",
               "configure",
+              "set_enrollment_mode",
               "approve",
               "approve_user",
               "deny",
@@ -1444,6 +1460,11 @@
             },
             "title": "Requests",
             "type": "array"
+          },
+          "self_service": {
+            "default": false,
+            "title": "Self Service",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1958,6 +1979,16 @@
             ],
             "title": "Authorized Account"
           },
+          "folder_setup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DriveFolderSetup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "provider": {
             "const": "google_drive",
             "default": "google_drive",
@@ -2229,6 +2260,130 @@
           "items"
         ],
         "title": "DocumentList",
+        "type": "object"
+      },
+      "DriveFolderSetup": {
+        "additionalProperties": false,
+        "properties": {
+          "default_name": {
+            "title": "Default Name",
+            "type": "string"
+          },
+          "picker_available": {
+            "title": "Picker Available",
+            "type": "boolean"
+          },
+          "reserved": {
+            "title": "Reserved",
+            "type": "boolean"
+          },
+          "setup_id": {
+            "title": "Setup Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "setup_id",
+          "default_name",
+          "picker_available",
+          "reserved"
+        ],
+        "title": "DriveFolderSetup",
+        "type": "object"
+      },
+      "DriveSetupCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "picker",
+              "create",
+              "cancel"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,256}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "setup_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Setup Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "action",
+          "setup_id"
+        ],
+        "title": "DriveSetupCommand",
+        "type": "object"
+      },
+      "DriveSetupResult": {
+        "additionalProperties": false,
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "developer_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Developer Key"
+          },
+          "project_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Number"
+          }
+        },
+        "title": "DriveSetupResult",
         "type": "object"
       },
       "EntityInfo": {
@@ -11416,6 +11571,118 @@
           }
         },
         "summary": "Authorize Drive",
+        "tags": [
+          "Connections"
+        ]
+      }
+    },
+    "/api/v1/entities/{entity_id}/connections/google-drive/setup": {
+      "post": {
+        "operationId": "setup_drive",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveSetupCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveSetupResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Identity required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Operation denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Duplicate or concurrent change"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Transport or domain validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unexpected failure"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Dependency unavailable"
+          }
+        },
+        "summary": "Setup Drive",
         "tags": [
           "Connections"
         ]

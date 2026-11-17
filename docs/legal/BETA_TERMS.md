@@ -6,7 +6,7 @@ Heathcote Advisory LLC operates Tabula Rasa. Contact: {{CONTACT}}. Read the Priv
 
 ## Eligibility and access
 
-The beta is for individually approved U.S. and Canadian owner-operated businesses, including solo professionals, rental/side businesses and owners of several independently managed businesses. Creating a login does not approve a business or collaborator. Initial capacity is up to three businesses; any expansion requires a separate release decision. Use your own named login and protect your authentication factors. Business Owners manage membership; a role in one business grants no access to another.
+The beta is for individually approved U.S. and Canadian owner-operated businesses, including solo professionals, rental/side businesses and owners of several independently managed businesses. Creating a login does not approve a business or collaborator. The initial beta requires individual business approval and has capacity up to three businesses. Any expansion requires a separate release decision; an approved expanded stage may permit eligible accounts to create businesses directly within its caps and freezes. Collaborators still require separate approval. Use your own named login and protect your authentication factors. Business Owners manage membership; a role in one business grants no access to another.
 
 ## Supported use and limits
 

@@ -2,7 +2,7 @@
 from dataclasses import asdict
 from fastapi import APIRouter, Request
 from ..errors import ERROR_RESPONSES, TransportError
-from ..models.connections import ConnectionAuthorization, ConnectionChange, ConnectionInfo, ConnectionStart
+from ..models.connections import ConnectionAuthorization, ConnectionChange, ConnectionInfo, ConnectionStart, DriveSetupCommand, DriveSetupResult
 from .services import Context
 
 router = APIRouter(prefix='/api/v1/entities/{entity_id}/connections', tags=['Connections'], responses=ERROR_RESPONSES)
@@ -19,7 +19,7 @@ def manager(request):
 @router.get('/google-drive', response_model=ConnectionInfo, operation_id='connection_status')
 def connection_status(entity_id: str, request: Request, context: Context):
     connections = manager(request)
-    result = (connections.oauth.status(context) if connections.oauth else
+    result = (connections.oauth.status(context, request.app.state.runtime.identity.authenticated(request)) if connections.oauth else
               asdict(connections.repository.status(context)))
     return ConnectionInfo(**result)
 
@@ -31,6 +31,16 @@ def authorize_drive(entity_id: str, body: ConnectionStart, request: Request, con
         raise TransportError('unavailable')
     session = request.app.state.runtime.identity.authenticated(request)
     return ConnectionAuthorization(authorization_url=connections.oauth.begin(context, session, body.revision))
+
+
+@router.post('/google-drive/setup', response_model=DriveSetupResult, operation_id='setup_drive')
+def setup_drive(entity_id: str, body: DriveSetupCommand, request: Request, context: Context):
+    connections = manager(request)
+    if connections.oauth is None:
+        raise TransportError('unavailable')
+    auth = request.app.state.runtime.identity
+    return DriveSetupResult(**connections.oauth.setup(context, auth.authenticated(request), body,
+        reauthenticate=lambda: auth.sessions.validate(request.cookies.get(auth.session_cookie, ''))))
 
 
 @callback_router.get('/api/v1/connections/google-drive/callback', operation_id='complete_drive_authorization')

@@ -99,7 +99,7 @@ def test_owners_recover_both_businesses_after_complete_ciphertext_loss(database,
             assert client.get(f'{paths[entity]}/documents/{receipt_id}/content').content == originals[entity][3]
 
     with engine.begin() as connection:
-        assert connection.scalar(text('SELECT count(*) FROM connection_custody.grants')) == 4
+        assert connection.scalar(text('SELECT count(*) FROM connection_custody.grants')) == 6
         connection.execute(text('TRUNCATE connection_custody.grants'))
         assert connection.scalar(text('SELECT count(*) FROM connection_custody.grants')) == 0
     key = Fernet.generate_key().decode()
