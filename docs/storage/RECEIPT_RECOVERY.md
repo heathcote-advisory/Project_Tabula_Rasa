@@ -76,6 +76,148 @@ a successful restore. Use the separate-target byte and metadata/link recovery
 procedure below. Existing owner-operated evidence is scoped to its verified
 sources; it does not establish unrelated-customer RPO/RTO or staging coverage.
 
+## Production receipt capture runner
+
+`python -m scripts.nas_receipt_backup` provides an opt-in, production-only NAS
+runner over the existing `manage_document_storage` backup and archive verifier.
+Its presence does not establish an installed schedule or operating protection.
+Staging selectors and grants cannot be substituted for production bindings.
+Existing Cloud Sync mappings remain separate protection; inventory them before
+adding a second byte capture job. The PostgreSQL Wednesday/Sunday schedule is
+unchanged by this runner.
+
+Before activation, the responsible operator must retain a private decision
+covering the exact current production source set, database identity, NAS mount,
+public age recipients, separately recoverable decrypt identity, retention,
+primary/alternate operator, cadence, resource/cost budget and alert recipient.
+Selecting all currently deployed businesses means explicitly enrolling each
+verified current binding; future businesses are not automatically enrolled.
+Reconcile enrollment after onboarding or connection/folder changes. No automatic
+grant discovery, scope expansion, deletion or resource provisioning occurs.
+
+From an approved operator environment, inventory canonical metadata without
+reading grants or contacting Drive. Inject the production read-only DB URL through
+`TABULA_RASA_DATABASE_URL`; obtain its existing application database-identity
+digest through the normal private operator inventory. This digest differs from
+the NAS SQL runner's endpoint digest.
+
+```sh
+python -m scripts.nas_receipt_backup inventory --database-sha256 <approved-database-digest> --output /private/production-receipt-inventory.json
+```
+
+The output must be a new file in an existing private directory outside Git.
+It contains business/org/profile/folder and connection references, required
+connection scopes, canonical receipt counts/bytes and disconnected/unbound
+businesses. It is private; console output is status only. It does not prove the
+current provider inventory, actual grant scope, or decrypt-key availability.
+Verify those privately, alongside NAS free capacity, Cloud Sync mappings, current
+tasks, runtime/service boundaries and independent key custody. The existing
+Drive adapter requires its supported `drive.file` scope and exact managed-folder
+binding; do not request broad read scopes to work around an incompatible grant.
+
+Prepare a protected JSON config outside Git with exactly these fields:
+
+| Field | Contract |
+| --- | --- |
+| `environment` | Exactly `production`. |
+| `database_sha256` | Approved application database-identity digest. |
+| `entities` | Explicit list of objects containing exactly `organization_id`, `entity_id`, `profile_key`, `scope_key`; distinct entities and Drive folders, maximum 20. Use actual canonical IDs, including migrated text entity IDs. |
+| `storage` | Existing absolute private NAS directory outside Git, on an encrypted volume; no repository path. |
+| `storage_marker` | 32 lowercase hex characters matching the private `.receipt-backup-marker` file in that directory. Create only after verifying the actual destination mount. |
+| `recipients_file` | Absolute protected age public-recipient file. Decrypt identities remain in separate approved custody. |
+| `approval_sha256` | Digest of the retained decision authorizing repeated capture of these bindings and changing canonical points within these limits. |
+| `schedule` | Explicit `wednesday_sunday` (22:00 Eastern) or `twice_daily` (10:00/22:00 Eastern), receipt tasks only. No default selects an operating policy. |
+| `minimum_free_bytes` | Positive free-space reserve. Additional admission headroom is three times `max_capture_bytes` plus 64 MiB for metadata/tar overhead. |
+| `max_capture_bytes`, `max_documents` | Positive combined canonical-byte/document limits per run, at most 1 TB and 100,000 documents. Set realistic small bounds for the DS220j after inventory. |
+| `timeout_seconds`, `delay_seconds` | Positive integers: at most 7,200 seconds per network child/encryption command and 60 seconds between verified receipt downloads. Both dry-run and capture download bytes; budget for both. |
+
+Run the reviewed package with application/API/PostgreSQL dependencies and age in
+an approved Python 3.12 operator runtime. The existing SQL-only backup image has
+no application dependencies and cannot perform receipt capture. Inject the exact
+production connection-custody backend and key using the established connection
+secret environment settings, preferably read-only credentials/mounts. One
+database connection and one entity capture run at a time. Do not copy staging
+grant envelopes, custody keys or database URLs into this runtime.
+
+```sh
+python -m scripts.nas_receipt_backup run --config /private/production-receipts.json
+python -m scripts.nas_receipt_backup status --config /private/production-receipts.json
+python -m scripts.nas_receipt_backup verify --config /private/production-receipts.json --generation <exact-generation>
+```
+
+After a controlled approved run, register `scheduled --config ...` with DSM at
+an approved poll interval/window, serialized with SQL, custody and other heavy
+NAS tasks. Register nothing merely because code is available. A source/config
+lock prevents overlap for the same enrollment. Each latest Eastern slot is
+attempted once; failure/interruption consumes it. There is no catch-up backlog
+or automatic whole-run retry. Provider reads keep existing bounded retry rules.
+After inspecting a failure, `run` permits one deliberate new-generation attempt.
+Inspect an abandoned lock and confirm the process stopped before removing only
+that lock. Different configurations/tasks still require host-level serialization.
+
+Each entity uses its current canonical production connection and custody
+reference. Existing exact-plan, tenant/profile/folder, inventory and byte checks
+apply. Canonical/connection changes stop publication; select a quiet window or
+explicitly approved writer-free capture. The runner never stops application
+services or freezes writers. Each entity's complete canonical export is bundled
+with its verified bytes as `receipts/<enrollment-index>/`; the `binding.json`
+identifies the entity and folder. Enrollment order is retained by the private
+config. Captures across entities are sequential, not a global atomic point.
+
+The bundle is encrypted to `receipts.tar.age`, fsynced and checksummed/read back
+before a complete generation and durable last-success pointer are published.
+Only this invocation's transient plaintext is removed after encryption/readback.
+Failed/incomplete artifacts can include private plaintext and remain quarantined
+on the encrypted, restricted destination for operator inspection. No source file,
+grant, retained generation or failed artifact is automatically pruned. Capacity
+requires ongoing review under indefinite retention. Ciphertext checksum readback
+proves local integrity, not off-device replication, decryptability or restoration.
+
+`status` is local and requires no SQL/Drive credentials or decrypt identity.
+Reuse approved DSM abnormal-termination email for nonzero exits. After approving
+a dedicated Better Stack check-in and business recipient, inject its URL as
+`TABULA_RASA_RECEIPT_BACKUP_HEARTBEAT_URL` and poll `status --config ... --notify`.
+The shared payload-free heartbeat refuses redirects and sends failure for
+unhealthy results. Check-in delivery failure also exits nonzero. Place missing-run
+evaluation outside the NAS so a powered-off host cannot silently appear protected;
+existing application/recurring-worker check-ins do not establish receipt coverage.
+Confirm actual failure and missed-check-in delivery, remediation and recipient
+handoff using approved controlled cases before relying on the route. `verify`
+checks historical ciphertext only and cannot send a healthy freshness check-in.
+Missing, stale, failed, overdue, unmatched-lock, low-capacity and corrupt states
+exit nonzero. A running capture also cannot send a healthy check-in. Freshness
+uses the existing two-hour slot grace; twice-daily mode additionally becomes
+stale at 20 hours since capture start. Changing any enrollment/policy/approval
+or recipient bytes starts a new health namespace and cannot inherit success.
+
+Use DSM abnormal-termination email for immediate failures. After approving a
+dedicated existing-provider check-in and actual recipient, inject
+`TABULA_RASA_RECEIPT_BACKUP_HEARTBEAT_URL` and poll `status --notify` on the
+approved interval. This reuses the payload-free, redirect-refusing Better Stack
+sender. Test failure, missed-run/NAS-offline and recovery recipient delivery;
+an exit code or configured URL alone is not delivery evidence. The primary
+operator inspects protected task/config/grant/capacity state, preserves partial
+copies, repairs the cause and performs one controlled retry; the alternate
+operator must have the same handoff and independent key access.
+
+For an approved recovery rehearsal, verify the exact ciphertext generation,
+decrypt with the separately held identity into an isolated encrypted directory,
+and extract the tar with a safe path filter (`tarfile`'s `filter='data'`). Open
+each `DocumentArchive` and verify every byte against its canonical size/hash,
+then use the existing isolated Drive/PostgreSQL restore procedure below. Select
+or import the matching canonical bookkeeping point per entity; an unrelated SQL
+archive is not necessarily that point. Keep production callbacks and writers
+blocked on recovery targets. The runner does not restore or mutate production.
+
+Retain actual controlled-run, decrypt/byte-integrity, two-business isolation,
+isolated restore and notification results privately and sanitized evidence in the
+owning operational discussion. External beta and commercial acceptance remain
+separate: Wednesday/Sunday captures cannot meet a 24-hour receipt RPO; choosing
+twice-daily receipts alone does not improve the database RPO. Neither policy
+establishes a full-service RTO, off-site survival or coordinated SQL/receipt point.
+Measure duration, CPU/memory, growth and restore time against actual approved
+production configuration before claiming achieved coverage.
+
 ## Private binding and verification
 
 Use the existing external connections operator connection JSON format from [external
