@@ -101,13 +101,18 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api, cut
     verify_render_origin(stage_target, service, proof.get("public_origin"), staging_token, read=read)
     verify_render_database(service, staging_token, staging_db, read=read)
     current = release.active_deployment(service, staging_token, read=read)
-    if current is None or current.get("id") != deploy:
-        raise release.ReleaseError("The verified staging deployment is no longer live.")
+    if current is None:
+        raise release.ReleaseError("No staging deployment is currently live.")
     repository = release.commercial_image_repository(repo)
     release.deployed_image(current, image, candidate, repository)
+    if current["id"] != deploy:
+        from .schema_window import public_reopened
+
+        public_reopened(proof["public_origin"], candidate["release"])
     return {"staging_run": run_id, "staging_attempt": attempt, "staging_image": image,
             "staging_run_url": f"https://github.com/{repo}/actions/runs/{run_id}",
-            "staging_deploy_id": deploy, "staging_verified_at": proof["verified_at"]}
+            "staging_deploy_id": deploy, "staging_live_deploy_id": current["id"],
+            "staging_verified_at": proof["verified_at"]}
 
 
 def verify_render_origin(target, service, origin, token, *, read):
