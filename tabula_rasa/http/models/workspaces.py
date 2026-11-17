@@ -119,16 +119,18 @@ class BetaStatus(DTO):
     paused: bool
     invitations_paused: bool
     internal: bool
+    self_service: bool = False
     requests: list[BetaRequestStatus]
 
 
 class BetaOperatorCommand(DTO):
-    operation: Literal['inspect', 'configure', 'approve', 'approve_user', 'deny', 'withdraw', 'suspend', 'resume', 'close', 'withdraw_user']
+    operation: Literal['inspect', 'configure', 'set_enrollment_mode', 'approve', 'approve_user', 'deny', 'withdraw', 'suspend', 'resume', 'close', 'withdraw_user']
     revision: int | None = Field(default=None, ge=1)
     reason: str = Field(default='', max_length=200)
     approval_reference: str = Field(default='', max_length=200)
     admission_id: str | None = Field(default=None, max_length=128)
     user_id: str | None = Field(default=None, max_length=128)
+    enrollment_mode: Literal['approval_required', 'self_service'] | None = None
     stage: Literal['initial', 'expanded'] = 'initial'
     business_cap: int = Field(default=3, ge=1, le=10)
     user_cap: int | None = Field(default=None, ge=1, le=20)

@@ -36,6 +36,7 @@ ROUTE_POLICIES = MappingProxyType({
     'maps_quota_status': RoutePolicy('GET', 'read'),
     'load_maps_quota': RoutePolicy('POST', 'read'),
     'change_connection': RoutePolicy('POST', 'connections_manage'),
+    'setup_drive': RoutePolicy('POST', 'connections_manage'),
     'authorize_drive': RoutePolicy('POST', 'connections_manage'),
     'complete_drive_authorization': RoutePolicy('GET', 'session', 'identity'),
     **{name: RoutePolicy('GET', 'read') for name in (

@@ -4,9 +4,13 @@
 
 Select the business, sign in again if more than five minutes have elapsed, then open
 **Data & backup > Google Drive connection > Connect Google Drive**. Confirm the business,
-choose your Google account and approve file access on Google's consent page. The app
-creates or reuses a dedicated root with Receipts and Ledger Backups children, validates
-managed-folder access, and returns with Connected and the account email. The backup child
+choose your Google account and approve file access on Google's consent page. On return,
+review **New Tabula Rasa storage folder**, edit the business-name default if desired,
+and choose My Drive root or use **Choose Drive folder** where Google Picker is configured.
+Review the destination and select **Create storage folder**. The app creates the dedicated
+root and its Receipts and Ledger Backups children, validates access, and shows **Connected**.
+Canceling Picker returns to the form. Canceling setup before creation leaves the business
+unconnected and creates no folders. The backup child
 belongs to the existing folder contract; creating it does not establish independent backup.
 Customers never enter credentials or folder IDs. The deployment must enable self-service.
 
@@ -53,8 +57,10 @@ State expires after five minutes and is consumed before code exchange, including
 PKCE S256 binds the exchange. Wrong business/session, membership removal, forged/expired/
 replayed state and stale revisions deny access. Session selection/expiry and membership
 are checked again after Google I/O before registration. Starting again supersedes the
-prior attempt. Interrupted or expired attempts show incomplete setup and can be restarted.
-Credentials use the existing [encrypted grant custody](CONNECTIONS_AND_CLAIMS.md).
+prior attempt. The folder selection step is bound to the same business, Owner, session,
+connection revision and consent attempt. Creation and Picker access require recent login
+and Origin/CSRF. The authorized folder is checked with the same Google account for folder
+type, availability and write capability. Attempt credentials use the existing [encrypted grant custody](CONNECTIONS_AND_CLAIMS.md).
 The bookkeeping connection retains a hash of the verified Drive account identifier
 and the exact managed folder binding. Treat that metadata as private. It stays in
 full bookkeeping database backups and is excluded from portable customer exports.
@@ -65,7 +71,7 @@ Configuration requires separate exact-target operator approval; these instructio
 not authorize live project, consent, credential or hosted-environment changes.
 
 1. Use an operator-owned Cloud project and **Web application** OAuth client. Enable Drive
-   API. Customer receipts need no Sheets scope, Picker key or service account. Existing
+   API. Customer receipts need no Sheets scope or service account. Existing
    Sheets administration and login-provider client settings remain separate.
 2. Configure **External** audience for customers outside the Workspace organization. Set
    app name, verified authorized domains, support/developer contacts and reviewed homepage,
@@ -106,7 +112,17 @@ not authorize live project, consent, credential or hosted-environment changes.
 7. Apply forward migrations through the approved deployment procedure before startup.
    Omitting this optional config retains operator-assisted activation and existing grants.
    A deployment without self-service is not ready for customer onboarding.
-8. Inspect effective account storage, client/project quotas and Workspace/Advanced Protection
+8. For a selected parent, enable Google Picker API in the **same project** as the Drive
+   OAuth client. Register the app's exact browser origin on that client. Supply the Cloud
+   project number through `TABULA_RASA_DRIVE_PICKER_PROJECT_NUMBER` and a browser key
+   through `TABULA_RASA_DRIVE_PICKER_KEY`. Restrict the key to Google Picker API and to
+   the authorized app website and Picker iframe referrer `https://docs.google.com/*`.
+   Omitting both values offers My Drive root only. Supplying one value is invalid.
+   The session-bound Picker request delivers a short-lived `drive.file` access token
+   to the browser in a no-store response. The token stays in memory for Picker.
+   The OAuth client secret and refresh grant stay in protected server custody.
+   [Google Picker setup](https://developers.google.com/workspace/drive/picker/guides/web-picker)
+9. Inspect effective account storage, client/project quotas and Workspace/Advanced Protection
    restrictions. External audience permits Google accounts generally, but validate actual
    selected U.S. and Canadian personal/Workspace accounts: administrator policy or service
    availability may deny access. A Google account is required for this beta provider.
@@ -115,10 +131,15 @@ not authorize live project, consent, credential or hosted-environment changes.
 ## Troubleshooting and hosted acceptance
 
 Denied consent, missing offline/file access, folder validation failure, quota and provider
-outage leave setup incomplete, consume the attempt and preserve the prior connection.
-Retry deliberately after resolving quota/permissions/provider availability. Stable managed
-folder discovery and bounded uncertain-create reconciliation remain owned by the existing
-folder client. Duplicate identities require inspection, never silent choice or deletion.
+outage leave setup incomplete and preserve any prior connection. Correct an inaccessible
+parent before submitting again. Once provisioning begins, the service pins the confirmed
+account, name, destination and reserved Drive IDs. Resume with those options after resolving
+quota or provider availability. If consent expires or setup was interrupted, authorize the
+same account again to resume. It is possible for a partial root or child to exist before the
+connection commits. The folder client reconciles using the reserved identifiers. If a managed
+folder from earlier setup conflicts with the destination, contact support to inspect that
+folder before proceeding. Canceling after an interrupted write leaves any existing folders
+available for recovery.
 Expired/revoked refresh grants encountered during receipt operations require reconnect.
 Connected is the last confirmed binding, not a continuous Google health probe. Invalid
 app sessions require sign-in; stale connection revisions require reloading.
@@ -131,6 +152,12 @@ refusal, grant revocation, quota/outage, upload/view/download exact-byte checks,
 relink, disconnect preserving references, and restart with retained ciphertext. Keep codes,
 state, query strings, tokens, emails and receipt bytes out of public evidence and ingress logs.
 App access logs are disabled; operators must separately inspect proxy/provider diagnostics.
+For Picker acceptance, create a named root inside a synthetic selected folder and verify
+that the backend can create the root with the server-side grant and reconnect to it after
+restart. Verify My Drive root, picker cancel, inaccessible/trashed/unwritable parents, and
+same-account resumption after an interrupted create. Record the evidence before the
+[commercial release decision](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/353).
+This folder chooser is optional for free beta.
 Use Google's [web-server OAuth contract](https://developers.google.com/identity/protocols/oauth2/web-server)
 to verify redirect/offline behavior. Mocks do not satisfy hosted acceptance.
 

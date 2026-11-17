@@ -14,6 +14,7 @@ from tabula_rasa.google_drive import load_oauth_config
 from tabula_rasa.google_drive.errors import GoogleDriveAccessError, GoogleDriveAuthorizationError
 from tabula_rasa.http.connections import TenantConnections
 from tabula_rasa.http.drive_oauth import CALLBACK_PATH, CustomerDriveOAuth
+from tabula_rasa.http.models.connections import DriveSetupCommand
 from tabula_rasa.infrastructure.connection_secrets import ConnectionSecrets
 from tests.google_auth_fixtures import GOOGLE_OAUTH_CONFIG, google_grant
 from tests.postgres.test_identity import setup, verified
@@ -26,8 +27,10 @@ def fixture(database, tmp_path):
     manager = TenantConnections(database, 'test', ConnectionSecrets(tmp_path, Fernet.generate_key().decode()))
     client = Mock()
     # Deterministic remote managed-folder identities, as owned by the existing client.
-    client.create_storage_root.side_effect = lambda profile, name: {'id': 'root-' + profile, 'name': name}
-    client.provision_storage_children.side_effect = lambda profile, root: {
+    client.storage_parent.side_effect = lambda parent: 'my-drive' if parent == 'root' else parent
+    client.new_storage_ids.return_value = ['new-root', 'new-receipts', 'new-backups']
+    client.create_storage_root.side_effect = lambda profile, name, **options: {'id': 'root-' + profile, 'name': name}
+    client.provision_storage_children.side_effect = lambda profile, root, **options: {
         'receipts': {'id': 'receipts-' + profile, 'name': 'Receipts'},
         'ledger-backups': {'id': 'backups-' + profile, 'name': 'Ledger Backups'}}
     def synthetic_exchange(config, code, uri, **kwargs):
@@ -51,7 +54,16 @@ def begin(manager, ctx, session, revision=0):
 
 
 def finish(manager, ctx, session, state, code='alpha', **kwargs):
-    return manager.oauth.complete(ctx, session, state, code, reauthenticate=lambda: session, **kwargs)
+    result = manager.oauth.complete(ctx, session, state, code, reauthenticate=lambda: session, **kwargs)
+    if result and manager.oauth.status(ctx, session).get('folder_setup'):
+        setup_drive(manager, ctx, session, name='Synthetic storage')
+    return result
+
+
+def setup_drive(manager, ctx, session, action='create', revision=0, **fields):
+    setup_id = fields.pop('setup_id', None) or manager.oauth.status(ctx, session).get('folder_setup', {}).get('setup_id', '0' * 64)
+    return manager.oauth.setup(ctx, session, DriveSetupCommand(action=action, revision=revision, setup_id=setup_id, **fields),
+                               reauthenticate=lambda: session)
 
 
 def test_two_businesses_grants_pkce_and_preserved_binding(database, tmp_path):
@@ -142,8 +154,13 @@ def test_incomplete_setup_is_consumed_and_retryable_without_connected_status(dat
         def refresh():
             return session
     try:
-        assert not manager.oauth.complete(alpha, session, state, '' if failure == 'no_code' else 'alpha',
+        consent = manager.oauth.complete(alpha, session, state, '' if failure == 'no_code' else 'alpha',
             denied=failure == 'denied', reauthenticate=refresh)
+        if failure == 'folder':
+            assert consent
+            setup_drive(manager, alpha, session, name='Synthetic storage')
+            pytest.fail('Incomplete folder configuration should not be committed')
+        assert not consent
     except (IdentityError, GoogleDriveAccessError, GoogleDriveAuthorizationError):
         pass
     with database.transaction(read_only=True) as connection:
@@ -151,12 +168,16 @@ def test_incomplete_setup_is_consumed_and_retryable_without_connected_status(dat
         assert connection.scalar(text("SELECT consumed FROM drive_oauth_requests"))
     with pytest.raises(IdentityError):
         finish(manager, alpha, session, state)
-    if failure != 'membership_lost':
-        assert manager.oauth.status(alpha)['authorization_status'] == 'failed'
+    if failure == 'folder':
+        assert manager.oauth.status(alpha, session)['folder_setup']['reserved'] is True
+    elif failure != 'membership_lost':
+        assert manager.oauth.status(alpha, session)['authorization_status'] == 'failed'
 
 
 def test_http_start_callback_csrf_logged_out_stale_session_and_clean_redirect(database, tmp_path, caplog):
     repo, manager, google, exchange, alpha, beta, sessions = fixture(database, tmp_path)
+    manager.oauth.picker = ('synthetic-key', '1234')
+    google.access_token.return_value = 'synthetic-picker-token'
     client, auth, _ = client_for(database)
     path = '/api/v1/entities/alpha/connections/google-drive/authorize'
     with client:
@@ -174,6 +195,19 @@ def test_http_start_callback_csrf_logged_out_stale_session_and_clean_redirect(da
         response = client.get(CALLBACK_PATH, params={'state': state, 'code': 'alpha'}, follow_redirects=False)
         assert response.status_code == 303 and response.headers['location'] == '/data'
         assert response.headers['referrer-policy'] == 'no-referrer'
+        status_path = path.removesuffix('/authorize')
+        setup_path = status_path + '/setup'
+        setup = client.get(status_path).json()['folder_setup']
+        assert setup['default_name'].startswith('Tabula Rasa - ')
+        create = {'action': 'create', 'revision': 0, 'name': 'Owner books', 'setup_id': setup['setup_id']}
+        assert client.post(setup_path, json=create).status_code == 403
+        picker = client.post(setup_path, json={**create, 'action': 'picker'}, headers=headers)
+        assert picker.headers['cache-control'] == 'no-store'
+        assert picker.json() == {'access_token': 'synthetic-picker-token', 'developer_key': 'synthetic-key',
+                                 'project_number': '1234'}
+        google.create_storage_root.assert_not_called()
+        assert client.post(setup_path, json=create,
+                           headers=headers).status_code == 200
         replay = client.get(CALLBACK_PATH, params={'state': state, 'code': 'alpha'})
         assert replay.status_code == 403
         assert replay.headers['referrer-policy'] == 'no-referrer'
@@ -249,6 +283,11 @@ def test_callback_explicitly_redirects_unsuccessful_consent_to_failure(database,
             start = client.post(path, json={'revision': revision}, headers=headers)
             state = parse_qs(urlsplit(start.json()['authorization_url']).query)['state'][0]
             assert client.get(CALLBACK_PATH, params={'state': state, 'code': 'alpha'}, follow_redirects=False).headers['location'] == '/data'
+            connection_path = path.removesuffix('/authorize')
+            setup = client.get(connection_path).json()['folder_setup']
+            assert client.post(connection_path + '/setup',
+                               json={'action': 'create', 'revision': 0, 'name': 'Owner books', 'setup_id': setup['setup_id']},
+                               headers=headers).status_code == 200
             revision = 1
         if outcome == 'scope':
             exchange.side_effect = lambda *args, **kwargs: {**google_grant(), 'scopes': ['broad-drive']}
@@ -390,3 +429,56 @@ def test_legacy_binding_enrolls_only_with_readable_original_grant(database, tmp_
     else:
         assert updated == original
     assert client.create_storage_root.call_count == client.provision_storage_children.call_count == 1
+
+
+def test_first_setup_cancel_scope_and_pinned_destination(database, tmp_path):
+    _, manager, google, _, alpha, beta, (session, other) = fixture(database, tmp_path)
+    manager.oauth.picker = ('synthetic-key', '1234')
+    def callback():
+        return session
+    state = begin(manager, alpha, session)
+    assert manager.oauth.complete(alpha, session, state, 'alpha', reauthenticate=callback)
+    previous = manager.oauth.status(alpha, session)['folder_setup']['setup_id']
+    assert 'folder_setup' not in manager.oauth.status(beta, other)
+    assert 'folder_setup' not in manager.oauth.status(alpha, other)
+    google.create_storage_root.assert_not_called()
+    with pytest.raises(IdentityError, match='concurrent_write'):
+        setup_drive(manager, alpha, session, revision=1, name='Books')
+    with pytest.raises(IdentityError, match='validation'):
+        setup_drive(manager, alpha, session, name='wrong/name')
+    setup_drive(manager, alpha, session, action='cancel')
+    google.create_storage_root.assert_not_called()
+    assert manager.repository.status(alpha).status == 'not_configured'
+
+    state = begin(manager, alpha, session)
+    assert manager.oauth.complete(alpha, session, state, 'alpha', reauthenticate=callback)
+    with pytest.raises(IdentityError, match='forbidden'):
+        setup_drive(manager, alpha, session, name='Books', setup_id=previous)
+    google.storage_parent.side_effect = GoogleDriveAccessError('parent is unavailable')
+    with pytest.raises(IdentityError, match='unavailable'):
+        setup_drive(manager, alpha, session, name='Books', parent_id='foreign')
+    assert manager.oauth.status(alpha, session)['folder_setup']['reserved'] is False
+    google.create_storage_root.assert_not_called()
+
+    google.storage_parent.side_effect = lambda parent: parent
+    create = google.create_storage_root.side_effect
+    google.create_storage_root.side_effect = GoogleDriveAccessError('uncertain create')
+    with pytest.raises(IdentityError, match='unavailable'):
+        setup_drive(manager, alpha, session, name='Books', parent_id='picked-parent')
+    first_call = google.create_storage_root.call_args
+    assert manager.oauth.status(alpha, session)['folder_setup']['reserved'] is True
+    assert manager.repository.status(alpha).status == 'not_configured'
+
+    state = begin(manager, alpha, session)
+    assert not manager.oauth.complete(alpha, session, state, 'other', reauthenticate=callback)
+    state = begin(manager, alpha, session)
+    assert manager.oauth.complete(alpha, session, state, 'alpha', reauthenticate=callback)
+    google.create_storage_root.side_effect = create
+    setup_drive(manager, alpha, session)
+    assert google.create_storage_root.call_args == first_call
+    assert first_call.args[1] == 'Books'
+    assert first_call.kwargs == {'parent_id': 'picked-parent', 'file_id': 'new-root'}
+    assert manager.repository.status(alpha).status == 'connected'
+    assert manager.repository.status(beta).status == 'not_configured'
+    with pytest.raises(IdentityError, match='concurrent_write'):
+        setup_drive(manager, alpha, session)

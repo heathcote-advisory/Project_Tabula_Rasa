@@ -280,11 +280,13 @@ remain available, and the service continues to reject unsupported creation.
 
 ## Program admission
 
-[Invitation-only beta admission](../operations/BETA_ADMISSION.md) adds server-side
-program approval to the existing creation/invitation transactions. A new external
-Create Business request may remain pending without a ledger; retry its exact
-request after operator approval. Independent roles and existing access/export
-remain authoritative during enrollment freezes.
+External applicants need operator approval to create a business by default.
+[Program admission](../operations/BETA_ADMISSION.md) applies this policy on the server.
+Retry the exact pending request after approval. An authorized self-service stage
+allows verified accounts to complete a new request directly when creation is open
+and capacity remains. Historical requests retain their original approval state.
+Independent roles and existing access and export remain authoritative during
+an enrollment freeze.
 
 ## Invited users without a provider account
 
@@ -298,9 +300,9 @@ Registration grants no business access or beta approval.
 
 Without an invitation, My Businesses retains **Join an invited business**,
 operator migration guidance and **Create your first business** only when the
-server enables that path. Creation still requires admission approval and respects
-caps and pauses. Registered but not yet invited/approved users should contact the
-administrator or operator through their private channel. If registration, email
+server enables that path. From the invitation screen, use **Return to My Businesses**
+to start creation. Follow the enrollment status on My Businesses. If it requires
+approval, contact the operator through the private channel. If registration, email
 verification or factor enrollment fails, use the signed-out guidance or existing
 Sign in. [Provider setup](PROVIDER_SETUP.md#hosted-end-user-self-registration) owns
 operator troubleshooting and recovery.

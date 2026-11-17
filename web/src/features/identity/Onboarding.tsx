@@ -129,14 +129,14 @@ export function LedgerSetup({ session }: { session: SessionState }) {
         disabled={step === 1 && !business.trim()}>
         {step === 1 ? 'Review defaults' : attempted ? 'Retry same setup' : 'Create business'}</ActionButton></div>
     </form>
-    {pending && <LoadingState label="Creating your ledger and selecting the business…" />}
+    {pending && <LoadingState label="Submitting your business setup…" />}
     {error !== undefined && <><ErrorNotice error={error} /><p>Setup could not be confirmed. Retry uses the same request. If this page was refreshed, use the original business name. Enable session storage if your browser blocks it.</p></>}
   </section>;
 }
 
 export function Onboarding({ session }: { session: SessionState }) {
   const [path, setPath] = useState<'choose' | 'fresh' | 'invite' | 'migration'>(() => window.location.pathname === '/invitations' ? 'invite' : 'choose');
-  return <div className="workflowSections"><PageHeader title={path === 'invite' ? 'Join an invited business' : 'My Businesses'} description="Your account has no active business access. Join an invited business with its privately shared credential, or ask your operator about approval to create a business or move existing books." />
+  return <div className="workflowSections"><PageHeader title={path === 'invite' ? 'Join an invited business' : 'My Businesses'} description="Your account has no active business access. Join an invited business with its privately shared credential, or start business setup to create a ledger or move existing books." />
     {path === 'choose' && <div className="actions">
       {session.business_creation_available && <ActionButton tone="primary" onClick={() => setPath('fresh')}>Create your first business</ActionButton>}
       <ActionButton onClick={() => setPath('invite')}>Join an invited business</ActionButton>

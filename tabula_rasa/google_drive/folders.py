@@ -170,6 +170,22 @@ class _FolderOperationsMixin:
         return dict(_json_response(response, retryable=True))
 
 
+    def storage_parent(self, parent_id: str) -> str:
+        parent = self.folder(parent_id)
+        if ((parent.get("capabilities") or {}).get("canAddChildren") is not True
+                or (parent.get("appProperties") or {}).get("tabulaRasaProfile")):
+            raise GoogleDriveAccessError("Choose a writable folder outside Tabula Rasa managed storage.")
+        return self._valid_folder_id(parent["id"])
+
+    def new_storage_ids(self) -> list[str]:
+        response = self._request("GET", f"{DRIVE_API_ROOT}/files/generateIds",
+                                 params={"count": 3, "space": "drive"})
+        ids = _json_response(response).get("ids")
+        if (not isinstance(ids, list) or len(ids) != 3
+                or any(not isinstance(item, str) for item in ids) or len(set(ids)) != 3):
+            raise GoogleDriveAccessError("Google Drive did not reserve the storage folder identities.")
+        return [self._valid_folder_id(file_id) for file_id in ids]
+
     def _ensure_managed_folder(
         self,
         *,
@@ -177,6 +193,8 @@ class _FolderOperationsMixin:
         storage_kind: str,
         name: str,
         root_id: str | None = None,
+        parent_id: str | None = None,
+        file_id: str | None = None,
     ) -> dict[str, str]:
         matches = self._list_managed_folders(
             profile_key=profile_key,
@@ -188,6 +206,9 @@ class _FolderOperationsMixin:
                 "Google Drive contains duplicate managed storage folders."
             )
         if matches:
+            if parent_id and (parent_id not in (matches[0].get("parents") or [])
+                              or matches[0].get("name") != name):
+                raise GoogleDriveConflictError("Resume setup with the original storage folder name and location.")
             return self._validate_managed_folder(
                 matches[0],
                 profile_key=profile_key,
@@ -206,6 +227,20 @@ class _FolderOperationsMixin:
         if root_id is not None:
             metadata["parents"] = [self._valid_folder_id(root_id)]
             metadata["appProperties"]["tabulaRasaStorageRoot"] = root_id
+
+        if parent_id is not None:
+            metadata["parents"] = [self._valid_folder_id(parent_id)]
+        if file_id is not None:
+            metadata["id"] = self._valid_folder_id(file_id)
+            try:
+                created = self._metadata_create(metadata)
+            except GoogleDriveAccessError:
+                # A known Drive ID makes subsequent submissions safe even if list is stale.
+                created = self.folder(file_id)
+            if parent_id and parent_id not in (created.get("parents") or []):
+                raise GoogleDriveConflictError("The managed storage folder is outside the selected destination.")
+            return self._validate_managed_folder(created, profile_key=profile_key,
+                                                 storage_kind=storage_kind, root_id=root_id)
 
         for attempt in range(2):
             try:
@@ -244,7 +279,7 @@ class _FolderOperationsMixin:
             )
 
 
-    def create_storage_root(self, profile_key: str, name: str) -> dict[str, str]:
+    def create_storage_root(self, profile_key: str, name: str, *, parent_id=None, file_id=None) -> dict[str, str]:
         """Create or reuse one app-managed storage root for a profile."""
         clean_name = _clean_text(name, maximum=255)
         if not clean_name:
@@ -253,6 +288,8 @@ class _FolderOperationsMixin:
             profile_key=profile_key,
             storage_kind="storage-root",
             name=clean_name,
+            parent_id=parent_id,
+            file_id=file_id,
         )
 
 
@@ -260,16 +297,19 @@ class _FolderOperationsMixin:
         self,
         profile_key: str,
         root_id: str,
+        *,
+        file_ids: tuple[str, str] | None = None,
     ) -> dict[str, dict[str, str]]:
         """Create or reuse the receipt and ledger-backup children under a root."""
         root = self.folder(root_id)
         self._valid_folder_id(str(root.get("id", "")))
         children: dict[str, dict[str, str]] = {}
-        for storage_kind, name in STORAGE_CHILD_NAMES.items():
+        for index, (storage_kind, name) in enumerate(STORAGE_CHILD_NAMES.items()):
             children[storage_kind] = self._ensure_managed_folder(
                 profile_key=profile_key,
                 storage_kind=storage_kind,
                 name=name,
                 root_id=root_id,
+                file_id=file_ids[index] if file_ids else None,
             )
         return children

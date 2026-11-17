@@ -180,7 +180,7 @@ def respond_invitation(body: InvitationResponse, request: Request):
 @router.get('/api/v1/beta/status', response_model=BetaStatus, operation_id='beta_status')
 def beta_status(request: Request):
     _, session = workflow(request)
-    return request.app.state.runtime.beta.status(session.user_id)
+    return request.app.state.runtime.beta.status(session.user_id, verified=bool(session.verified_email))
 
 
 @router.post('/api/v1/beta/operator', operation_id='beta_operator')

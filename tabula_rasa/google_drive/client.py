@@ -219,13 +219,14 @@ class _DriveClientCore:
 
 
     def folder(self, folder_id: str) -> dict[str, Any]:
-        """Validate and return one authorized Drive folder."""
-        folder_id = self._valid_folder_id(folder_id)
+        """Validate and return one authorized Drive folder, including the My Drive alias."""
+        if folder_id != 'root':
+            folder_id = self._valid_folder_id(folder_id)
         response = self._request(
             "GET",
             f"{DRIVE_API_ROOT}/files/{folder_id}",
             params={
-                "fields": "id,name,mimeType,trashed,webViewLink,parents,appProperties",
+                "fields": "id,name,mimeType,trashed,webViewLink,parents,appProperties,capabilities(canAddChildren)",
                 "supportsAllDrives": "true",
             },
         )

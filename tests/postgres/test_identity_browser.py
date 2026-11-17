@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from playwright.sync_api import expect
 import pytest
+from sqlalchemy import text
 import uvicorn
 
 from tabula_rasa.http.app import create_app
@@ -95,6 +96,76 @@ def configure_login(context, origin, claims, *, registration=False):
             body='<script>location.replace(' + json.dumps(target) + ')</script>')
     context.route('https://id.example.test/authorize**', authorize)
     context.route('**/api/v1/auth/' + ('register' if registration else 'login') + '**', login_redirect)
+
+
+def test_drive_folder_setup_reviews_picker_destination_before_create(named_server, native_browser):
+    origin, repo, _, _, _, _, _, _ = named_server
+    with repo.database.transaction(read_only=True) as c:
+        configuration = c.scalar(text("SELECT configuration_hash FROM identity_environments WHERE environment='test'"))
+    from tests.postgres.test_identity import verified
+    sessions = PostgresSessionRepository(repo.database, 'test', configuration)
+    raw, _ = sessions.issue(verified())
+    sessions.select(raw, 'alpha')
+    setup_id = 'a' * 64
+    calls = []
+    connection = {'provider': 'google_drive', 'status': 'not_configured', 'revision': 0,
+                  'self_service_available': True, 'authorized_account': 'synthetic@example.test',
+                  'folder_setup': {'setup_id': setup_id, 'default_name': 'Tabula Rasa - Alpha',
+                                   'picker_available': True, 'reserved': False}}
+
+    def command(route):
+        body = route.request.post_data_json
+        calls.append(body)
+        if body['action'] == 'picker':
+            route.fulfill(json={'access_token': 'synthetic-picker-token', 'developer_key': 'test-key',
+                                'project_number': '1234'})
+        else:
+            connection.update(status='connected', revision=1, folder_setup=None)
+            route.fulfill(json={})
+
+    with native_browser('chromium') as browser:
+        context = browser.new_context(viewport={'width': 390, 'height': 1000})
+        context.add_cookies([{'name': 'tabula_dev_session', 'value': raw, 'url': origin,
+                             'httpOnly': True, 'sameSite': 'Lax'}])
+        context.route('**/connections/google-drive', lambda route: route.fulfill(json=connection))
+        context.route('**/connections/google-drive/setup', command)
+        page = context.new_page()
+        page.add_init_script("""(() => {
+            let first = true;
+            class View { setMode() {} setIncludeFolders() {} setMimeTypes() {} setSelectFolderEnabled() {} }
+            class Builder {
+                addView() { return this; } setAppId() { return this; }
+                setDeveloperKey() { return this; } setOAuthToken() { return this; }
+                setOrigin() { return this; } setCallback(fn) { this.notify = fn; return this; }
+                build() { return {setVisible: () => {
+                    const result = first ? {action: 'cancel'} :
+                        {action: 'picked', docs: [{id: 'picked-parent', name: 'Client files'}]};
+                    first = false;
+                    this.notify(result);
+                }, dispose() {}}; }
+            }
+            window.gapi = {load: (_, options) => options.callback()};
+            window.google = {picker: {DocsView: View, PickerBuilder: Builder,
+                ViewId: {FOLDERS: 'folders'}, DocsViewMode: {LIST: 'list'}}};
+        })()""")
+        page.goto(origin + '/data')
+        expect(page.get_by_label('Folder name')).to_have_value('Tabula Rasa - Alpha')
+        expect(page.get_by_text('Destination: My Drive root')).to_be_visible()
+        assert_accessible(page)
+        pick = page.get_by_role('button', name='Choose Drive folder')
+        with page.expect_response(lambda response: response.url.endswith('/google-drive/setup')):
+            pick.click()
+        expect(pick).to_be_enabled()
+        expect(page.get_by_text('Destination: My Drive root')).to_be_visible()
+        assert [call['action'] for call in calls] == ['picker']
+
+        pick.click()
+        expect(page.get_by_text('Destination: Client files')).to_be_visible()
+        page.get_by_label('Folder name').fill('Year-end books')
+        page.get_by_role('button', name='Create storage folder').click()
+        expect(page.get_by_text('Connected', exact=True)).to_be_visible()
+        assert calls[-1] == {'action': 'create', 'revision': 0, 'setup_id': setup_id,
+                             'name': 'Year-end books', 'parent_id': 'picked-parent'}
 
 
 def test_named_deployment_smoke_uses_public_shell_and_denied_http_boundary(named_server):

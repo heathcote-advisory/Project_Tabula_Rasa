@@ -549,6 +549,52 @@ def test_same_name_businesses_remain_distinct_through_selection(named_server, wi
         assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
 
 
+def test_verified_signup_creates_two_businesses_in_self_service(named_server, native_browser):
+    from tabula_rasa.infrastructure.postgres.beta import PostgresBeta
+
+    origin, repo, _, _, _, _, claims, info = named_server
+    claims['sub'] = info['sub'] = 'self-service-browser'
+    with repo.database.transaction(read_only=True) as c:
+        configuration = c.scalar(text("SELECT configuration_hash FROM identity_environments WHERE environment='test'"))
+    sessions = PostgresSessionRepository(repo.database, 'test', configuration)
+    raw, operator = sessions.issue(verified('synthetic-operator'))
+    with repo.database.transaction() as c:
+        c.execute(text("""INSERT INTO beta_operator_grants VALUES
+            (:user,'test',clock_timestamp()+interval '1 hour','synthetic-browser')"""),
+            {'user': operator.user_id})
+    beta = PostgresBeta(repo.database)
+    program = beta.operate(sessions, raw, {'operation': 'inspect'})['program']
+    common = {'reason': 'Synthetic browser', 'approval_reference': 'synthetic-only'}
+    configured = beta.operate(sessions, raw, dict(common, operation='configure', revision=program['revision'],
+        stage='expanded', business_cap=2, user_cap=2, creation_paused=False, invitations_paused=True, suspended=False))
+    beta.operate(sessions, raw, dict(common, operation='set_enrollment_mode',
+        revision=configured['program']['revision'], enrollment_mode='self_service'))
+
+    with native_browser('chromium') as browser:
+        context = browser.new_context(viewport={'width': 390, 'height': 1000})
+        configure_login(context, origin, claims, registration=True)
+        page = context.new_page()
+        page.goto(origin)
+        page.get_by_role('link', name='Create account', exact=True).click()
+        expect(page.get_by_role('heading', name='Join an invited business', exact=True)).to_be_visible()
+        page.get_by_role('link', name='Return to My Businesses', exact=True).click()
+        expect(page.get_by_text('Self-service business creation is available.', exact=True)).to_be_visible()
+        for action, name, country, currency in (
+            ('Create your first business', 'First US business', 'US', 'USD'),
+            ('Create another business', 'Second Canadian business', 'CA', 'CAD'),
+        ):
+            page.get_by_role('button', name=action, exact=True).click()
+            page.get_by_label('Business name').fill(name)
+            page.get_by_label('Business country and currency').select_option(country)
+            page.get_by_role('button', name='Review defaults').click()
+            page.get_by_role('button', name='Create business', exact=True).click()
+            expect(page.get_by_role('heading', name='Your ledger is ready')).to_be_visible()
+            expect(page.get_by_text('Book currency: ' + currency, exact=True)).to_be_visible()
+            expect(page.get_by_text('Enrollment: pending.', exact=False)).to_have_count(0)
+            page.goto(origin + '/businesses')
+        expect(page.get_by_role('region', name='Available businesses').get_by_role('listitem')).to_have_count(2)
+
+
 @pytest.mark.parametrize('engine', ['chromium', 'firefox', 'webkit'])
 @pytest.mark.parametrize('width', [1440, 390])
 @pytest.mark.parametrize('country,currency', [('US','USD'), ('CA','CAD')])

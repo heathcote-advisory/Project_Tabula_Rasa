@@ -91,6 +91,78 @@ def cohort(database):
     )
 
 
+def test_self_service_preserves_request_bindings_caps_and_business_isolation(database, cohort):
+    _, auth, _, person, _, _, beta, command, configure, service, request, _ = cohort
+    _, alice = person("alice")
+    bob_token, bob = person("bob")
+    pending, original = request(alice, "Existing request")
+    with pytest.raises(IdentityError, match="validation"):
+        command("set_enrollment_mode", enrollment_mode="self_service")
+    with pytest.raises(IdentityError, match="forbidden"):
+        beta.operate(auth.sessions, bob_token, {"operation": "set_enrollment_mode"})
+
+    configure(stage="expanded", business_cap=3, user_cap=2, invitations_paused=True)
+    changed = command("set_enrollment_mode", enrollment_mode="self_service")
+    audit = changed["events"][0]
+    assert audit["action"] == "set_enrollment_mode"
+    assert audit["approval_reference"] == "synthetic-release"
+    assert audit["details"]["configuration"] == {"enrollment_mode": "self_service"}
+    assert beta.status(alice.user_id, verified=True)["self_service"]
+    assert service.create_business(alice, original, "Existing request")["state"] == "pending"
+    with pytest.raises(IdentityError, match="forbidden"):
+        service.create_business(replace(alice, verified_email=None), uuid4().hex, "Unverified")
+    with pytest.raises(IdentityError, match="beta_eligibility"):
+        service.create_business(alice, uuid4().hex, "Unsupported", country="FR", currency="USD")
+
+    key = uuid4().hex
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        one, replay = executor.map(lambda _: service.create_business(alice, key, "First"), range(2))
+    assert one == replay
+    two = service.create_business(alice, uuid4().hex, "Second", country="CA", currency="CAD")
+    three = service.create_business(bob, uuid4().hex, "Bob's business")
+    assert len({row["organization_id"] for row in (one, two, three)}) == 3
+    assert {row.entity_id for row in auth.sessions.identity.allowed_entities(alice.user_id)} == {
+        one["entity_id"], two["entity_id"]
+    }
+    assert {row.entity_id for row in auth.sessions.identity.allowed_entities(bob.user_id)} == {three["entity_id"]}
+    with database.transaction(read_only=True) as connection:
+        assert connection.scalar(text("SELECT currency_code FROM business_entities WHERE id=:id"),
+                                 {"id": two["entity_id"]}) == "CAD"
+    with pytest.raises(IdentityError, match="beta_capacity"):
+        service.create_business(bob, uuid4().hex, "Over cap")
+    with pytest.raises(IdentityError, match="beta_capacity"):
+        command("approve", admission_id=pending)
+    configure(stage="expanded", business_cap=3, user_cap=2, creation_paused=True)
+    with pytest.raises(IdentityError, match="beta_paused"):
+        service.create_business(bob, uuid4().hex, "Paused")
+
+    command("set_enrollment_mode", enrollment_mode="approval_required")
+    assert service.create_business(bob, uuid4().hex, "Requires approval")["state"] == "pending"
+    assert service.create_business(alice, key, "First") == one
+    assert service.bootstrap_status(alice, original)["state"] == "pending"
+
+
+def test_mode_changes_keep_existing_approvals_and_expiration(database, cohort):
+    _, _, _, person, _, _, _, command, configure, service, request, _ = cohort
+    _, applicant = person("applicant")
+    approved, can_create = request(applicant, "Approved before switch")
+    expired, needs_approval = request(applicant, "Expired before switch")
+    command("approve", admission_id=approved)
+    command("approve", admission_id=expired)
+    with database.transaction() as connection:
+        connection.execute(text("UPDATE beta_admissions SET expires_at=clock_timestamp() WHERE id=:id"),
+                           {"id": expired})
+    configure(stage="expanded", business_cap=2, user_cap=1)
+    command("set_enrollment_mode", enrollment_mode="self_service")
+    ready = service.create_business(applicant, can_create, "Approved before switch")
+    assert ready["state"] == "ready"
+    assert service.create_business(applicant, needs_approval, "Expired before switch")["state"] == "expired"
+    command("set_enrollment_mode", enrollment_mode="approval_required")
+    command("approve", admission_id=expired)
+    assert service.create_business(applicant, needs_approval, "Expired before switch")["state"] == "ready"
+    assert service.create_business(applicant, can_create, "Approved before switch") == ready
+
+
 def test_closed_default_pending_identity_binding_and_eligibility(database, cohort):
     _, auth, _, person, raw, _, beta, command, configure, service, request, admit = (
         cohort
