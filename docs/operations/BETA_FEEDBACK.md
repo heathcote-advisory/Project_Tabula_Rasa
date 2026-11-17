@@ -20,6 +20,17 @@ and release references, review a preview, then explicitly send through their mai
 client. Users without a configured mail client can copy the preview into email.
 No session, tenant, current URL, logs, screenshots or receipts are attached.
 
+Email threads in the LLC Gmail mailbox are the private case record. Only the
+LLC owner currently has access. The owner may manually move selected cases to
+a dedicated, non-shared Google Drive folder under the same LLC account for
+long-term retention. Before each move, verify the folder and case's effective
+access, including inherited parent sharing; do not archive under a shared
+parent. Keep records restricted to the owner and preserve the original receipt
+date and case context. This operator-held case custody is separate from customer-owned
+Drive receipt folders and the application's business-specific OAuth grants.
+There is no automatic case archival or expiry. Reassess access and disclosures
+before adding another reviewer or changing custody.
+
 The consent notice identifies email processing and its sender-address exposure.
 Qualitative research is separately unchecked and optional; help remains usable
 without it. Unchecking research clears its answers. No analytics SDK, usage
@@ -29,10 +40,11 @@ of research participation. Browser help drafts are memory-only and disappear on
 navigation; do not persist them in storage, telemetry or error messages.
 
 Support is best-effort with an ordinary first-response target within two business
-days, excluding weekends and holidays observed by the operator, with weekly
+days in `America/New_York`, excluding weekends and observed U.S. federal
+holidays, with weekly
 triage. No repair deadline or 24/7 staffed coverage is promised. Before admission,
-record the operator's time zone/holiday calendar and coverage privately and
-communicate it with cohort expectations. Statutory privacy clocks and P0
+verify actual coverage and communicate this calendar with cohort expectations.
+Statutory privacy clocks and P0
 containment on detection are independent of this ordinary response target.
 
 ## Classification and accountable handoff
