@@ -71,7 +71,7 @@ hosted execution. Keep credentials and recovery contents in private custody.
 | Pull request | Current-head **Full test suite** succeeds and review findings are dispositioned under [Development](../DEVELOPMENT.md#authoritative-ci-and-required-check) | Missing, pending, skipped or failed required checks prevent merge readiness. |
 | Main CI and image publication | Successful main-push Repository CI; image build publishes an immutable GHCR digest with release SHA, schema and verified linux/amd64 runtime digest | Failed CI/build supplies no eligible release. Inspect the failed job; do not deploy a moving tag. |
 | Automatic staging | Enabled staging job verifies the candidate and prior live image, checks supersession, checks the bound schema, applies any supported forward path, restarts and passes named-user smoke | Inspect the exact failed step and live provider state. A successful build or healthy prior image does not prove candidate success. |
-| Staging handoff | Record release SHA, requested/runtime digests, schema, run ID/attempt, Render deployment, origin, verification time and successful staging artifact | Production requires evidence from successful immediate staging promotion, no older than seven days, with the same deployment still live. Manual staging or rollback is insufficient. |
+| Staging handoff | Record release SHA, requested/runtime digests, schema, run ID/attempt, Render deployment, origin, verification time and successful staging artifact | Production requires evidence from successful immediate staging promotion, no older than seven days, with the same immutable image still live. A same-image redeployment must pass current version/readiness checks. Manual staging or rollback alone is insufficient. |
 | Schema-changing promotion | Staging starts immediately. Enabled production starts at the next eligible 03:00 Eastern window. Maintenance applies a reviewed forward path after isolating and draining writers. | A missing safeguard blocks promotion. Once maintenance starts, inspect the failed phase and use the incident procedure. |
 | Production activation | Owner approves unattended promotion once after hosted verification and configuration review. Routine releases use the exact staging-verified digest. | Keep unattended promotion disabled until authorized. Review any failed attempt before rearming. |
 | Emergency manual production promotion | Dispatch on protected main with the exact staged digest, automatic staging run, expected live production image and recovery-record hash | Preflight must pass again with the candidate's verified code before migration/deploy. Changed staging or production state requires fresh review. |
@@ -526,16 +526,27 @@ A successful main CI run and immutable image build trigger staging immediately.
 A schema-changing staging release takes the maintenance path in the same job
 and queue. The production workflow checks daily at 03:00
 `America/New_York`, including daylight saving changes. It considers the
-currently live staging digest only when that exact deployment has a completed
+currently live staging digest only when that exact image has a completed
 successful build and staging job, a new Render deployment and post-restart
 readiness, version and named-user smoke evidence by the cutoff. If staging
-changes during preflight or finishes after the cutoff, defer to a later
+changes to a different digest during preflight or finishes verification after the cutoff, defer to a later
 window. The start window defaults to 15 minutes. If the owner accepts later
 downtime to accommodate GitHub scheduling delays, set the production environment
 variable `PRODUCTION_RELEASE_START_WINDOW_MINUTES` to an integer between 15
 and 180. The 03:00 Eastern eligibility cutoff still applies. The job skips
 when it starts outside the configured window or is a GitHub rerun. The current
 healthy production digest is skipped.
+
+A staging restart or redeployment of the same immutable image does not reset
+its original eligibility time or require the original Render deployment to
+remain live. Verify the current live deployment's requested and runtime digests,
+staging origin and isolated database binding. If its deployment ID differs from
+the successful staging artifact, also check current `/version` and
+`/health/ready` through the existing bounded, non-redirecting probe. Missing live
+deployment, competing deployment, digest mismatch or failed probes block
+promotion. Retain both the original verified deployment ID and current live
+deployment ID in the production release record. These current health checks do
+not qualify an image whose original staging verification missed the cutoff.
 
 Before enabling unattended releases, verify the following in each applicable
 environment.
@@ -638,8 +649,10 @@ Hosted Render and Neon acceptance requires a separate authorized staging run.
    run with a successful **staging / schema-window** job and restored traffic. The
    staging job summary lists the immutable image and its release/schema metadata.
    Use the run ID from its URL. The named-user staging evidence expires after
-   seven days and must still name the live staging deployment. A staging
-   rollback or manual staging deploy does not supply production evidence.
+   seven days and must match the live staging image. A same-image redeployment
+   additionally requires current version/readiness checks; its new deployment ID
+   does not invalidate the original evidence. A staging rollback or manual staging
+   deploy alone does not supply production evidence.
 2. In **Promote commercial production**, select `main` and enter that immutable
    image, its staging run ID, the full expected live production image reference,
    and the SHA-256 of the reviewed recovery record. Choose **Run workflow** to

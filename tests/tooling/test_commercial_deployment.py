@@ -3,11 +3,12 @@ from pathlib import Path
 import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
+from urllib.error import HTTPError, URLError
 
 import pytest
 import yaml
 
-from tabula_rasa.deployment import database, production, release, smoke as smoke_module
+from tabula_rasa.deployment import database, production, release, schema_window, smoke as smoke_module
 from tabula_rasa.migration.model import digest
 from tabula_rasa.infrastructure.postgres import hosted
 
@@ -498,7 +499,6 @@ def test_production_submits_only_the_live_staging_digest_and_records_success(pro
     ("proof", "verified_at", (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()),
     ("proof", "database_sha256", PRODUCTION_DATABASE),
     ("proof", "public_origin", "http://stage.example.test"),
-    ("stage_live", "id", "dep-replaced"),
     ("stage_live", "image", {"ref": PRIOR, "sha": PRIOR_MANIFEST}),
     ("environ", "PRODUCTION_RECOVERY_SHA256", ""),
     ("environ", "PRODUCTION_PREVIOUS_IMAGE", IMAGE),
@@ -539,6 +539,90 @@ def test_production_requires_successful_build_and_staging_jobs(production_releas
     assert not any(call.kwargs.get("body") for call in fixture.prod.call_args_list)
 
 
+@pytest.fixture
+def redeployed_staging(production_release, monkeypatch):
+    fixture = production_release
+    fixture.stage_live["id"] = "dep-restarted"
+    version, ready = MagicMock(), MagicMock()
+    version.__enter__.return_value.read.return_value = json.dumps({"release": "c" * 40})
+    ready.__enter__.return_value.status = 200
+    opener = Mock()
+    opener.open.side_effect = [version, ready] * 3
+    monkeypatch.setattr(schema_window, "build_opener", Mock(return_value=opener))
+    # Exercise the real bounded probe without waiting between synthetic failures.
+    probe = schema_window.public_reopened
+    monkeypatch.setattr(schema_window, "public_reopened",
+                        lambda origin, revision: probe(origin, revision, sleep=Mock()))
+    return SimpleNamespace(fixture=fixture, version=version, ready=ready, opener=opener)
+
+
+def test_production_accepts_healthy_same_image_redeployment(redeployed_staging):
+    fixture = redeployed_staging.fixture
+    result = fixture.promote()
+    assert result["status"] == "smoke_passed"
+    assert result["staging_deploy_id"] == "dep-staging"
+    assert result["staging_live_deploy_id"] == "dep-restarted"
+    assert result["staging_verified_at"] == fixture.proof["verified_at"]
+    assert [call.args[0] for call in redeployed_staging.opener.open.call_args_list] == [
+        ENV["TABULA_RASA_PUBLIC_ORIGIN"] + "/version",
+        ENV["TABULA_RASA_PUBLIC_ORIGIN"] + "/health/ready",
+    ]
+
+
+@pytest.mark.parametrize("defect", ["wrong_version", "unready", "timeout", "redirect", "different_image",
+                                   "different_manifest", "not_live", "competing", "wrong_database", "missing_proof"])
+def test_same_image_redeployment_still_requires_valid_evidence_and_live_health(redeployed_staging, defect):
+    setup = redeployed_staging
+    fixture = setup.fixture
+    if defect == "wrong_version":
+        setup.version.__enter__.return_value.read.return_value = json.dumps({"release": "d" * 40})
+    elif defect == "unready":
+        setup.ready.__enter__.return_value.status = 503
+    elif defect == "timeout":
+        setup.opener.open.side_effect = URLError("synthetic timeout")
+    elif defect == "redirect":
+        setup.opener.open.side_effect = HTTPError("https://stage.example.test", 302, "redirect", {}, None)
+    elif defect == "different_image":
+        fixture.stage_live["image"] = {"ref": PRIOR, "sha": PRIOR_MANIFEST}
+    elif defect == "different_manifest":
+        fixture.stage_live["image"]["sha"] = PRIOR_MANIFEST
+    elif defect == "not_live":
+        fixture.stage_live["status"] = "deactivated"
+    elif defect == "competing":
+        fixture.stage_live["status"] = "update_in_progress"
+    elif defect == "wrong_database":
+        fixture.stage_settings["DATABASE_URL"] = fixture.settings["DATABASE_URL"]
+    else:
+        fixture.proof.clear()
+    with pytest.raises(release.ReleaseError):
+        fixture.promote()
+    assert not any(call.kwargs.get("body") for call in fixture.prod.call_args_list)
+    fixture.smoke.assert_not_called()
+
+
+@pytest.mark.parametrize("late_evidence", [False, True])
+def test_same_image_redeployment_preserves_original_cutoff(redeployed_staging, late_evidence):
+    fixture = redeployed_staging.fixture
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+    before = (cutoff - timedelta(minutes=1)).isoformat()
+    after = (cutoff + timedelta(minutes=1)).isoformat()
+    fixture.proof.update(restarted=True, run_attempt=1, deploy_started_at=before,
+                         verified_at=after if late_evidence else before)
+    fixture.stage_live["createdAt"] = after
+    for job in fixture.jobs:
+        job["completed_at"] = before
+    if late_evidence:
+        with pytest.raises(release.ReleaseError, match="missing, expired or malformed"):
+            production.staging_evidence(None, metadata(IMAGE, REPOSITORY), fixture.environ,
+                                        read=fixture.render, cutoff=cutoff, metadata=metadata)
+        redeployed_staging.opener.open.assert_not_called()
+    else:
+        proof = production.staging_evidence(None, metadata(IMAGE, REPOSITORY), fixture.environ,
+                                            read=fixture.render, cutoff=cutoff, metadata=metadata)
+        assert proof["staging_live_deploy_id"] == "dep-restarted"
+        assert proof["staging_verified_at"] == before
+
+
 @pytest.mark.parametrize("defect", [None, "no_restart", "late_smoke", "late_staging_job", "rerun", "superseded"])
 def test_automatic_production_requires_exact_current_pre_cutoff_restart(production_release, defect):
     fixture = production_release
@@ -551,6 +635,7 @@ def test_automatic_production_requires_exact_current_pre_cutoff_restart(producti
         job["completed_at"] = after if defect == "late_staging_job" else before
     if defect == "superseded":
         fixture.stage_live["id"] = "dep-newer"
+        fixture.stage_live["image"] = {"ref": PRIOR, "sha": PRIOR_MANIFEST}
     if defect:
         with pytest.raises(release.ReleaseError):
             production.staging_evidence(None, metadata(IMAGE, REPOSITORY), fixture.environ,
