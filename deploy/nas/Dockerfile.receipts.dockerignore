@@ -1,0 +1,15 @@
+# Include only reviewed runtime source and pinned dependency lists.
+**
+!requirements-api.txt
+!requirements-postgres.txt
+!tabula_rasa/
+!tabula_rasa/**/
+!tabula_rasa/**/*.py
+!tabula_rasa/**/*.sql
+!scripts/
+!scripts/nas_receipt_backup.py
+!scripts/nas_postgres_backup.py
+!scripts/recovery_point_health.py
+!scripts/operational_heartbeat.py
+!scripts/manage_document_storage.py
+!scripts/drive_document_recovery.py

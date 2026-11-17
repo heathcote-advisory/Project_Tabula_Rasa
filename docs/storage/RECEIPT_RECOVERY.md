@@ -122,12 +122,13 @@ Prepare a protected JSON config outside Git with exactly these fields:
 | `environment` | Exactly `production`. |
 | `database_sha256` | Approved application database-identity digest. |
 | `entities` | Explicit list of objects containing exactly `organization_id`, `entity_id`, `profile_key`, `scope_key`; distinct entities and Drive folders, maximum 20. Use actual canonical IDs, including migrated text entity IDs. |
-| `storage` | Existing absolute private NAS directory outside Git, on an encrypted volume; no repository path. |
+| `storage` | Existing absolute private NAS archive directory outside Git; no repository path. Only ciphertext and private metadata are persisted here. |
 | `storage_marker` | 32 lowercase hex characters matching the private `.receipt-backup-marker` file in that directory. Create only after verifying the actual destination mount. |
 | `recipients_file` | Absolute protected age public-recipient file. Decrypt identities remain in separate approved custody. |
 | `approval_sha256` | Digest of the retained decision authorizing repeated capture of these bindings and changing canonical points within these limits. |
 | `schedule` | Explicit `wednesday_sunday` (22:00 Eastern) or `twice_daily` (10:00/22:00 Eastern), receipt tasks only. No default selects an operating policy. |
-| `minimum_free_bytes` | Positive free-space reserve. Additional admission headroom is three times `max_capture_bytes` plus 64 MiB for metadata/tar overhead. |
+| `minimum_free_bytes` | Positive persistent free-space reserve. Additional admission headroom is `max_capture_bytes` plus 64 MiB for metadata/tar overhead. |
+| `temporary_directory` | Existing private absolute tmpfs directory, disjoint from archive storage. Disk-backed scratch and symlink aliases to disk are refused. Admit at least twice `max_capture_bytes` plus 64 MiB of free tmpfs space. |
 | `max_capture_bytes`, `max_documents` | Positive combined canonical-byte/document limits per run, at most 1 TB and 100,000 documents. Set realistic small bounds for the DS220j after inventory. |
 | `timeout_seconds`, `delay_seconds` | Positive integers: at most 7,200 seconds per network child/encryption command and 60 seconds between verified receipt downloads. Both dry-run and capture download bytes; budget for both. |
 
@@ -138,6 +139,35 @@ production connection-custody backend and key using the established connection
 secret environment settings, preferably read-only credentials/mounts. One
 database connection and one entity capture run at a time. Do not copy staging
 grant envelopes, custody keys or database URLs into this runtime.
+
+Build the application-capable image with the dedicated context allowlist. Reuse
+the established receipt image recipe; the retired staging image on a NAS does
+not contain the current production runner. Record the source commit, image ID
+and transfer checksum, and pin the exact installed ID in DSM's wrapper:
+
+```sh
+docker build --platform linux/arm64 --build-arg RELEASE_ID=<reviewed-commit> -f deploy/nas/Dockerfile.receipts -t tabula-receipt-backup:<reviewed-commit> .
+```
+
+Before provider access, exercise `tests/tooling/nas_receipt_smoke.py` in this
+image as UID 10001, with network disabled, a read-only root, all capabilities
+dropped and a private 128 MiB `/work` tmpfs. Bind only that synthetic harness
+at `/app/validation.py` and override the entrypoint with `python`. It imports
+the capture dependencies, proves real tmpfs acceptance/disk rejection, encrypts
+and decrypts synthetic bytes and checks safe missing-health behavior. This is
+package validation, not actual production capture or scheduled-run evidence.
+
+For the approved production wrapper, use a separate read-only protected config
+mount, writable archive mount, private bounded tmpfs at `temporary_directory`,
+no exposed ports, `--read-only --cap-drop ALL --security-opt no-new-privileges`,
+a CPU limit and explicit memory/PID limits. For the 512 MiB DS220j, initially
+budget at most 256 MiB for the entire receipt container (including its tmpfs),
+0.25 CPU and 64 PIDs, then measure the actual inventory/workload before enabling
+it. Begin with a small canonical-byte budget that fits twice within the tmpfs
+after its 64 MiB overhead reserve. Never enlarge limits to evade a failed
+capacity check without reviewing total host load. Keep status checks free of
+database/custody credentials. Their configuration still needs a small private
+scratch directory, but they never read plaintext or require a tmpfs capture.
 
 ```sh
 python -m scripts.nas_receipt_backup run --config /private/production-receipts.json
@@ -166,9 +196,9 @@ config. Captures across entities are sequential, not a global atomic point.
 
 The bundle is encrypted to `receipts.tar.age`, fsynced and checksummed/read back
 before a complete generation and durable last-success pointer are published.
-Only this invocation's transient plaintext is removed after encryption/readback.
-Failed/incomplete artifacts can include private plaintext and remain quarantined
-on the encrypted, restricted destination for operator inspection. No source file,
+Only this invocation's transient tmpfs workspace is removed after encryption/readback.
+Failed/incomplete ciphertext remains quarantined on the restricted destination.
+Temporary plaintext remains only in tmpfs until inspected or the container ends; a failed run never publishes it to persistent storage. No source file,
 grant, retained generation or failed artifact is automatically pruned. Capacity
 requires ongoing review under indefinite retention. Ciphertext checksum readback
 proves local integrity, not off-device replication, decryptability or restoration.

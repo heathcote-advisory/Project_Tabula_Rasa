@@ -25,7 +25,7 @@ def load_config(path):
     raw = json.loads(nas.protected(path).read_text(encoding='utf-8'))
     required = {'environment', 'database_sha256', 'storage', 'storage_marker', 'recipients_file',
                 'approval_sha256', 'entities', 'schedule', 'minimum_free_bytes', 'max_capture_bytes',
-                'max_documents', 'timeout_seconds', 'delay_seconds'}
+                'max_documents', 'timeout_seconds', 'delay_seconds', 'temporary_directory'}
     if set(raw) != required or raw['environment'] != 'production':
         raise ValueError('Exact production receipt configuration required.')
     for key in ('database_sha256', 'approval_sha256'):
@@ -54,6 +54,9 @@ def load_config(path):
         if len({row[key] for row in entities}) != len(entities):
             raise ValueError('Distinct entities and folders required.')
     storage = private_directory(raw['storage'])
+    temporary = private_directory(raw['temporary_directory']).resolve()
+    if (temporary.is_relative_to(storage.resolve()) or storage.resolve().is_relative_to(temporary)):
+        raise ValueError('Temporary memory storage must be separate from archives.')
     marker = nas.protected(storage / '.receipt-backup-marker')
     if marker.read_text(encoding='utf-8').strip() != raw['storage_marker']:
         raise ValueError('Storage mount differs.')
@@ -63,6 +66,7 @@ def load_config(path):
     binding = sha({**raw, 'recipients_sha256': recipients_sha256})
     return {**raw, 'recipients_sha256': recipients_sha256, 'storage': storage,
             'recipients_file': recipients, 'binding_sha256': binding,
+            'temporary_directory': temporary,
             'root': storage / 'receipt-bytes' / 'production' / raw['database_sha256'] / binding}
 
 
@@ -72,11 +76,34 @@ def selector(row):
 
 
 def capacity(config):
-    # Canonical bytes, transient tar and ciphertext coexist during encryption.
+    # Only ciphertext reaches persistent storage. Plaintext and tar use tmpfs.
     free = shutil.disk_usage(config['storage']).free
-    if free < config['minimum_free_bytes'] + 3 * config['max_capture_bytes'] + 64 * 1024**2:
+    if free < config['minimum_free_bytes'] + config['max_capture_bytes'] + 64 * 1024**2:
         raise nas.BackupError('storage')
     return free
+
+
+def memory_workspace(config, partial, *, create=False):
+    """Fail closed on a disk-backed scratch mount, including symlink aliases."""
+    temporary = config['temporary_directory'].resolve()
+    if os.name != 'posix':
+        raise nas.BackupError('configuration')
+    mounts = []
+    for line in Path('/proc/self/mountinfo').read_text(encoding='utf-8').splitlines():
+        details, filesystem = line.split(' - ', 1)
+        mount = Path(details.split()[4].replace('\\040', ' '))
+        if temporary.is_relative_to(mount):
+            mounts.append((len(mount.parts), filesystem.split()[0]))
+    if not mounts or max(mounts)[1] != 'tmpfs':
+        raise nas.BackupError('configuration')
+    if shutil.disk_usage(temporary).free < (2 if create else 1) * config['max_capture_bytes'] + 64 * 1024**2:
+        raise nas.BackupError('storage')
+    work = temporary / partial.name
+    if work.is_symlink() or work.resolve().parent != temporary:
+        raise nas.BackupError('configuration')
+    if create:
+        work.mkdir(mode=0o700)
+    return work
 
 
 def slot(config, now):
@@ -157,12 +184,13 @@ def capture(config, partial):
     from tabula_rasa.infrastructure.postgres.documents import PostgresReceiptRepository
     from tabula_rasa.infrastructure.postgres.identity import database_identity
 
+    work = memory_workspace(config, partial, create=True)
     database = open_database()
     try:
         if database_identity(database) != config['database_sha256']:
             raise ValueError('Production database binding differs.')
         secrets = ConnectionSecrets.from_environment(dict(os.environ))
-        plain = partial / 'plain'
+        plain = work / 'plain'
         plain.mkdir(mode=0o700)
         total_bytes = total_documents = 0
         for index, row in enumerate(config['entities']):
@@ -197,12 +225,13 @@ def capture(config, partial):
 
 def encrypt(config, partial, started_at):
     """Encrypt locally after the bounded network child has exited."""
-    plain = partial / 'plain'
-    tar_path = partial / 'receipts.tar'
+    work = memory_workspace(config, partial)
+    plain = work / 'plain'
+    tar_path = work / 'receipts.tar'
     with tarfile.open(tar_path, 'w') as bundle:
         bundle.add(plain, arcname='receipts')
     recipients = config['recipients_file'].read_bytes()
-    recipient_copy = partial / 'recipients.txt'
+    recipient_copy = work / 'recipients.txt'
     recipient_copy.write_bytes(recipients)
     if hashlib.sha256(recipients).hexdigest() != config['recipients_sha256']:
         raise ValueError('Recipients changed during capture.')
@@ -224,11 +253,9 @@ def encrypt(config, partial, started_at):
         'archive_sha256': cipher_hash, 'archive_bytes': cipher.stat().st_size,
         **inventory, 'recipients_sha256': config['recipients_sha256']})
     # Remove only this invocation's temporary plaintext after encryption/readback.
-    if plain.resolve().parent != partial.resolve() or plain.is_symlink():
+    if work.resolve().parent != config['temporary_directory'].resolve() or work.is_symlink():
         raise ValueError('Unsafe transient directory.')
-    shutil.rmtree(plain)
-    tar_path.unlink()
-    recipient_copy.unlink()
+    shutil.rmtree(work)
 
 def backup(config, config_path, *, scheduled=False):
     root = config['root']

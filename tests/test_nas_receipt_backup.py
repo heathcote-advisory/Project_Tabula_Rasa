@@ -15,16 +15,34 @@ def private_json(path, value):
     path.chmod(0o600)
 
 
+def test_disk_scratch_is_refused_before_any_private_bytes_are_written(tmp_path, monkeypatch):
+    monkeypatch.setattr(runner.Path, 'read_text', lambda *args, **kwargs: '1 0 0:1 / / rw - ext4 /dev/fake rw\n')
+    config = {'temporary_directory': tmp_path, 'max_capture_bytes': 1024}
+    with pytest.raises(runner.nas.BackupError, match='configuration'):
+        runner.memory_workspace(config, tmp_path / 'attempt', create=True)
+    assert not (tmp_path / 'attempt').exists()
+
+
 @pytest.fixture
-def configured(tmp_path):
+def configured(tmp_path, monkeypatch):
     tmp_path.chmod(0o700)
-    marker = tmp_path / '.receipt-backup-marker'
+    storage = tmp_path / 'storage'
+    storage.mkdir(mode=0o700)
+    temporary = tmp_path / 'memory'
+    temporary.mkdir(mode=0o700)
+    def workspace(config, partial, *, create=False):
+        work = config['temporary_directory'] / partial.name
+        if create:
+            work.mkdir(mode=0o700)
+        return work
+    monkeypatch.setattr(runner, 'memory_workspace', workspace)
+    marker = storage / '.receipt-backup-marker'
     marker.write_text('b' * 32)
     marker.chmod(0o600)
     recipients = tmp_path / 'recipients.txt'
     recipients.write_text('synthetic-public-recipient')
     recipients.chmod(0o600)
-    raw = dict(environment='production', database_sha256='a' * 64, storage=str(tmp_path),
+    raw = dict(environment='production', database_sha256='a' * 64, storage=str(storage), temporary_directory=str(temporary),
         storage_marker='b' * 32, recipients_file=str(recipients), approval_sha256='c' * 64,
         entities=[dict(organization_id=str(uuid4()), entity_id=str(uuid4()), profile_key='owner-a', scope_key='folder-a'),
                   dict(organization_id=str(uuid4()), entity_id=str(uuid4()), profile_key='owner-b', scope_key='folder-b')],
@@ -74,8 +92,9 @@ def install_capture(monkeypatch, config, *, fail=False):
             raise TimeoutError('private-grant-must-not-escape')
         generation = args[-1]
         partial = config['root'] / 'incomplete' / generation
-        (partial / 'plain').mkdir(mode=0o700)
-        (partial / 'plain' / 'synthetic.bin').write_bytes(b'private-receipt')
+        plain = config['temporary_directory'] / generation / 'plain'
+        plain.mkdir(parents=True, mode=0o700)
+        (plain / 'synthetic.bin').write_bytes(b'private-receipt')
         private_json(partial / 'inventory.json', {'documents': 1, 'receipt_bytes': 15})
     monkeypatch.setattr(runner.nas, 'command', command)
     def encrypt(selected, partial, started_at):
@@ -163,7 +182,8 @@ def test_encryption_failure_never_advances_complete_state(configured, monkeypatc
         runner.backup(config, path)
     state = runner.nas.read_state(config['root'])
     assert state['result'] == 'failed' and 'last_success' not in state
-    assert list((config['root'] / 'incomplete').glob('*/plain/synthetic.bin'))
+    assert list(config['temporary_directory'].glob('*/plain/synthetic.bin'))
+    assert not list((config['root'] / 'incomplete').glob('*/plain'))
     assert not (config['root'] / 'complete').exists()
 
 
@@ -186,8 +206,9 @@ def test_real_age_ciphertext_roundtrip_and_transient_plaintext_removal(configure
     config['recipients_sha256'] = runner.nas.digest(config['recipients_file'])
     partial = tmp_path / 'partial'
     partial.mkdir()
-    (partial / 'plain').mkdir()
-    (partial / 'plain' / 'synthetic.bin').write_bytes(b'exact-synthetic-bytes')
+    work = runner.memory_workspace(config, partial, create=True)
+    (work / 'plain').mkdir()
+    (work / 'plain' / 'synthetic.bin').write_bytes(b'exact-synthetic-bytes')
     private_json(partial / 'inventory.json', {'documents': 1, 'receipt_bytes': 21})
     runner.encrypt(config, partial, runner.nas.stamp(datetime.now(timezone.utc)))
     restored = tmp_path / 'restored.tar'
@@ -196,5 +217,5 @@ def test_real_age_ciphertext_roundtrip_and_transient_plaintext_removal(configure
     import tarfile
     with tarfile.open(restored) as bundle:
         assert bundle.extractfile('receipts/synthetic.bin').read() == b'exact-synthetic-bytes'
-    assert not (partial / 'plain').exists() and not (partial / 'receipts.tar').exists()
+    assert not work.exists()
     assert (partial / 'receipts.tar.age').is_file()
