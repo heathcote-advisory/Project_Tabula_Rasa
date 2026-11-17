@@ -488,7 +488,7 @@ def test_production_submits_only_the_live_staging_digest_and_records_success(pro
         {"imageUrl": IMAGE},
     ]
     fixture.pre_smoke.assert_called_once_with(PRODUCTION_ORIGIN, "d" * 40)
-    fixture.smoke.assert_called_once_with(PRODUCTION_ORIGIN, "c" * 40)
+    fixture.smoke.assert_called_once_with(PRODUCTION_ORIGIN, "c" * 40, previous_release="d" * 40)
 
 
 @pytest.mark.parametrize(("section", "key", "value"), [
