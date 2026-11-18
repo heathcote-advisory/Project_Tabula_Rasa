@@ -40,3 +40,6 @@ data/*.db-*
 /web/dist/
 /web/test-results/
 /web/playwright-report/
+
+# Local synthetic qualification output is retained by CI with the release.
+/worker-compatibility.json

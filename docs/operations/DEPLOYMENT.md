@@ -586,15 +586,17 @@ environment.
   Connect with the administrator's protected connection settings. Review the
   exact role bindings before execution. The function can toggle only the
   selected worker login and grants execution to the migration role without
-  making that role a role administrator. Record the schemas supported by the
-  installed pinned worker as comma-separated revisions in
-  `WINDOW_WORKER_COMPATIBLE_SCHEMAS` after testing it on each listed schema.
+  making that role a role administrator. Scheduled production releases require
+  installed-worker compatibility evidence from the qualifying staging run,
+  as described below. The fence's schema list is derived from that evidence;
+  `WINDOW_WORKER_COMPATIBLE_SCHEMAS` is no longer an unattended-release proof.
   The workflow disables login before suspending Render, waits for existing
   worker sessions to exit, and enables login after validating the restarted
   application and target schema. If the release fails with the worker fenced,
   inspect the deployed image, committed schema and role login before restoring
   access. Only restore access once the deployed worker is safe on that schema.
   Keep the NAS timer and backup task definitions in place.
+
 - Configure `NEON_PROJECT_ID`, `NEON_BRANCH_ID`, `NEON_ENDPOINT_ID` and the
   project-scoped `NEON_RELEASE_API_KEY` secret in each environment that uses
   automatic checkpoints. The workflow verifies the exact read-write endpoint
@@ -652,6 +654,57 @@ a fresh disposable source for another forward trial.
 **Simulated commercial schema window** runs pinned images with disposable
 PostgreSQL, local public/private routes and simulated provider controls.
 Hosted Render and Neon acceptance requires a separate authorized staging run.
+
+### Installed NAS worker qualification
+
+Before enabling qualification, export the **installed** NAS worker image and
+audit its complete configuration, build history and every layer (including
+deleted files) for credentials and private data. Environment-key inspection
+alone is not an audit. Publish only an approved artifact to a CI-readable
+private registry repository; preserve the installed effective configuration
+and RootFS layers. Do not rebuild current source and call it the installed
+worker. Image publication and NAS upgrades require separate authorization.
+
+Configure `NAS_WORKER_IMAGE` as a `ghcr.io/...@sha256:...` registry digest,
+`NAS_WORKER_CONFIG_SHA256` and `NAS_WORKER_ROOTFS_SHA256` consistently for
+staging and production. The fingerprints are SHA-256 of UTF-8 JSON using
+sorted keys and compact separators: the export's `config` object and its
+ordered `rootfs.diff_ids` array respectively (Docker inspection exposes these
+as `Config` and `RootFS.Layers`). This compares the installed image content
+even when registry tooling normalizes the outer image configuration. Never
+print the full config or environment values. Record the installed/export
+identity and audit decision in the protected operational record. Give the
+workflow's package-read token access to that exact registry artifact.
+
+Set staging's `NAS_WORKER_BASE_SCHEMA` to the earliest supported production
+schema. Automatic staging qualification uses the candidate's reviewed linear
+Alembic path to test that schema and every revision through the candidate
+head. It uses candidate-image migrations and synthetic fixtures with the
+unchanged ARM64 worker, emulated on the CI runner. Each revision gets a new
+disposable PostgreSQL instance on an internal Docker network with no host
+ports, production credentials or external network access. Probes check recurring
+generation, repeated enqueue/execution, cross-business claim rejection and
+separate amounts, and bounded retry/backoff/dead-state behavior. These probes
+test the worker's repository/queue behavior with a synthetic runtime role;
+they do not establish production grants, NAS scheduling or monitoring health.
+Existing production privilege checks and login fencing remain required.
+
+The staging `release.json` retains the probe results, candidate digest/schema,
+installed-worker pin/fingerprints and qualifying run/attempt alongside existing
+restart/readiness/sign-in-shell/access-boundary smoke. Production checks that
+proof on selection and revalidation, requiring both its current schema and
+the candidate schema before migration. Missing proof, failed checks, a different
+worker pin or a stale attempt blocks promotion. There is no manual schema-list
+fallback. With no staging worker pin, staging can still deploy and retain
+application smoke, but that evidence cannot qualify a production worker.
+
+Provision the audited registry pin and matching environment variables before
+merging/enabling this contract for an unattended production worker. This setup
+does not change the immediate-staging/03:00 Eastern production schedule,
+authorize worker installation, or waive legal/customer release gates. After
+an approved worker upgrade, update both environment bindings from the newly
+installed export and obtain fresh staging qualification before promotion.
+
 ### Select and promote a release
 
 1. In **Commercial release image**, select the completed automatic run whose

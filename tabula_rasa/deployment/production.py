@@ -10,11 +10,11 @@ from urllib.parse import urlsplit
 from tabula_rasa.infrastructure.postgres.hosted import direct_neon_settings
 from tabula_rasa.infrastructure.postgres.identity import database_url_identity
 
-from . import release
+from . import release, worker_compatibility
 
 
 def staging_evidence(image, candidate, environ, *, read, github=release.api, cutoff=None,
-                     metadata=release.image_metadata):
+                     metadata=release.image_metadata, source_schema=None):
     run_id = environ.get("PRODUCTION_STAGING_RUN", "")
     if not re.fullmatch(r"[1-9][0-9]{0,19}", run_id):
         raise release.ReleaseError("Select the automatic staging workflow run ID.")
@@ -58,7 +58,7 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api, cut
             )
         try:
             artifact = Path(directory) / "release.json"
-            if result.returncode or artifact.stat().st_size > 8192:
+            if result.returncode or artifact.stat().st_size > 32768:
                 raise ValueError
             proof = json.loads(artifact.read_text(encoding="utf-8"))
             verified = datetime.fromisoformat(proof["verified_at"])
@@ -94,6 +94,13 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api, cut
             or not isinstance(deploy, str) or not re.fullmatch(r"dep-[a-z0-9]+", deploy)):
         raise release.ReleaseError("Staging evidence does not match the candidate or isolated staging target.")
 
+    worker_proof = None
+    if environ.get("WINDOW_WORKER_ROLE"):
+        worker_proof = worker_compatibility.verify(
+            proof.get("worker_compatibility"), {**candidate, "image": image}, environ,
+            run_id=run_id, attempt=attempt, schemas=[candidate["schema"], *([source_schema] if source_schema else [])],
+        )
+
     staging_token = environ.get("STAGING_RENDER_API_KEY", "")
     if not staging_token:
         raise release.ReleaseError("Staging Render read access is required to verify the current live deployment.")
@@ -109,7 +116,8 @@ def staging_evidence(image, candidate, environ, *, read, github=release.api, cut
         from .schema_window import public_reopened
 
         public_reopened(proof["public_origin"], candidate["release"])
-    return {"staging_run": run_id, "staging_attempt": attempt, "staging_image": image,
+    return {**({"worker_compatibility": worker_proof} if worker_proof else {}),
+            "staging_run": run_id, "staging_attempt": attempt, "staging_image": image,
             "staging_run_url": f"https://github.com/{repo}/actions/runs/{run_id}",
             "staging_deploy_id": deploy, "staging_live_deploy_id": current["id"],
             "staging_verified_at": proof["verified_at"]}
