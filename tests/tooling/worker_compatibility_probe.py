@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import timedelta
 
 from sqlalchemy import text
@@ -8,7 +9,7 @@ from tabula_rasa.infrastructure.postgres.jobs import JobQueue, JobRegistry
 from tabula_rasa.infrastructure.postgres.recurring_jobs import enqueue_reconciliation, recurring_registry
 from tabula_rasa.infrastructure.postgres.composition import create_postgres_services
 
-db = Database(DatabaseSettings.from_environment(required=True))
+db = Database(DatabaseSettings.from_environment(os.environ, required=True))
 try:
     # Use the database clock explicitly; the host clock is not a test input.
     with db.transaction(read_only=True) as c:

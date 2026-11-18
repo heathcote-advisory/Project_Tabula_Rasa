@@ -15,7 +15,7 @@ from tests.postgres.secondary_support import schedule
 
 
 def prepare(revision):
-    database = Database(DatabaseSettings.from_environment(required=True))
+    database = Database(DatabaseSettings.from_environment(os.environ, required=True))
     try:
         with database.engine.begin() as connection:
             command.upgrade(migration_config(connection), revision)

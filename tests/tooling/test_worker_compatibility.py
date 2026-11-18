@@ -1,11 +1,14 @@
 from copy import deepcopy
 import json
+from pathlib import Path
+import runpy
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
 from tabula_rasa.deployment import qualify_worker, release, worker_compatibility as compatibility
+from tabula_rasa.infrastructure.postgres import config, runtime
 
 
 ENV = {"NAS_WORKER_IMAGE": "ghcr.io/example/installed-worker@sha256:" + "a" * 64,
@@ -88,6 +91,47 @@ def test_failed_qualification_removes_stale_proof_and_sanitizes_errors(monkeypat
         qualify_worker.main()
     assert "private diagnostic" not in str(error.value)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("script", ["prepare", "probe"])
+@pytest.mark.parametrize("explicit_url", [False, True])
+def test_probe_scripts_never_fall_back_to_workstation_settings(monkeypatch, tmp_path, script, explicit_url):
+    local = tmp_path / ".env.local"
+    local.write_text("TABULA_RASA_DATABASE_URL=postgresql://localhost/workstation\n"
+                     "TABULA_RASA_DATABASE_POOL_SIZE=2\n", encoding="utf-8")
+    monkeypatch.setattr(config, "_LOCAL_ENV_PATH", local)
+    monkeypatch.delenv("TABULA_RASA_DATABASE_POOL_SIZE", raising=False)
+    if explicit_url:
+        monkeypatch.setenv("TABULA_RASA_DATABASE_URL", "postgresql://localhost/disposable")
+    else:
+        monkeypatch.delenv("TABULA_RASA_DATABASE_URL", raising=False)
+    captured = []
+
+    class Configured(Exception):
+        pass
+
+    def database(settings):
+        captured.append(settings)
+        raise Configured
+
+    monkeypatch.setattr(runtime, "Database", database)
+
+    def invoke():
+        path = Path(__file__).with_name(f"worker_compatibility_{script}.py")
+        if script == "prepare":
+            runpy.run_path(str(path))["prepare"]("synthetic_schema")
+        else:
+            runpy.run_path(str(path))
+
+    if explicit_url:
+        with pytest.raises(Configured):
+            invoke()
+        assert captured[0].url.database == "disposable"
+        assert captured[0].pool_size == 5
+    else:
+        with pytest.raises(config.DatabaseConfigurationError, match="Set TABULA_RASA_DATABASE_URL"):
+            invoke()
+        assert captured == []
 
 
 @pytest.mark.parametrize("failure", [None, "setup", "probe"])
