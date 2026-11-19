@@ -30,6 +30,7 @@ def test_gate_covers_shell_assets_schema_and_api_before_composition(tmp_path, ca
             assert response.status_code == 401
             assert response.headers["www-authenticate"].startswith("Basic")
             assert response.headers["cache-control"] == "no-store"
+        assert client.get("/").status_code == 401
         runtime.services.assert_not_called()
         for path in ("/health/live", "/health/ready", "/version"):
             assert client.get(path, headers={"Host": "internal-probe"}).status_code == 200
