@@ -45,9 +45,11 @@ this repository.
    (also labeled **Budgets & alerts**). Select **Create new**, choose an
    alerts-only budget, and set the project filter to the Maps project.
    Confirm the amount with the operator and set actual and forecast alert
-   thresholds. Use a monitored email channel and have its receiver confirm
-   delivery of a budget alert. Keep the receipt time with the verification
-   record. If environments share a project, record how their combined usage
+   thresholds. Use a monitored email channel. [Cloud Billing sends budget
+   emails when a configured threshold is met](https://docs.cloud.google.com/billing/docs/how-to/budgets)
+   and delivery may lag by several hours. Record the receipt time once the
+   recipient confirms delivery. If no alert has arrived, record delivery as
+   pending. If environments share a project, record how their combined usage
    affects the quotas and budget.
 8. Budget alerts do not stop usage, and cost reporting can be delayed. Verify
    the effective Routes, Places (New), and Maps JavaScript limits in Cloud

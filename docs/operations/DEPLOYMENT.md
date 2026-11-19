@@ -114,10 +114,11 @@ Keep staging and production bindings and live acceptance evidence separate.
 3. With separate authorization for Render secret changes, set
    `TABULA_RASA_MAPS_BROWSER_API_KEY` and `TABULA_RASA_MAPS_ROUTES_API_KEY` under
    the target web service's **Environment** or its approved secret source.
-   Use **Save only** in the Dashboard when separating the configuration from
-   deployment. A subsequent authorized deploy must load the new values.
-   Use the selected immutable image and verify the live deploy ID and
-   `/version` before testing.
+   In the service's [environment-variable save menu](https://render.com/docs/configure-environment-variables#setting-environment-variables),
+   choose **Save only** to defer activation until the next deploy. The other
+   save options trigger a deploy, so stop if **Save only** is unavailable and
+   deployment is not yet authorized. Use the selected immutable image for the
+   authorized deploy and verify the live deploy ID and `/version` before testing.
 4. Run [controlled Maps validation](../GOOGLE_MAPS.md#controlled-validation)
    and record the outcome for that environment. If the new binding fails,
    diagnose the restriction or runtime configuration. With operator approval,
