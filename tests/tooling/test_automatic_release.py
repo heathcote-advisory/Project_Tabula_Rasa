@@ -209,6 +209,7 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
 
 def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     stage, invoke = staging_release
+    stage.reopened = Mock(side_effect=AssertionError('The full public smoke already verified this origin.'))
     stage.details["plan"] = "free"
     with pytest.raises(release.ReleaseError, match="Verify suspension"):
         invoke(verified=False)
@@ -219,12 +220,13 @@ def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     assert stage.actions.count("request_deploy") == 1
     assert stage.actions.index("resume") < stage.actions.index("request_deploy") < stage.actions.index("smoke_new")
     assert "close" not in stage.actions and "open" not in stage.actions
+    stage.reopened.assert_not_called()
 
 
 def test_failed_full_downtime_smoke_suspends_candidate(staging_release):
     stage, invoke = staging_release
     stage.failure = "smoke"
-    with pytest.raises(release.ReleaseError, match="Maintenance stopped"):
+    with pytest.raises(release.ReleaseError, match="Post-maintenance named-user smoke failed.*Maintenance stopped"):
         invoke()
     assert stage.suspended and stage.actions[-1] == "suspend"
 

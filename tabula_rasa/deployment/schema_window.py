@@ -372,7 +372,17 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
             release.deployed_image(confirmed, image, candidate, repository)
         if protected:
             check_closed(origin)
-        smoke(private_origin, candidate["release"])
+        try:
+            if automatic:
+                smoke(origin, candidate["release"], previous_release=previous["release"], maintenance=True)
+            else:
+                smoke(private_origin, candidate["release"])
+        except release.ReleaseError:
+            raise
+        except Exception:
+            raise release.ReleaseError(
+                "Post-maintenance named-user smoke failed; inspect public release handover, readiness and access checks."
+            ) from None
         if protected and not maintenance_state(service_state(read, service, token))["enabled"]:
             raise release.ReleaseError("Ingress protection was lost before verification.")
         if automatic:
@@ -385,7 +395,8 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
             set_maintenance(read, service, token, enabled=False, uri=uri)
             emit({"status": "ingress_reopened", "at": now().isoformat()})
         try:
-            check_reopened(origin, candidate["release"])
+            if protected:
+                check_reopened(origin, candidate["release"])
         except Exception:
             if protected:
                 set_maintenance(read, service, token, enabled=True, uri=uri)

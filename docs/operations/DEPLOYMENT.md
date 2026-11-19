@@ -24,7 +24,20 @@ prior revision may be retried: at most 21 version probes, each with a five-secon
 request timeout, separated by three seconds. The expected candidate must be
 observed before access-boundary checks can pass. An unrelated/malformed revision,
 failed readiness or access check, or exhausted handover budget stops qualification.
-Preflight and maintenance smoke checks without a prior revision remain strict.
+Preflight checks and protected private-origin maintenance smoke remain strict.
+After automatic full-downtime schema maintenance, the shared public smoke also
+receives the verified prior revision. It checks version before readiness because
+the old application can correctly return readiness 503 against the new schema.
+Within the same 21-probe budget, it waits only for the known prior version or
+readiness 503 after observing the candidate; it requires the exact candidate and
+readiness 200 before running the unchanged access-boundary and sign-in checks.
+Unknown versions, other readiness statuses, transport failures, failed access
+checks and budget exhaustion fail closed. That complete public smoke is the
+final public verification for automatic maintenance; protected private-origin
+maintenance additionally verifies public ingress after reopening it. Unexpected
+post-maintenance smoke errors have a fixed safe phase diagnostic, and failure
+keeps the worker fenced and contains the application rather than retrying or
+downgrading the committed schema.
 This never retries a deployment or migration and does not replace the successful
 build, staging job and retained release artifact required for production.
 

@@ -170,6 +170,67 @@ def test_handover_does_not_retry_a_failed_access_boundary():
     assert request.get.call_count == 4
 
 
+def test_maintenance_handover_waits_for_prior_and_readiness_before_access():
+    versions = iter(['d' * 40, 'c' * 40, 'c' * 40])
+    readiness = iter([503, 200])
+    request = Mock()
+
+    def get(path, **_):
+        if path == '/version':
+            return SimpleNamespace(json=lambda: {'release': next(versions)})
+        if path == '/health/ready':
+            return SimpleNamespace(status=next(readiness))
+        if path in ('/api/v1/unknown', '/assets/missing.js'):
+            return SimpleNamespace(status=404)
+        return SimpleNamespace(status=401, headers={'cache-control': 'no-store'})
+
+    request.get.side_effect = get
+    sleep = Mock()
+    smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                      previous_release='d' * 40, maintenance=True, sleep=sleep)
+    assert sleep.call_args_list == [call(3), call(3)]
+    assert [c.args[0] for c in request.get.call_args_list[:6]] == [
+        '/version', '/version', '/health/ready', '/version', '/health/ready', '/api/v1/session',
+    ]
+
+
+@pytest.mark.parametrize('defect', ['no_prior', 'unknown_release', 'never_ready', 'unexpected_status', 'access'])
+def test_maintenance_handover_still_fails_closed(defect):
+    request = Mock()
+
+    def get(path, **_):
+        if path == '/version':
+            return SimpleNamespace(json=lambda: {'release': ('e' if defect == 'unknown_release' else 'c') * 40})
+        if path == '/health/ready':
+            return SimpleNamespace(status=503 if defect == 'never_ready' else 403 if defect == 'unexpected_status' else 200)
+        return SimpleNamespace(status=403, headers={'cache-control': 'no-store'})
+
+    request.get.side_effect = get
+    sleep = Mock()
+    expected = {'no_prior': 'verified prior', 'unknown_release': 'identity mismatch',
+                'never_ready': 'handover did not converge', 'unexpected_status': 'Readiness failed',
+                'access': 'access restriction'}[defect]
+    with pytest.raises(ValueError, match=expected):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release=None if defect == 'no_prior' else 'd' * 40,
+                          maintenance=True, sleep=sleep)
+    assert sleep.call_count == (20 if defect == 'never_ready' else 0)
+    if defect == 'never_ready':
+        assert request.get.call_count == 42
+    if defect != 'access':
+        assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
+
+
+def test_ordinary_handover_keeps_readiness_strict():
+    request, sleep = Mock(), Mock()
+    request.get.return_value.status = 503
+    with pytest.raises(ValueError, match='Readiness failed'):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release='d' * 40, sleep=sleep)
+    assert request.get.call_count == 1
+    sleep.assert_not_called()
+
+
 def test_workflow_selects_mode_before_migration_and_keeps_alpha_secrets_out_of_named_step():
     def load(name):
         return yaml.load((ROOT / '.github/workflows' / name).read_text(), Loader=yaml.BaseLoader)
