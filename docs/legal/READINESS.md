@@ -106,7 +106,9 @@ The web document includes the public Google Search Console ownership meta tag
 for the production URL-prefix property held by the LLC account. This tag is a
 public ownership challenge, not a credential, OAuth grant or analytics script.
 Deploy it before completing the Search Console HTML-tag verification, then keep
-it in the served homepage to retain verification. Presence in source or a build
+it in the served homepage to retain verification. The public homepage serves the
+HTML document even when a verification client sends a generic or missing
+Accept header. Presence in source or a build
 does not establish deployed ownership verification or OAuth brand approval.
 
 Choose and verify the public domain before providing homepage, same-domain privacy
