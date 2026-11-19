@@ -96,6 +96,42 @@ readiness. Record acknowledgment, any unclear step and the final observed state.
 Application promotion does not grant customer admission, broader recovery
 acceptance or commercial activation.
 
+## Hosted Maps configuration and credential rotation
+
+For each environment, use the [Maps restriction matrix](../GOOGLE_MAPS.md#hosted-key-restrictions)
+before binding a key. The Render operator owns the service, origin and outbound
+CIDR inventory. The Google Cloud credential owner owns the restriction,
+quota and budget changes. Agree on an alert recipient and rollback owner.
+Keep staging and production bindings and live acceptance evidence separate.
+
+1. Refresh the live release, browser origins and **Connect > Outbound** lists.
+   Repeat this check before a service moves region or adopts different egress.
+   Coordinate the new restrictions with the credential owner before routing
+   traffic from the new service.
+2. With separate authorization for Google key changes, create restricted
+   replacement keys and verify their settings. Identify all existing callers
+   and preserve the last working credentials in protected custody.
+3. With separate authorization for Render secret changes, set
+   `TABULA_RASA_MAPS_BROWSER_API_KEY` and `TABULA_RASA_MAPS_ROUTES_API_KEY` under
+   the target web service's **Environment** or its approved secret source.
+   In the service's [environment-variable save menu](https://render.com/docs/configure-environment-variables#setting-environment-variables),
+   choose **Save only** to defer activation until the next deploy. The other
+   save options trigger a deploy, so stop if **Save only** is unavailable and
+   deployment is not yet authorized. Use the selected immutable image for the
+   authorized deploy and verify the live deploy ID and `/version` before testing.
+4. Run [controlled Maps validation](../GOOGLE_MAPS.md#controlled-validation)
+   and record the outcome for that environment. If the new binding fails,
+   diagnose the restriction or runtime configuration. With operator approval,
+   restore the previous safe binding and deploy the compatible image. Verify
+   the recovered binding after deploy. Manual mileage remains available if
+   Maps must stay disabled.
+5. Wait for provider metrics to confirm expected traffic on the replacement
+   and that known callers have moved off the superseded key. Revoke it only
+   with separate operator approval. For suspected compromise, notify the
+   credential owner immediately, inspect key/API metrics and billing, and
+   coordinate containment and restricted replacement. A compromised key
+   cannot serve as the rollback credential.
+
 ## Manual operator checkpoint
 
 Complete this private setup record before enabling deployments; do not paste
