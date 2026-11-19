@@ -17,16 +17,24 @@ def access_mode(environ, *, require_alpha_credentials=True):
     return mode
 
 
-def named_probe(context, release, *, previous_release=None, sleep=time.sleep):
+def named_probe(context, release, *, previous_release=None, maintenance=False, sleep=time.sleep):
     """Anonymous HTTP boundary, including forged legacy credentials/selectors."""
-    if context.request.get('/health/ready').status != 200:
+    if maintenance and previous_release is None:
+        raise ValueError('Maintenance smoke requires the verified prior release.')
+    if not maintenance and context.request.get('/health/ready').status != 200:
         raise ValueError('Readiness failed.')
     checks = 21 if previous_release is not None else 1
     for attempt in range(checks):
         observed = context.request.get('/version', timeout=5000).json()
         if observed == {'release': release}:
-            break
-        if previous_release is None or observed != {'release': previous_release}:
+            if not maintenance:
+                break
+            status = context.request.get('/health/ready', timeout=5000).status
+            if status == 200:
+                break
+            if status != 503:
+                raise ValueError('Readiness failed.')
+        elif previous_release is None or observed != {'release': previous_release}:
             raise ValueError('Release identity mismatch.')
         if attempt == checks - 1:
             raise ValueError('Release handover did not converge.')
@@ -48,7 +56,7 @@ def named_probe(context, release, *, previous_release=None, sleep=time.sleep):
             raise ValueError('Routing failure.')
 
 
-def named_smoke(origin, release, *, previous_release=None):
+def named_smoke(origin, release, *, previous_release=None, maintenance=False):
     """No provider credentials, login transactions, session storage or private reads.
 
     Readiness checks PostgreSQL. This verifies the public sign-in shell and
@@ -60,7 +68,7 @@ def named_smoke(origin, release, *, previous_release=None):
         browser = playwright.chromium.launch()
         try:
             with browser.new_context(base_url=origin) as context:
-                named_probe(context, release, previous_release=previous_release)
+                named_probe(context, release, previous_release=previous_release, maintenance=maintenance)
                 page = context.new_page()
                 page.goto('/accounts')
                 expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
