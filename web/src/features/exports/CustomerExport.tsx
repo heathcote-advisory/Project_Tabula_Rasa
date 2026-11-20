@@ -11,7 +11,7 @@ export function CustomerExport() {
   const [scope, setScope] = useState<'metadata_only' | 'documents_inclusive'>('documents_inclusive');
   return <section className="surface" aria-label="Accountant handoff">
     <SectionHeader title="Accountant handoff" description={`Complete bookkeeping archive for ${session.entity.name} · ${session.entity.currency_code}.`} />
-    <p>ZIP with all 26 canonical bookkeeping collections, instructions and a versioned checksum manifest.
+    <p>ZIP with all supported canonical bookkeeping collections, instructions and a versioned checksum manifest.
       Audit history, credentials and operational policies are excluded. Records predating audit activation do not have a complete mutation history.</p>
     <Field id="handoff-scope" label="Archive scope"><select id="handoff-scope" value={scope} disabled={transfer.busy}
       onChange={event => setScope(event.target.value as typeof scope)}>

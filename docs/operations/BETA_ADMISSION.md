@@ -186,6 +186,12 @@ private invitation workflow.
 
 ## Synthetic rehearsal and release handoff
 
+Use the [external beta evidence matrix and decision
+procedure](../browser/RELEASE_VALIDATION.md#external-beta-release-decision) to
+reconcile completed implementation and prior accepted observations before
+collecting selected-deployment evidence. Keep actual results and GO/NO-GO in the
+owning release discussion; this rehearsal does not supply admission authority.
+
 1. Use a disposable database/current schema, fake OIDC and synthetic named users.
    The real PostgreSQL admission tests and native workspace browser tests supply
    runnable fixtures. Create first/second independent requests under one identity

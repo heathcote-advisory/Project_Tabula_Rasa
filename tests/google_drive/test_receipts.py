@@ -12,6 +12,37 @@ from tabula_rasa.google_drive import (
 from ._support import FakeResponse, DriveSession, drive_error, drive_settings, oauth_config
 
 class TestGoogleDriveReceipts:
+    def test_download_outage_recovers_without_reusing_another_profile(self):
+        north_bytes, south_bytes = b'north receipt', b'south receipt'
+        north_session = DriveSession([
+            *[requests.ConnectionError('private-provider-response') for _ in range(4)],
+            FakeResponse(200, content=north_bytes),
+        ], access_token='north-access')
+        south_session = DriveSession([
+            FakeResponse(200, content=south_bytes),
+            FakeResponse(200, content=south_bytes),
+        ], access_token='south-access')
+        delays = []
+        north = GoogleDriveClient(oauth_config(), drive_settings(refresh_token='north-refresh'),
+            session=north_session, sleeper=delays.append)
+        south = GoogleDriveClient(oauth_config(),
+            drive_settings(email='south@example.test', refresh_token='south-refresh'),
+            session=south_session, sleeper=lambda _: None)
+
+        # The same opaque file selector must still use each selected profile's grant.
+        with pytest.raises(GoogleDriveAccessError) as caught:
+            north.download_file('receipt12345')
+        assert caught.value.retryable
+        assert 'private' not in str(caught.value)
+        assert len(north_session.requests) == 4 and len(delays) == 3
+        assert south.download_file('receipt12345') == south_bytes
+        assert north.download_file('receipt12345') == north_bytes
+        assert south.download_file('receipt12345') == south_bytes
+        for session, profile in ((north_session, 'north'), (south_session, 'south')):
+            assert session.refresh_tokens == [profile + '-refresh']
+            assert all(request[2]['headers']['Authorization'] == 'Bearer ' + profile + '-access'
+                       for request in session.requests)
+
     @pytest.mark.parametrize('damage', [None, 'profile', 'folder', 'trashed', 'identity', 'kind'])
     def test_single_receipt_metadata_uses_scoped_get_and_refuses_foreign_or_deleted_file(self, damage):
         from tests.drive_fixtures import receipt_drive_file
