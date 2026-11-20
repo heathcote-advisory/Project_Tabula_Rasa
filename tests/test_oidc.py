@@ -201,3 +201,32 @@ def test_provider_outage_classifies_boundary_without_retry_or_private_exception(
     assert caught.value.__context__ is None
     assert 'private' not in str(caught.value) + repr(caught.value)
     assert sum(method == 'POST' for method, _, _ in calls) <= 1
+
+
+@pytest.mark.parametrize('registration', [False, True])
+def test_cold_discovery_failure_recovers_without_cached_fallback(oidc, monkeypatch, registration):
+    provider, transaction, _, _, calls = oidc
+    original = provider.transport.request
+    attempts = []
+
+    def unavailable(method, url, **kwargs):
+        attempts.append((method, url))
+        raise OSError('private-provider-host-and-response')
+
+    with monkeypatch.context() as outage:
+        outage.setattr(provider.transport, 'request', unavailable)
+        with pytest.raises(IdentityError) as caught:
+            provider.authorization_url(transaction, registration=registration)
+        assert caught.value.code == 'unavailable'
+        assert caught.value.__context__ is None
+        assert 'private' not in str(caught.value) + repr(caught.value)
+        assert attempts == [('GET', provider.settings.issuer + '/.well-known/openid-configuration')]
+        assert not calls  # No authorization-code exchange was attempted.
+
+    # Recovery uses the same provider; a failed cold read must not poison its cache.
+    assert provider.transport.request == original
+    target = provider.authorization_url(transaction, registration=registration)
+    assert urlsplit(target).netloc == urlsplit(provider.settings.issuer).netloc
+    assert parse_qs(urlsplit(target).query)['prompt'] == ['create' if registration else 'login']
+    assert provider.verify('synthetic-code', transaction).subject == 'alice'
+    assert sum(url.endswith('openid-configuration') for _, url, _ in calls) == 1
