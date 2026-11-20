@@ -118,6 +118,26 @@ def test_inventory_uses_sql_metadata_without_reading_grants(database, tmp_path, 
         runner.inventory(database, 'f'*64)
 
 
+def test_diagnostic_inventory_reuses_report_without_exposing_metadata(database, tmp_path, monkeypatch, capsys):
+    from scripts import diagnose_receipt_inventory as diagnostic
+    config, _, _, _ = production(database, tmp_path, monkeypatch)
+    def forbidden(*args, **kwargs):
+        raise AssertionError('A diagnostic inventory must not read grants or Drive.')
+    monkeypatch.setattr('tabula_rasa.infrastructure.connection_secrets.ConnectionSecrets.from_environment', forbidden)
+    monkeypatch.setattr('tabula_rasa.google_drive.GoogleDriveClient', forbidden)
+    output = tmp_path / 'diagnostic-inventory.json'
+    args = ['--database-sha256', config['database_sha256'], '--output', str(output)]
+    assert diagnostic.main(args) == 0
+    safe = json.loads(capsys.readouterr().out)
+    assert safe['completed_phases'][-1] == 'private_report_write'
+    assert set(safe) == {'status', 'completed_phases'}
+    report = json.loads(output.read_text())
+    assert {row['entity_id'] for row in report['businesses']} == {'alpha', 'beta'}
+    assert all(row['documents'] == 2 for row in report['businesses'])
+    assert diagnostic.main(args) == 1
+    assert json.loads(capsys.readouterr().out)['failed_phase'] == 'private_output_configuration'
+
+
 @pytest.mark.skipif(not shutil.which('age') or not shutil.which('age-keygen'), reason='Local age tools required.')
 def test_encrypted_production_capture_restores_only_to_isolated_targets(database, tmp_path, monkeypatch):
     config, payloads, secrets, _ = production(database, tmp_path, monkeypatch)

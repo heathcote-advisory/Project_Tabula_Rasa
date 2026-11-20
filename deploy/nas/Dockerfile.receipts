@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements-api.txt -r requirements-postgres.
     && groupadd --gid 1000 app \
     && useradd --uid 10001 --gid 1000 --create-home app
 COPY tabula_rasa ./tabula_rasa
-COPY scripts/nas_receipt_backup.py scripts/nas_postgres_backup.py scripts/recovery_point_health.py scripts/operational_heartbeat.py scripts/manage_document_storage.py scripts/drive_document_recovery.py ./scripts/
+COPY scripts/nas_receipt_backup.py scripts/diagnose_receipt_inventory.py scripts/nas_postgres_backup.py scripts/recovery_point_health.py scripts/operational_heartbeat.py scripts/manage_document_storage.py scripts/drive_document_recovery.py ./scripts/
 ARG RELEASE_ID
 LABEL org.opencontainers.image.revision=$RELEASE_ID
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1

@@ -115,6 +115,23 @@ tasks, runtime/service boundaries and independent key custody. The existing
 Drive adapter requires its supported `drive.file` scope and exact managed-folder
 binding; do not request broad read scopes to work around an incompatible grant.
 
+If an inventory fails with only a sanitized availability code, preserve its
+output directory and obtain authorization for one bounded diagnostic inventory:
+
+```sh
+python -m scripts.diagnose_receipt_inventory --database-sha256 <approved-database-digest> --output /private/new-diagnostic-inventory.json
+```
+
+This reuses the same read-only inventory and private report format, adding one
+read-only `SELECT 1` session check. Console output names only completed phases
+and the failed boundary: private output configuration, database configuration,
+source binding, read session, inventory query, serialization or report writing.
+It does not expose credentials, provider error text or business data. Successful
+execution produces the normal private report; an existing report is never
+overwritten. It reads no Google grants or receipt bytes. Inspect the failed
+boundary privately before choosing a fix; do not enable an automatic retry or
+broaden permissions based on a generic availability result.
+
 Prepare a protected JSON config outside Git with exactly these fields:
 
 | Field | Contract |

@@ -8,6 +8,7 @@
 !tabula_rasa/**/*.sql
 !scripts/
 !scripts/nas_receipt_backup.py
+!scripts/diagnose_receipt_inventory.py
 !scripts/nas_postgres_backup.py
 !scripts/recovery_point_health.py
 !scripts/operational_heartbeat.py
