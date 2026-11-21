@@ -90,8 +90,11 @@ Before activation, the responsible operator must retain a private decision
 covering the exact current production source set, database identity, NAS mount,
 public age recipients, separately recoverable decrypt identity, retention,
 primary/alternate operator, cadence, resource/cost budget and alert recipient.
-Selecting all currently deployed businesses means explicitly enrolling each
-verified current binding; future businesses are not automatically enrolled.
+Receipt backup applies only to explicitly enrolled businesses with configured
+Drive receipt storage. Businesses without that setup do not require enrollment
+or a new Drive connection, even if historical receipt metadata exists. Selecting
+all configured production businesses means explicitly enrolling each verified
+current binding; future businesses are not automatically enrolled.
 Reconcile enrollment after onboarding or connection/folder changes. No automatic
 grant discovery, scope expansion, deletion or resource provisioning occurs.
 

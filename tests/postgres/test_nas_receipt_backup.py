@@ -93,6 +93,20 @@ def test_capture_refuses_wrong_binding_budget_and_unavailable_provider(database,
     assert all(client.deletes == 0 for client in clients.values())
 
 
+def test_capture_does_not_require_unenrolled_business_to_have_drive(database, tmp_path, monkeypatch):
+    config, payloads, _, clients = production(database, tmp_path, monkeypatch)
+    config['entities'] = [row for row in config['entities'] if row['entity_id'] == 'alpha']
+    with database.transaction() as connection:
+        connection.execute(text("DELETE FROM external_connections WHERE entity_id='beta'"))
+        assert connection.scalar(text("SELECT count(*) FROM documents WHERE entity_id='beta'")) == 2
+    clients[payloads['beta']['source']['scope_key']].fail = True
+    partial = tmp_path / 'selected-only'
+    partial.mkdir()
+    runner.capture(config, partial)
+    assert json.loads((partial / 'inventory.json').read_text())['documents'] == 2
+    assert not (config['temporary_directory'] / partial.name / 'plain' / '1').exists()
+
+
 def test_inventory_uses_sql_metadata_without_reading_grants(database, tmp_path, monkeypatch, capsys):
     config, _, _, _ = production(database, tmp_path, monkeypatch)
     def denied(*args, **kwargs):
