@@ -126,6 +126,10 @@ This reuses the same read-only inventory and private report format, adding one
 read-only `SELECT 1` session check. Console output names only completed phases
 and the failed boundary: private output configuration, database configuration,
 source binding, read session, inventory query, serialization or report writing.
+Read-session and inventory-query failures also report a fixed category for known
+PostgreSQL SQLSTATE values (insufficient privilege, undefined table, column or
+function, or canceled query); all other failures are unclassified. The raw code,
+SQL, parameters and database error details are never included.
 It does not expose credentials, provider error text or business data. Successful
 execution produces the normal private report; an existing report is never
 overwritten. It reads no Google grants or receipt bytes. Inspect the failed

@@ -138,6 +138,24 @@ def test_diagnostic_inventory_reuses_report_without_exposing_metadata(database, 
     assert json.loads(capsys.readouterr().out)['failed_phase'] == 'private_output_configuration'
 
 
+def test_diagnostic_classifies_real_postgres_query_failure(database, tmp_path, monkeypatch, capsys):
+    from scripts import diagnose_receipt_inventory as diagnostic
+
+    def invalid_inventory(db, expected_database):
+        with db.transaction(read_only=True) as connection:
+            connection.execute(text('SELECT private_missing_column FROM business_entities'))
+    monkeypatch.setattr(runner, 'open_database', lambda: database)
+    monkeypatch.setattr(runner, 'inventory', invalid_inventory)
+    monkeypatch.setattr(database, 'dispose', lambda: None)
+    args = ['--database-sha256', database_identity(database), '--output', str(tmp_path / 'inventory.json')]
+    assert diagnostic.main(args) == 1
+    captured = capsys.readouterr().out
+    assert 'private_missing_column' not in captured
+    result = json.loads(captured)
+    assert result['database_failure'] == 'undefined_column'
+    assert result['failed_phase'] == 'metadata_inventory_read'
+
+
 @pytest.mark.skipif(not shutil.which('age') or not shutil.which('age-keygen'), reason='Local age tools required.')
 def test_encrypted_production_capture_restores_only_to_isolated_targets(database, tmp_path, monkeypatch):
     config, payloads, secrets, _ = production(database, tmp_path, monkeypatch)
