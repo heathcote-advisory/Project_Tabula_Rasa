@@ -184,11 +184,19 @@ def capture(config, partial):
     from tabula_rasa.infrastructure.postgres.documents import PostgresReceiptRepository
     from tabula_rasa.infrastructure.postgres.identity import database_identity
 
+    def phase(name):
+        # Retain only a fixed boundary label, including if the child is killed.
+        nas.write_json(partial / 'capture-phase.json', {'phase': name})
+
+    phase('memory_workspace')
     work = memory_workspace(config, partial, create=True)
+    phase('database_configuration')
     database = open_database()
     try:
+        phase('database_binding')
         if database_identity(database) != config['database_sha256']:
             raise ValueError('Production database binding differs.')
+        phase('custody_configuration')
         secrets = ConnectionSecrets.from_environment(dict(os.environ))
         plain = work / 'plain'
         plain.mkdir(mode=0o700)
@@ -198,6 +206,7 @@ def capture(config, partial):
             payload = selector(row)
             archive = plain / str(index)
             # Bound the supported inventory before downloading source bytes.
+            phase('receipt_inventory')
             repository = PostgresReceiptRepository(database, row['entity_id'], store_kind='google_drive',
                                                    store_scope_key=row['scope_key'])
             documents = repository.retained_documents()
@@ -207,17 +216,22 @@ def capture(config, partial):
                 raise ValueError('Approved capture budget exceeded.')
             options = dict(operation='backup', environment='production', archive_path=archive,
                            progress=lambda _: time.sleep(config['delay_seconds']))
+            phase('backup_plan')
             plan = execute(database, secrets, payload, **options)
             # The dry-run plan includes the whole canonical point. Do not let
             # a changed point bypass the earlier workload budget.
+            phase('inventory_recheck')
             if repository.retained_documents() != documents:
                 raise ValueError('Receipt inventory changed.')
+            phase('receipt_capture')
             execute(database, secrets, payload, **options, apply=True,
                     expected_plan=plan['plan_sha256'], approval_sha256=config['approval_sha256'])
+            phase('offline_verification')
             execute(database, secrets, payload, operation='verify-archive', environment='production', archive_path=archive)
             retained = DocumentArchive(archive, row['entity_id'])
             if retained.scope_key != row['scope_key']:
                 raise ValueError('Archive folder differs.')
+        phase('inventory_persistence')
         nas.write_json(partial / 'inventory.json', {'documents': total_documents, 'receipt_bytes': total_bytes})
     finally:
         database.dispose()

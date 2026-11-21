@@ -257,6 +257,9 @@ The bundle is encrypted to `receipts.tar.age`, fsynced and checksummed/read back
 before a complete generation and durable last-success pointer are published.
 Only this invocation's transient tmpfs workspace is removed after encryption/readback.
 Failed/incomplete ciphertext remains quarantined on the restricted destination.
+The private incomplete generation retains `capture-phase.json` with only the last
+started capture boundary, including when the child is killed. It contains no
+business identifiers, provider messages or credentials; a phase is not proof of completion.
 Temporary plaintext remains only in tmpfs until inspected or the container ends; a failed run never publishes it to persistent storage. No source file,
 grant, retained generation or failed artifact is automatically pruned. Capacity
 requires ongoing review under indefinite retention. Ciphertext checksum readback

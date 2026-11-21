@@ -236,3 +236,43 @@ def test_real_age_ciphertext_roundtrip_and_transient_plaintext_removal(configure
         assert bundle.extractfile('receipts/synthetic.bin').read() == b'exact-synthetic-bytes'
     assert not work.exists()
     assert (partial / 'receipts.tar.age').is_file()
+
+
+@pytest.mark.parametrize('fail_second_profile', [False, True])
+def test_capture_retains_only_safe_phase_across_profiles(configured, monkeypatch, fail_second_profile):
+    from types import SimpleNamespace
+
+    _, _, config = configured
+    partial = config['storage'] / 'attempt'
+    partial.mkdir(mode=0o700)
+    disposed = []
+    database = SimpleNamespace(dispose=lambda: disposed.append(True))
+    monkeypatch.setattr(runner, 'open_database', lambda: database)
+    monkeypatch.setattr('tabula_rasa.infrastructure.postgres.identity.database_identity', lambda _: config['database_sha256'])
+    monkeypatch.setattr('tabula_rasa.infrastructure.connection_secrets.ConnectionSecrets.from_environment', lambda _: object())
+    monkeypatch.setattr('tabula_rasa.infrastructure.postgres.documents.PostgresReceiptRepository',
+                        lambda *a, **k: SimpleNamespace(retained_documents=lambda: []))
+    rows = {row['entity_id']: row for row in config['entities']}
+    monkeypatch.setattr('tabula_rasa.infrastructure.document_archive.DocumentArchive',
+                        lambda path, entity: SimpleNamespace(scope_key=rows[entity]['scope_key']))
+    calls = []
+    def execute(database, secrets, payload, **options):
+        calls.append((payload['entity_id'], options['operation'], options.get('apply', False)))
+        if fail_second_profile and payload == runner.selector(config['entities'][1]) and options.get('apply'):
+            raise RuntimeError('private-provider-message-and-grant')
+        return {'plan_sha256': 'f'*64}
+    monkeypatch.setattr('scripts.manage_document_storage.execute', execute)
+    if fail_second_profile:
+        with pytest.raises(RuntimeError):
+            runner.capture(config, partial)
+        assert not (partial / 'inventory.json').exists()
+        expected = 'receipt_capture'
+    else:
+        runner.capture(config, partial)
+        assert len(calls) == 6
+        expected = 'inventory_persistence'
+    assert disposed == [True]
+    phase = (partial / 'capture-phase.json').read_text()
+    assert json.loads(phase) == {'phase': expected}
+    assert all(row['entity_id'] not in phase and row['scope_key'] not in phase for row in rows.values())
+    assert 'private-provider' not in phase
