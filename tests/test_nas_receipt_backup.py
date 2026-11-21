@@ -84,6 +84,23 @@ def test_text_entity_ids_and_recipient_rotation_are_bound(configured):
     assert runner.load_config(path)['root'] != selected['root']
 
 
+def test_application_organization_ids_are_preserved_for_both_profiles(configured):
+    path, raw, _ = configured
+    for row in raw['entities']:
+        row['organization_id'] = uuid4().hex  # Same format as create_organization.
+    private_json(path, raw)
+    assert runner.load_config(path)['entities'] == raw['entities']
+
+
+@pytest.mark.parametrize('organization', ['', ' ', None, 1])
+def test_missing_organization_binding_is_refused(configured, organization):
+    path, raw, _ = configured
+    raw['entities'][0]['organization_id'] = organization
+    private_json(path, raw)
+    with pytest.raises(ValueError):
+        runner.load_config(path)
+
+
 def install_capture(monkeypatch, config, *, fail=False):
     calls = []
     def command(args, *unused, **kwargs):

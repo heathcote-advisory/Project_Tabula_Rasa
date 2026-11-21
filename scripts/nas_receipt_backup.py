@@ -14,7 +14,7 @@ import shutil
 import sys
 import tarfile
 import time
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from scripts import nas_postgres_backup as nas
 from scripts.operational_heartbeat import signal
@@ -44,8 +44,8 @@ def load_config(path):
     for row in entities:
         if set(row) != {'organization_id', 'entity_id', 'profile_key', 'scope_key'}:
             raise ValueError('Exact tenant/profile/folder binding required.')
-        if str(UUID(row['organization_id'])) != row['organization_id']:
-            raise ValueError('Canonical organization required.')
+        if not isinstance(row['organization_id'], str) or not row['organization_id'].strip():
+            raise ValueError('Exact canonical organization required.')
         if not isinstance(row['entity_id'], str) or not row['entity_id'].strip():
             raise ValueError('Exact canonical entity required.')
         if any(not isinstance(row[key], str) or not row[key].strip() for key in ('profile_key', 'scope_key')):
