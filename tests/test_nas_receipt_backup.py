@@ -276,3 +276,27 @@ def test_capture_retains_only_safe_phase_across_profiles(configured, monkeypatch
     assert json.loads(phase) == {'phase': expected}
     assert all(row['entity_id'] not in phase and row['scope_key'] not in phase for row in rows.values())
     assert 'private-provider' not in phase
+
+
+@pytest.mark.parametrize('kind', ['custody', 'bookkeeping_export', 'drive_access', 'unclassified'])
+def test_child_failure_metadata_never_contains_exception_payload(configured, monkeypatch, kind, capsys):
+    from tabula_rasa.application.identity import IdentityError
+    from tabula_rasa.application.entity_export import ExportError
+    from tabula_rasa.google_drive.errors import GoogleDriveAccessError
+
+    path, _, config = configured
+    generation = '20261121T170000000000Z-' + 'd'*32
+    partial = config['root'] / 'incomplete' / generation
+    partial.mkdir(parents=True, mode=0o700)
+    private_json(partial / 'attempt.json', {'binding_sha256': config['binding_sha256']})
+    errors = {'custody': IdentityError('private-grant'),
+              'bookkeeping_export': ExportError('unsupported_database_schema'),
+              'drive_access': GoogleDriveAccessError('private-provider-message'),
+              'unclassified': RuntimeError('private-receipt')}
+    def fail(*args):
+        raise errors[kind]
+    monkeypatch.setattr(runner, 'capture', fail)
+    assert runner.main(['_capture', '--config', str(path), '--generation', generation]) == 1
+    failure = json.loads((partial / 'capture-failure.json').read_text())
+    assert failure == ({'kind': kind, 'code': 'unsupported_database_schema'} if kind == 'bookkeeping_export' else {'kind': kind})
+    assert 'private-' not in capsys.readouterr().out

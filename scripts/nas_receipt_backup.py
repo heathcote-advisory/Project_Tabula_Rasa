@@ -296,7 +296,8 @@ def backup(config, config_path, *, scheduled=False):
                 'capture_started_at': state['started_at']})
             nas.command([sys.executable, '-m', 'scripts.nas_receipt_backup', '_capture',
                          '--config', str(config_path), '--generation', generation],
-                        dict(os.environ), 'source', timeout=config['timeout_seconds'])
+                        dict(os.environ), 'source', timeout=config['timeout_seconds'],
+                        failure_status=partial / 'capture-process.json')
             encrypt(config, partial, state['started_at'])
             complete = root / 'complete'
             complete.mkdir(exist_ok=True, mode=0o700)
@@ -311,6 +312,18 @@ def backup(config, config_path, *, scheduled=False):
             state.update(result='failed')
             nas.write_json(root / 'status.json', state)
             raise
+
+
+def capture_failure(error):
+    """Report fixed categories only, never exception text, SQL or provider data."""
+    kinds = {'DatabaseError': 'database', 'IdentityError': 'custody',
+             'ExportError': 'bookkeeping_export', 'GoogleDriveAuthorizationError': 'drive_authorization',
+             'GoogleDriveAccessError': 'drive_access', 'GoogleDriveConfigurationError': 'drive_configuration',
+             'DocumentValidationError': 'document_validation', 'DocumentError': 'document_access'}
+    result = {'kind': kinds.get(type(error).__name__, 'unclassified')}
+    if type(error).__name__ == 'ExportError' and getattr(error, 'code', None) == 'unsupported_database_schema':
+        result['code'] = 'unsupported_database_schema'
+    return result
 
 
 def main(argv=None):
@@ -360,6 +373,8 @@ def main(argv=None):
             else:
                 result = backup(config, args.config, scheduled=args.action == 'scheduled')
         except (Exception, KeyboardInterrupt) as error:
+            if args.action == '_capture' and 'partial' in locals() and partial.is_dir():
+                nas.write_json(partial / 'capture-failure.json', capture_failure(error))
             code = str(error) if isinstance(error, nas.BackupError) and str(error) in nas.GUIDANCE else 'unavailable'
             result = {'status': 'failed', 'code': code,
                       'action': 'Inspect protected receipt configuration, task, grants, capacity and incomplete generations; never delete source receipts.'}

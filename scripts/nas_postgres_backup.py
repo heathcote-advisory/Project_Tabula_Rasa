@@ -167,14 +167,20 @@ def child_environment(config):
     return env
 
 
-def command(args, env, code, *, capture=False, timeout=7200):
+def command(args, env, code, *, capture=False, timeout=7200, failure_status=None):
     try:
         result = subprocess.run(args, env=env, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, check=True, timeout=timeout)
         return result.stdout.decode("utf-8") if capture else ""
+    except subprocess.CalledProcessError as error:
+        failure = {"kind": "exit", "returncode": error.returncode}
+    except subprocess.TimeoutExpired:
+        failure = {"kind": "timeout"}
     except (OSError, subprocess.SubprocessError, UnicodeError):
-        pass
+        failure = {"kind": "unavailable"}
+    if failure_status is not None:
+        write_json(failure_status, failure)
     raise BackupError(code)
 
 
