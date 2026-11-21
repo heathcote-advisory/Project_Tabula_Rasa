@@ -153,6 +153,17 @@ grants to make the inventory work. Verify the change with `has_column_privilege`
 and a separately authorized fresh inventory using the NAS login. A metadata
 permission fix does not authorize receipt capture or production grant access.
 
+Byte capture needs the complete current canonical export as well as the current
+connection row. Its source login therefore needs SELECT on every table/field in
+the current bookkeeping export inventory, `alembic_version`, current
+`external_connections` metadata and organization references; the smaller metadata
+inventory grants are insufficient. Use a dedicated non-owner login without DML,
+schema creation, elevated role attributes or inherited administrator roles. Set
+its default transactions read-only and verify its effective privileges before
+enabling login. Keep its password and production custody settings in a protected
+NAS environment file, separate from the existing recurring-worker configuration.
+The separate age private decrypt identity does not belong in that file.
+
 Prepare a protected JSON config outside Git with exactly these fields:
 
 | Field | Contract |
