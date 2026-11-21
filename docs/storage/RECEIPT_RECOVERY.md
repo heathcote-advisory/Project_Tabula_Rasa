@@ -136,6 +136,20 @@ overwritten. It reads no Google grants or receipt bytes. Inspect the failed
 boundary privately before choosing a fix; do not enable an automatic retry or
 broaden permissions based on a generic availability result.
 
+The metadata-only inventory login needs `USAGE` on `public` and `SELECT` on
+these columns: `business_entities.id`; `organization_entities.entity_id` and
+`organization_id`; `documents.entity_id` and `byte_size`; and
+`external_connections.entity_id`, `provider`, `profile_key`, `store_scope_key`,
+`status`, `revision`, `required_scopes` and `secret_ref`. The last field is an
+opaque custody reference, not grant contents. An existing recurring-job login
+may lack the organization and connection reads even when its ledger reads work.
+Have the database owner verify effective column privileges and grant only missing
+column-level `SELECT` access on the explicitly bound production database. Do not
+add metadata-table writes, role membership, custody access or future-table default
+grants to make the inventory work. Verify the change with `has_column_privilege`
+and a separately authorized fresh inventory using the NAS login. A metadata
+permission fix does not authorize receipt capture or production grant access.
+
 Prepare a protected JSON config outside Git with exactly these fields:
 
 | Field | Contract |
