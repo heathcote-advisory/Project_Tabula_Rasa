@@ -277,6 +277,13 @@ The shared payload-free heartbeat refuses redirects and sends failure for
 unhealthy results. Check-in delivery failure also exits nonzero. Place missing-run
 evaluation outside the NAS so a powered-off host cannot silently appear protected;
 existing application/recurring-worker check-ins do not establish receipt coverage.
+An already verified external NAS heartbeat may instead cover host-offline
+alerts, paired with a separate credential-free receipt `status` timer and DSM
+abnormal-termination email for receipt failures/staleness. Record its accepted
+host-offline detection window and recipient handoff. Keep the existing heartbeat
+URL and producer unchanged: host liveness does not prove receipt freshness or
+that the receipt health timer itself ran. Use a dedicated receipt check-in when
+that independent missed-health-run coverage is required.
 Confirm actual failure and missed-check-in delivery, remediation and recipient
 handoff using approved controlled cases before relying on the route. `verify`
 checks historical ciphertext only and cannot send a healthy freshness check-in.
