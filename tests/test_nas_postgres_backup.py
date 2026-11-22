@@ -598,8 +598,11 @@ def test_optional_subprocess_failure_status_contains_only_fixed_metadata(tmp_pat
     def fail(*a, **k):
         raise failure
     monkeypatch.setattr(nas.subprocess, 'run', fail)
+    times = iter([SimpleNamespace(children_user=4, children_system=1),
+                  SimpleNamespace(children_user=120, children_system=5)])
+    monkeypatch.setattr(nas.os, 'times', lambda: next(times))
     report = tmp_path / 'process.json'
     with pytest.raises(nas.BackupError, match='source'):
         nas.command(['private-command'], {}, 'source', failure_status=report)
-    assert json.loads(report.read_text()) == expected
+    assert json.loads(report.read_text()) == {**expected, 'cpu_seconds': 120}
     assert SENTINEL not in report.read_text()

@@ -261,7 +261,7 @@ The private incomplete generation retains `capture-phase.json` with only the las
 started capture boundary, including when the child is killed. It contains no
 business identifiers, provider messages or credentials; a phase is not proof of completion.
 A normally caught child failure also writes `capture-failure.json` with a fixed
-error category. `capture-process.json` records only child exit status or timeout;
+error category. `capture-process.json` records only child exit status or timeout and consumed CPU seconds;
 a negative exit status identifies signal termination. Missing child failure
 metadata may indicate abrupt process termination.
 Temporary plaintext remains only in tmpfs until inspected or the container ends; a failed run never publishes it to persistent storage. No source file,

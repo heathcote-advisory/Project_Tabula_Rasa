@@ -168,6 +168,7 @@ def child_environment(config):
 
 
 def command(args, env, code, *, capture=False, timeout=7200, failure_status=None):
+    before = os.times()
     try:
         result = subprocess.run(args, env=env, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
@@ -180,6 +181,9 @@ def command(args, env, code, *, capture=False, timeout=7200, failure_status=None
     except (OSError, subprocess.SubprocessError, UnicodeError):
         failure = {"kind": "unavailable"}
     if failure_status is not None:
+        after = os.times()
+        failure['cpu_seconds'] = round(max(0, after.children_user + after.children_system
+                                            - before.children_user - before.children_system), 2)
         write_json(failure_status, failure)
     raise BackupError(code)
 
