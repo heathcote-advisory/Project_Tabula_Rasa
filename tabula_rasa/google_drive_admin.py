@@ -459,7 +459,6 @@ def render_google_drive_admin(
             'redirect_uris = [\n'
             '  "http://localhost:8501/",\n'
             '  "http://127.0.0.1:8501/",\n'
-            '  "https://tabula-rasa.streamlit.app/",\n'
             "]\n"
             'picker_api_key = "…"\n'
             'project_number = "…"\n',

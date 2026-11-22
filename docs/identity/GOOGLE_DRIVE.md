@@ -171,7 +171,7 @@ private connection envelope; the customer UI does not export grants. Schedule/cu
 integration and actual coordinated restore remain release blockers.
 [Customer exports](https://github.com/Roklion/Project_Tabula_Rasa/issues/345),
 [retention](https://github.com/Roklion/Project_Tabula_Rasa/issues/346) and
-[legal/privacy](https://github.com/Roklion/Project_Tabula_Rasa/issues/347) must cover account
+[legal/privacy](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/522) must cover account
 email, encrypted grants, provider processing and retained receipt/backup copies.
 [Beta acceptance](https://github.com/Roklion/Project_Tabula_Rasa/issues/348) needs current
 hosted evidence and explicit admission approval; implementation/merge is not GO.

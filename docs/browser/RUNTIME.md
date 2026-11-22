@@ -16,8 +16,9 @@ defines the selected staging scope.
 
 Owner-operated use composes the same runtime with explicit accepted-profile
 bindings and [cutover controls](../accounting/CUTOVER.md). Database branch names
-and an HTTP production mode do not establish commercial activation. The internal
-Streamlit/Sheets composition remains separately available during transition.
+and an HTTP production mode do not establish commercial activation. Bookkeeping
+uses PostgreSQL. The [local operator interface](../SETUP.md) retains Google grant,
+format-13 source and recovery administration.
 
 ## Package and build ownership
 

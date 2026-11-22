@@ -495,8 +495,7 @@ missing values show an em dash/unavailable status, never an invented zero.
 Empty statement groups and account balances explain their absence; loading and
 failed reads do not fabricate summary values. The accounting-equation message
 shows balanced, difference (including the reported value), or unavailable text.
-No report, chart or client accounting calculation is added; the Streamlit page
-contracts below do not expand the commercial summary endpoint's scope.
+The server owns summary calculations and report totals.
 
 The combined ledger uses a labeled filter surface: From/To/Type, then Accounts
 and Tags, search with conditional Clear search, complete-entry sort/order and
@@ -727,9 +726,8 @@ remain inspection-only. Recurring lists show cadence, next/latest occurrence,
 status, attention and ID; details show durable occurrence provenance. Ordinary
 and mixed-use creation commit the schedule and initial occurrence together.
 Protected Pause/Resume/End actions require confirmation; End retains history.
-Generate due occurrences is an explicit confirmed command. Commercial page
-loads never reconcile recurring schedules; the internal edition's on-load
-behavior below remains specific to Streamlit.
+Generate due occurrences is an explicit confirmed command. Page loads never
+reconcile recurring schedules.
 
 With the entity's durable-worker authority explicitly enabled under the recurring-job policy,
 Generate due occurrences queues the same bounded schedule jobs as the timer.
@@ -744,7 +742,7 @@ with a safe conflict and guidance to reverse in an open month or request Owner
 unlock. Draft/baseline behavior remains unchanged. The narrow authorized
 close/unlock/reversal API is documented in [accounting periods](docs/accounting/PERIODS_AND_CORRECTIONS.md);
 no broad administrative screen is included. Source-owned accounting retains its
-existing workflows and stricter history rules. Streamlit/Sheets remains unchanged.
+existing workflows and stricter history rules.
 
 Assets provides a register, create/detail/edit, retirement and guarded deletion.
 Server-calculated quarterly schedules show override reasons, Posted/Pending and

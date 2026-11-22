@@ -102,7 +102,7 @@ def oauth_config() -> GoogleDriveOAuthConfig:
         client_secret="client-secret",
         redirect_uris=(
             "http://localhost:8501/",
-            "https://tabula-rasa.streamlit.app/",
+            "http://127.0.0.1:8501/",
         ),
         picker_api_key="picker-key",
         project_number="1234567890",
