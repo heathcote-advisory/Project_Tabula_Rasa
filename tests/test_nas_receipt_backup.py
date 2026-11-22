@@ -241,6 +241,8 @@ def test_real_age_ciphertext_roundtrip_and_transient_plaintext_removal(configure
 @pytest.mark.parametrize('fail_second_profile', [False, True])
 def test_capture_retains_only_safe_phase_across_profiles(configured, monkeypatch, fail_second_profile):
     from types import SimpleNamespace
+    from scripts import manage_document_storage
+    from tabula_rasa.infrastructure import document_archive
 
     _, _, config = configured
     partial = config['storage'] / 'attempt'
@@ -253,7 +255,7 @@ def test_capture_retains_only_safe_phase_across_profiles(configured, monkeypatch
     monkeypatch.setattr('tabula_rasa.infrastructure.postgres.documents.PostgresReceiptRepository',
                         lambda *a, **k: SimpleNamespace(retained_documents=lambda: []))
     rows = {row['entity_id']: row for row in config['entities']}
-    monkeypatch.setattr('tabula_rasa.infrastructure.document_archive.DocumentArchive',
+    monkeypatch.setattr(document_archive, 'DocumentArchive',
                         lambda path, entity: SimpleNamespace(scope_key=rows[entity]['scope_key']))
     calls = []
     def execute(database, secrets, payload, **options):
@@ -261,7 +263,7 @@ def test_capture_retains_only_safe_phase_across_profiles(configured, monkeypatch
         if fail_second_profile and payload == runner.selector(config['entities'][1]) and options.get('apply'):
             raise RuntimeError('private-provider-message-and-grant')
         return {'plan_sha256': 'f'*64}
-    monkeypatch.setattr('scripts.manage_document_storage.execute', execute)
+    monkeypatch.setattr(manage_document_storage, 'execute', execute)
     if fail_second_profile:
         with pytest.raises(RuntimeError):
             runner.capture(config, partial)
