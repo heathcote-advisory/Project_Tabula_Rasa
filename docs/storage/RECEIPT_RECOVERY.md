@@ -76,6 +76,251 @@ a successful restore. Use the separate-target byte and metadata/link recovery
 procedure below. Existing owner-operated evidence is scoped to its verified
 sources; it does not establish unrelated-customer RPO/RTO or staging coverage.
 
+## Production receipt capture runner
+
+`python -m scripts.nas_receipt_backup` provides an opt-in, production-only NAS
+runner over the existing `manage_document_storage` backup and archive verifier.
+Its presence does not establish an installed schedule or operating protection.
+Staging selectors and grants cannot be substituted for production bindings.
+Existing Cloud Sync mappings remain separate protection; inventory them before
+adding a second byte capture job. The PostgreSQL Wednesday/Sunday schedule is
+unchanged by this runner.
+
+Before activation, the responsible operator must retain a private decision
+covering the exact current production source set, database identity, NAS mount,
+public age recipients, separately recoverable decrypt identity, retention,
+primary/alternate operator, cadence, resource/cost budget and alert recipient.
+Receipt backup applies only to explicitly enrolled businesses with configured
+Drive receipt storage. Businesses without that setup do not require enrollment
+or a new Drive connection, even if historical receipt metadata exists. Selecting
+all configured production businesses means explicitly enrolling each verified
+current binding; future businesses are not automatically enrolled.
+Reconcile enrollment after onboarding or connection/folder changes. No automatic
+grant discovery, scope expansion, deletion or resource provisioning occurs.
+
+From an approved operator environment, inventory canonical metadata without
+reading grants or contacting Drive. Inject the production read-only DB URL through
+`TABULA_RASA_DATABASE_URL`; obtain its existing application database-identity
+digest through the normal private operator inventory. This digest differs from
+the NAS SQL runner's endpoint digest.
+
+```sh
+python -m scripts.nas_receipt_backup inventory --database-sha256 <approved-database-digest> --output /private/production-receipt-inventory.json
+```
+
+The output must be a new file in an existing private directory outside Git.
+It contains business/org/profile/folder and connection references, required
+connection scopes, canonical receipt counts/bytes and disconnected/unbound
+businesses. It is private; console output is status only. It does not prove the
+current provider inventory, actual grant scope, or decrypt-key availability.
+Verify those privately, alongside NAS free capacity, Cloud Sync mappings, current
+tasks, runtime/service boundaries and independent key custody. The existing
+Drive adapter requires its supported `drive.file` scope and exact managed-folder
+binding; do not request broad read scopes to work around an incompatible grant.
+
+If an inventory fails with only a sanitized availability code, preserve its
+output directory and obtain authorization for one bounded diagnostic inventory:
+
+```sh
+python -m scripts.diagnose_receipt_inventory --database-sha256 <approved-database-digest> --output /private/new-diagnostic-inventory.json
+```
+
+This reuses the same read-only inventory and private report format, adding one
+read-only `SELECT 1` session check. Console output names only completed phases
+and the failed boundary: private output configuration, database configuration,
+source binding, read session, inventory query, serialization or report writing.
+Read-session and inventory-query failures also report a fixed category for known
+PostgreSQL SQLSTATE values (insufficient privilege, undefined table, column or
+function, or canceled query); all other failures are unclassified. The raw code,
+SQL, parameters and database error details are never included.
+It does not expose credentials, provider error text or business data. Successful
+execution produces the normal private report; an existing report is never
+overwritten. It reads no Google grants or receipt bytes. Inspect the failed
+boundary privately before choosing a fix; do not enable an automatic retry or
+broaden permissions based on a generic availability result.
+
+The metadata-only inventory login needs `USAGE` on `public` and `SELECT` on
+these columns: `business_entities.id`; `organization_entities.entity_id` and
+`organization_id`; `documents.entity_id` and `byte_size`; and
+`external_connections.entity_id`, `provider`, `profile_key`, `store_scope_key`,
+`status`, `revision`, `required_scopes` and `secret_ref`. The last field is an
+opaque custody reference, not grant contents. An existing recurring-job login
+may lack the organization and connection reads even when its ledger reads work.
+Have the database owner verify effective column privileges and grant only missing
+column-level `SELECT` access on the explicitly bound production database. Do not
+add metadata-table writes, role membership, custody access or future-table default
+grants to make the inventory work. Verify the change with `has_column_privilege`
+and a separately authorized fresh inventory using the NAS login. A metadata
+permission fix does not authorize receipt capture or production grant access.
+
+Byte capture needs the complete current canonical export as well as the current
+connection row. Its source login therefore needs SELECT on every table/field in
+the current bookkeeping export inventory, `alembic_version`, current
+`external_connections` metadata and organization references; the smaller metadata
+inventory grants are insufficient. Use a dedicated non-owner login without DML,
+schema creation, elevated role attributes or inherited administrator roles. Set
+its default transactions read-only and verify its effective privileges before
+enabling login. Keep its password and production custody settings in a protected
+NAS environment file, separate from the existing recurring-worker configuration.
+The separate age private decrypt identity does not belong in that file.
+
+Prepare a protected JSON config outside Git with exactly these fields:
+
+| Field | Contract |
+| --- | --- |
+| `environment` | Exactly `production`. |
+| `database_sha256` | Approved application database-identity digest. |
+| `entities` | Explicit list of objects containing exactly `organization_id`, `entity_id`, `profile_key`, `scope_key`; distinct entities and Drive folders, maximum 20. Use actual canonical IDs, including migrated text entity IDs. |
+| `storage` | Existing absolute private NAS archive directory outside Git; no repository path. Only ciphertext and private metadata are persisted here. |
+| `storage_marker` | 32 lowercase hex characters matching the private `.receipt-backup-marker` file in that directory. Create only after verifying the actual destination mount. |
+| `recipients_file` | Absolute protected age public-recipient file. Decrypt identities remain in separate approved custody. |
+| `approval_sha256` | Digest of the retained decision authorizing repeated capture of these bindings and changing canonical points within these limits. |
+| `schedule` | Explicit `wednesday_sunday` (22:00 Eastern) or `twice_daily` (10:00/22:00 Eastern), receipt tasks only. No default selects an operating policy. |
+| `minimum_free_bytes` | Positive persistent free-space reserve. Additional admission headroom is `max_capture_bytes` plus 64 MiB for metadata/tar overhead. |
+| `temporary_directory` | Existing private absolute tmpfs directory, disjoint from archive storage. Disk-backed scratch and symlink aliases to disk are refused. Admit at least twice `max_capture_bytes` plus 64 MiB of free tmpfs space. |
+| `max_capture_bytes`, `max_documents` | Positive combined canonical-byte/document limits per run, at most 1 TB and 100,000 documents. Set realistic small bounds for the DS220j after inventory. |
+| `timeout_seconds`, `delay_seconds` | Positive integers: at most 7,200 seconds per network child/encryption command and 60 seconds between verified receipt downloads. Both dry-run and capture download bytes; budget for both. |
+
+Run the reviewed package with application/API/PostgreSQL dependencies and age in
+an approved Python 3.12 operator runtime. The existing SQL-only backup image has
+no application dependencies and cannot perform receipt capture. Inject the exact
+production connection-custody backend and key using the established connection
+secret environment settings, preferably read-only credentials/mounts. One
+database connection and one entity capture run at a time. Do not copy staging
+grant envelopes, custody keys or database URLs into this runtime.
+
+Build the application-capable image with the dedicated context allowlist. Reuse
+the established receipt image recipe; the retired staging image on a NAS does
+not contain the current production runner. Record the source commit, image ID
+and transfer checksum, and pin the exact installed ID in DSM's wrapper:
+
+```sh
+docker build --platform linux/arm64 --build-arg RELEASE_ID=<reviewed-commit> -f deploy/nas/Dockerfile.receipts -t tabula-receipt-backup:<reviewed-commit> .
+```
+
+Before provider access, exercise `tests/tooling/nas_receipt_smoke.py` in this
+image as UID 10001, with network disabled, a read-only root, all capabilities
+dropped and a private 128 MiB `/work` tmpfs. Bind only that synthetic harness
+at `/app/validation.py` and override the entrypoint with `python`. It imports
+the capture dependencies, proves real tmpfs acceptance/disk rejection, encrypts
+and decrypts synthetic bytes and checks safe missing-health behavior. This is
+package validation, not actual production capture or scheduled-run evidence.
+
+For the approved production wrapper, use a separate read-only protected config
+mount, writable archive mount, private bounded tmpfs at `temporary_directory`,
+no exposed ports, `--read-only --cap-drop ALL --security-opt no-new-privileges`,
+a CPU limit and explicit memory/PID limits. For the 512 MiB DS220j, initially
+budget at most 256 MiB for the entire receipt container (including its tmpfs),
+0.25 CPU and 64 PIDs, then measure the actual inventory/workload before enabling
+it. Begin with a small canonical-byte budget that fits twice within the tmpfs
+after its 64 MiB overhead reserve. Never enlarge limits to evade a failed
+capacity check without reviewing total host load. Keep status checks free of
+database/custody credentials. Their configuration still needs a small private
+scratch directory, but they never read plaintext or require a tmpfs capture.
+
+Check the NAS kernel's resource-controller support before relying on Docker CPU
+quotas. A host without the CFS quota controller rejects `--cpus` before container
+startup; that outcome establishes no production inventory or capture. Do not
+silently remove an approved limit. For a metadata-only inventory, an operator
+may separately approve low process priority plus a finite process CPU-time
+budget (`resource.RLIMIT_CPU`), retaining the memory/PID limits. Relative CPU
+shares are a scheduling weight, not an equivalent hard rate quota. Receipt
+capture needs its own measured resource decision and must not inherit a small
+inventory-only CPU-time budget.
+
+```sh
+python -m scripts.nas_receipt_backup run --config /private/production-receipts.json
+python -m scripts.nas_receipt_backup status --config /private/production-receipts.json
+python -m scripts.nas_receipt_backup verify --config /private/production-receipts.json --generation <exact-generation>
+```
+
+After a controlled approved run, register `scheduled --config ...` with DSM at
+an approved poll interval/window, serialized with SQL, custody and other heavy
+NAS tasks. Register nothing merely because code is available. A source/config
+lock prevents overlap for the same enrollment. Each latest Eastern slot is
+attempted once; failure/interruption consumes it. There is no catch-up backlog
+or automatic whole-run retry. Provider reads keep existing bounded retry rules.
+After inspecting a failure, `run` permits one deliberate new-generation attempt.
+Inspect an abandoned lock and confirm the process stopped before removing only
+that lock. Different configurations/tasks still require host-level serialization.
+
+Each entity uses its current canonical production connection and custody
+reference. Existing exact-plan, tenant/profile/folder, inventory and byte checks
+apply. Canonical/connection changes stop publication; select a quiet window or
+explicitly approved writer-free capture. The runner never stops application
+services or freezes writers. Each entity's complete canonical export is bundled
+with its verified bytes as `receipts/<enrollment-index>/`; the `binding.json`
+identifies the entity and folder. Enrollment order is retained by the private
+config. Captures across entities are sequential, not a global atomic point.
+
+The bundle is encrypted to `receipts.tar.age`, fsynced and checksummed/read back
+before a complete generation and durable last-success pointer are published.
+Only this invocation's transient tmpfs workspace is removed after encryption/readback.
+Failed/incomplete ciphertext remains quarantined on the restricted destination.
+The private incomplete generation retains `capture-phase.json` with only the last
+started capture boundary, including when the child is killed. It contains no
+business identifiers, provider messages or credentials; a phase is not proof of completion.
+A normally caught child failure also writes `capture-failure.json` with a fixed
+error category. `capture-process.json` records only child exit status or timeout and consumed CPU seconds;
+a negative exit status identifies signal termination. Missing child failure
+metadata may indicate abrupt process termination.
+Temporary plaintext remains only in tmpfs until inspected or the container ends; a failed run never publishes it to persistent storage. No source file,
+grant, retained generation or failed artifact is automatically pruned. Capacity
+requires ongoing review under indefinite retention. Ciphertext checksum readback
+proves local integrity, not off-device replication, decryptability or restoration.
+
+`status` is local and requires no SQL/Drive credentials or decrypt identity.
+Reuse approved DSM abnormal-termination email for nonzero exits. After approving
+a dedicated Better Stack check-in and business recipient, inject its URL as
+`TABULA_RASA_RECEIPT_BACKUP_HEARTBEAT_URL` and poll `status --config ... --notify`.
+The shared payload-free heartbeat refuses redirects and sends failure for
+unhealthy results. Check-in delivery failure also exits nonzero. Place missing-run
+evaluation outside the NAS so a powered-off host cannot silently appear protected;
+existing application/recurring-worker check-ins do not establish receipt coverage.
+An already verified external NAS heartbeat may instead cover host-offline
+alerts, paired with a separate credential-free receipt `status` timer and DSM
+abnormal-termination email for receipt failures/staleness. Record its accepted
+host-offline detection window and recipient handoff. Keep the existing heartbeat
+URL and producer unchanged: host liveness does not prove receipt freshness or
+that the receipt health timer itself ran. Use a dedicated receipt check-in when
+that independent missed-health-run coverage is required.
+Confirm actual failure and missed-check-in delivery, remediation and recipient
+handoff using approved controlled cases before relying on the route. `verify`
+checks historical ciphertext only and cannot send a healthy freshness check-in.
+Missing, stale, failed, overdue, unmatched-lock, low-capacity and corrupt states
+exit nonzero. A running capture also cannot send a healthy check-in. Freshness
+uses the existing two-hour slot grace; twice-daily mode additionally becomes
+stale at 20 hours since capture start. Changing any enrollment/policy/approval
+or recipient bytes starts a new health namespace and cannot inherit success.
+
+Use DSM abnormal-termination email for immediate failures. After approving a
+dedicated existing-provider check-in and actual recipient, inject
+`TABULA_RASA_RECEIPT_BACKUP_HEARTBEAT_URL` and poll `status --notify` on the
+approved interval. This reuses the payload-free, redirect-refusing Better Stack
+sender. Test failure, missed-run/NAS-offline and recovery recipient delivery;
+an exit code or configured URL alone is not delivery evidence. The primary
+operator inspects protected task/config/grant/capacity state, preserves partial
+copies, repairs the cause and performs one controlled retry; the alternate
+operator must have the same handoff and independent key access.
+
+For an approved recovery rehearsal, verify the exact ciphertext generation,
+decrypt with the separately held identity into an isolated encrypted directory,
+and extract the tar with a safe path filter (`tarfile`'s `filter='data'`). Open
+each `DocumentArchive` and verify every byte against its canonical size/hash,
+then use the existing isolated Drive/PostgreSQL restore procedure below. Select
+or import the matching canonical bookkeeping point per entity; an unrelated SQL
+archive is not necessarily that point. Keep production callbacks and writers
+blocked on recovery targets. The runner does not restore or mutate production.
+
+Retain actual controlled-run, decrypt/byte-integrity, two-business isolation,
+isolated restore and notification results privately and sanitized evidence in the
+owning operational discussion. External beta and commercial acceptance remain
+separate: Wednesday/Sunday captures cannot meet a 24-hour receipt RPO; choosing
+twice-daily receipts alone does not improve the database RPO. Neither policy
+establishes a full-service RTO, off-site survival or coordinated SQL/receipt point.
+Measure duration, CPU/memory, growth and restore time against actual approved
+production configuration before claiming achieved coverage.
+
 ## Private binding and verification
 
 Use the existing external connections operator connection JSON format from [external

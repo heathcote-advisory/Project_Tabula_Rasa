@@ -333,6 +333,12 @@ for composite generation status and rehearsal.
 
 ### Coordinated point publication and health
 
+Production receipt bytes have a separate opt-in
+[capture runner and operating procedure](../storage/RECEIPT_RECOVERY.md#production-receipt-capture-runner).
+Its enrollment, recipient custody, workload and task registration require their
+own approved configuration. It does not change either database backup schedule
+or turn independent byte generations into coordinated database recovery points.
+
 `python -m scripts.recovery_point_health` adds **offline, operator-attested**
 complete-point health to the component runners. It does not capture data,
 suspend services, restore, install tasks or contact SQL/Drive. Keep the approved
