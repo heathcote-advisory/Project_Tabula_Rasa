@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from tabula_rasa.google_drive import (
-    DRIVE_SCOPE, GoogleDriveAuthorizationError, authorization_url,
+    DRIVE_SCOPE, GoogleDriveAuthorizationError, GoogleDriveConfigurationError, authorization_url,
     create_oauth_state, exchange_authorization_code, load_oauth_config,
     select_redirect_uri, validate_drive_profile_settings, verify_oauth_state,
 )
@@ -21,7 +21,7 @@ class TestGoogleDriveOAuth:
                     "client_secret": "secret",
                     "redirect_uris": [
                         "http://localhost:8501/",
-                        "https://tabula-rasa.streamlit.app/",
+                        "http://127.0.0.1:8501/",
                     ],
                     "picker_api_key": "picker",
                     "project_number": "12345",
@@ -32,10 +32,12 @@ class TestGoogleDriveOAuth:
         assert (
             select_redirect_uri(
                 config,
-                "https://tabula-rasa.streamlit.app/?page=profiles",
+                "http://127.0.0.1:8501/?page=profiles",
             )
-            == "https://tabula-rasa.streamlit.app/"
+            == "http://127.0.0.1:8501/"
         )
+        with pytest.raises(GoogleDriveConfigurationError, match="not listed"):
+            select_redirect_uri(config, "https://unregistered.example.test/?page=profiles")
         assert config.picker_ready
 
 

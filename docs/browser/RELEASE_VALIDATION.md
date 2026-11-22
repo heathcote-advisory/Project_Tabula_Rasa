@@ -170,6 +170,20 @@ configured durable dependencies and documented routing. Unknown required gaps
 must stop that release, while explicitly excluded long-tail slices may continue
 independently. No hidden session-state or page-load scheduling may remain.
 
+For hosted Streamlit retirement, the deployment owner verifies the exact app
+and its recovery dependencies before the approved shutdown. Record the app's
+absence in the provider workspace and check the old public URL separately.
+See [Streamlit Community Cloud app removal](https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app/delete-your-app).
+The Google Cloud project owner verifies the shared OAuth client and its active
+consumers, then removes the approved legacy authorized domain, JavaScript
+origin and redirect URI. Reopen Branding and the client settings to confirm all
+three entries are absent and the approved staging, production and loopback
+entries are present. Preserve the shared client, scopes, credentials, existing
+grants and archived source and recovery artifacts. Run the approved staging and
+production [Drive connection checks](../identity/GOOGLE_DRIVE.md#troubleshooting-and-hosted-acceptance)
+using the authorized test scope for each environment. Record sanitized provider
+readback and connection results for the OAuth branding handoff.
+
 Before disabling an entity's old writers, consume the supported migration,
 acceptance/export, authentication and recovery boundaries for its release stage. Before
 repository-wide removal of Streamlit, separately inventory all remaining internal

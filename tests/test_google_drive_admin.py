@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
@@ -121,6 +122,21 @@ def test_oauth_callback_persists_profile_grant_and_clears_query(
         path=tmp_path / "profiles.json",
     )
     assert not google_drive_admin.st.query_params
+
+
+def test_missing_oauth_configuration_shows_loopback_setup_example() -> None:
+    with patch.object(google_drive_admin, "st") as streamlit:
+        google_drive_admin.render_google_drive_admin(
+            {}, {}, current_url="http://localhost:8501/"
+        )
+
+    streamlit.warning.assert_called_once()
+    streamlit.code.assert_called_once()
+    example = tomllib.loads(streamlit.code.call_args.args[0])
+    assert example["google_drive_oauth"]["redirect_uris"] == [
+        "http://localhost:8501/",
+        "http://127.0.0.1:8501/",
+    ]
 
 
 def test_drive_validation_uses_only_visible_parent_ids() -> None:

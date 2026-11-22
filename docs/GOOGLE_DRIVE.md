@@ -89,8 +89,8 @@ profile determines the token and folder used by every subsequent Drive call.
 
 ## Google Cloud project
 
-Use a project such as tabula-rasa-oauth-client rather than a project dedicated
-to one business.
+Use the shared Google Cloud project and OAuth client for all local profiles.
+Reuse the configured client for existing Drive grants.
 
 1. Enable the Google Sheets API, Google Drive API, and Google Picker API.
 2. In Google Auth Platform, configure Branding with the application name
@@ -104,12 +104,12 @@ to one business.
    https://www.googleapis.com/auth/drive.file
    ```
 
-6. Create a Web application OAuth client with these example JavaScript origins:
+6. For local profile administration, register the loopback JavaScript origins
+   on the shared Web application OAuth client:
 
    ```text
    http://localhost:8501
    http://127.0.0.1:8501
-   https://tabula-rasa.streamlit.app
    ```
 
 7. Add the exact corresponding redirect URIs:
@@ -117,7 +117,6 @@ to one business.
    ```text
    http://localhost:8501/
    http://127.0.0.1:8501/
-   https://tabula-rasa.streamlit.app/
    ```
 
 8. Create a Picker API key. Restrict it to the Picker API and the approved
@@ -127,8 +126,9 @@ to one business.
    number. The number is under IAM & Admin > Settings; it is not the project ID.
 10. Before real use, publish the app and confirm Audience shows In production.
 
-Replace the example hosted hostname with the actual deployment origin and
-callback URI when they differ. Production callbacks must use HTTPS.
+Configure staging and production Drive consent using the exact HTTPS callbacks
+and approved browser origins in [commercial Google Drive setup](identity/GOOGLE_DRIVE.md#google-cloud-and-deployment-setup).
+Keep those deployment settings in the commercial server configuration.
 
 ## Local app-wide secrets
 
@@ -143,7 +143,6 @@ client_secret = "CLIENT_SECRET"
 redirect_uris = [
   "http://localhost:8501/",
   "http://127.0.0.1:8501/",
-  "https://tabula-rasa.streamlit.app/",
 ]
 picker_api_key = "PICKER_API_KEY"
 project_number = "NUMERIC_CLOUD_PROJECT_NUMBER"
@@ -260,9 +259,10 @@ files.
 
 ### Google rejects the callback URI
 
-Compare the browser origin and exact redirect URI in Google Cloud and local
-secrets. Production callbacks must be HTTPS and must include the trailing slash
-when configured that way.
+For local administration, compare the browser origin and exact loopback redirect
+URI in Google Cloud and local secrets, including the port and trailing slash.
+For commercial deployments, compare the registered HTTPS callback with the
+[commercial server configuration](identity/GOOGLE_DRIVE.md#google-cloud-and-deployment-setup).
 
 ### Picker opens the wrong account
 
