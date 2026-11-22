@@ -94,7 +94,50 @@ def test_production_attempt_is_recorded_and_a_failed_digest_requires_rearming():
     assert all("body" not in call.kwargs for call in github.call_args_list)
 
 
-@pytest.mark.parametrize("outcome", ["promote", "unchanged", "staging_changed", "failed_smoke"])
+@pytest.mark.parametrize("include_source", [True, False])
+def test_scheduled_worker_fence_uses_qualified_schemas_instead_of_manual_list(monkeypatch, include_source):
+    from tabula_rasa.deployment import production, schema_window, worker_compatibility
+    from tests.tooling.test_worker_compatibility import ENV as WORKER_ENV
+
+    environ = {**ENV, **WORKER_ENV, "TABULA_RASA_ENVIRONMENT": "production",
+               "COMMERCIAL_AUTO_PRODUCTION_ENABLED": "true", "STAGING_RENDER_SERVICE_ID": "srv-stageother",
+               "STAGING_RENDER_API_KEY": "fixture", "WINDOW_WORKER_ROLE": "recurring_worker",
+               "WINDOW_WORKER_COMPATIBLE_SCHEMAS": "obsolete_manual_declaration"}
+    worker = {"version": 1, "worker": worker_compatibility.identity(environ),
+              "candidate": {**CANDIDATE, "image": IMAGE}, "run_id": "123", "run_attempt": 1,
+              "status": "passed", "results": [
+                  {"schema": schema, "success": True, "checks": worker_compatibility.CHECKS}
+                  for schema in ([PRIOR["schema"]] if include_source else []) + [CANDIDATE["schema"]]
+              ]}
+    monkeypatch.setattr(release, "live_image", Mock(side_effect=[(IMAGE, CANDIDATE), (PRIOR_IMAGE, PRIOR)]))
+    monkeypatch.setattr(schema_window, "service_state", Mock(return_value={
+        "suspended": "not_suspended", "autoDeployTrigger": "off",
+        "serviceDetails": {"healthCheckPath": "/health/ready", "runtime": "image"},
+    }))
+    monkeypatch.setattr(production, "verify_render_origin", Mock())
+    monkeypatch.setattr(production, "verify_render_database", Mock(return_value="runtime"))
+    monkeypatch.setattr(production, "render_setting", lambda service, token, key, **_: {
+        "ENVIRONMENT": "production", "ACCESS_MODE": "named_user", "PUBLIC_ORIGIN": ENV["TABULA_RASA_PUBLIC_ORIGIN"],
+    }[key])
+    monkeypatch.setattr(automatic_release, "staging_run", Mock(return_value="123"))
+    monkeypatch.setattr(production, "staging_evidence", Mock(return_value={
+        "staging_image": IMAGE, "staging_attempt": 1, "worker_compatibility": worker,
+    }))
+    monkeypatch.setattr(release, "verify_prior_release", Mock())
+    monkeypatch.setattr(schema_window, "verify_no_jobs", Mock())
+    maintenance = Mock(return_value={"status": "smoke_passed"})
+    if include_source:
+        automatic_release.run(environ, read=Mock(), verify=Mock(), maintenance=maintenance, now=lambda: NOW)
+        assert maintenance.call_args.args[0]["WINDOW_WORKER_COMPATIBLE_SCHEMAS"] == ",".join(
+            [PRIOR["schema"], CANDIDATE["schema"]]
+        )
+    else:
+        with pytest.raises(release.ReleaseError, match="both release schemas"):
+            automatic_release.run(environ, read=Mock(), verify=Mock(), maintenance=maintenance, now=lambda: NOW)
+        maintenance.assert_not_called()
+
+
+@pytest.mark.parametrize("outcome", ["promote", "unchanged", "staging_changed", "failed_smoke", "unexpected_smoke_error"])
 def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkeypatch, outcome):
     from tabula_rasa.deployment import production, schema_window
 
@@ -132,14 +175,18 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
     ]))
     smoke = Mock(side_effect=[None, release.ReleaseError("New image smoke failed.")]
                  if outcome == "failed_smoke" else None)
+    if outcome == "unexpected_smoke_error":
+        smoke.side_effect = [None, RuntimeError("sensitive fixture diagnostic")]
 
     def invoke():
         return automatic_release.run(environ, read=Mock(), verify=Mock(), database=Mock(),
                                      smoke=smoke, now=lambda: NOW)
 
-    if outcome in {"staging_changed", "failed_smoke"}:
-        with pytest.raises(release.ReleaseError):
+    if outcome in {"staging_changed", "failed_smoke", "unexpected_smoke_error"}:
+        with pytest.raises(release.ReleaseError) as error:
             invoke()
+        if outcome == "unexpected_smoke_error":
+            assert str(error.value) == "Post-deployment named-user smoke failed; inspect public release handover and access checks."
         if outcome == "staging_changed":
             record.assert_not_called()
             deploy.assert_not_called()
@@ -155,12 +202,14 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
         assert result["image"] == IMAGE and result["restarted"]
         assert deploy.call_args.args[2] == IMAGE and evidence.call_count == 2
         assert smoke.call_args_list == [call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], PRIOR["release"]),
-                                        call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], candidate["release"])]
+                                        call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], candidate["release"],
+                                             previous_release=PRIOR["release"])]
         status.assert_called_once_with("success")
 
 
 def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     stage, invoke = staging_release
+    stage.reopened = Mock(side_effect=AssertionError('The full public smoke already verified this origin.'))
     stage.details["plan"] = "free"
     with pytest.raises(release.ReleaseError, match="Verify suspension"):
         invoke(verified=False)
@@ -171,12 +220,13 @@ def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     assert stage.actions.count("request_deploy") == 1
     assert stage.actions.index("resume") < stage.actions.index("request_deploy") < stage.actions.index("smoke_new")
     assert "close" not in stage.actions and "open" not in stage.actions
+    stage.reopened.assert_not_called()
 
 
 def test_failed_full_downtime_smoke_suspends_candidate(staging_release):
     stage, invoke = staging_release
     stage.failure = "smoke"
-    with pytest.raises(release.ReleaseError, match="Maintenance stopped"):
+    with pytest.raises(release.ReleaseError, match="Post-maintenance named-user smoke failed.*Maintenance stopped"):
         invoke()
     assert stage.suspended and stage.actions[-1] == "suspend"
 

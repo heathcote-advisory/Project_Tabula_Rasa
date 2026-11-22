@@ -7,7 +7,7 @@ import re
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 
-from . import production, release, schema_window
+from . import production, release, schema_window, worker_compatibility
 from .release_checkpoint import verify_checkpoint
 from .smoke import named_smoke
 
@@ -123,6 +123,18 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
         if candidate["release"] != environ["RELEASE_COMMIT"]:
             raise release.ReleaseError("Staging requires the immutable image from this successful main build.")
 
+    worker_proof = None
+    if not scheduled and environ.get("NAS_WORKER_IMAGE"):
+        try:
+            worker_proof = json.loads(Path("worker-compatibility.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raise release.ReleaseError("Run installed-worker qualification before staging promotion.") from None
+        worker_compatibility.verify(
+            worker_proof, {**candidate, "image": image}, environ,
+            run_id=environ["GITHUB_RUN_ID"], attempt=int(environ["GITHUB_RUN_ATTEMPT"]),
+            schemas=[candidate["schema"]],
+        )
+
     verify(candidate["release"], environ)
     state = schema_window.service_state(read, service, token)
     details = state["serviceDetails"]
@@ -148,7 +160,8 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
                 raise release.ReleaseError("The safe 03:00 Eastern start budget elapsed.")
             if check_start:
                 production.production_target(environ, read=read)
-            return production.staging_evidence(image, candidate, environ, read=read, github=github, cutoff=cutoff)
+            return production.staging_evidence(image, candidate, environ, read=read, github=github, cutoff=cutoff,
+                                               source_schema=previous["schema"])
         return {}
 
     if scheduled and previous == candidate:
@@ -159,6 +172,15 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
         return {"status": "skipped", "reason": "already_live_and_ready", "image": image}
 
     source = previous["schema"]
+    if scheduled and environ.get("WINDOW_WORKER_ROLE"):
+        worker_proof = worker_compatibility.verify(
+            selected.get("worker_compatibility"), {**candidate, "image": image}, environ,
+            run_id=run_id, attempt=selected["staging_attempt"], schemas=[source, candidate["schema"]],
+        )
+        # The fence consumes only schemas proved for this exact installed image/run.
+        environ = {**environ, "WINDOW_WORKER_COMPATIBLE_SCHEMAS": ",".join(
+            row["schema"] for row in worker_proof["results"]
+        )}
     changes_schema = source != candidate["schema"]
     release.verify_prior_release(candidate, previous, stage, maintenance=changes_schema)
     if changes_schema:
@@ -206,7 +228,12 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
             )
             if deploy == prior_deploy["id"]:
                 raise release.ReleaseError("Render did not create a new deployment for the requested restart.")
-            smoke(origin, candidate["release"])
+            try:
+                smoke(origin, candidate["release"], previous_release=previous["release"])
+            except release.ReleaseError:
+                raise
+            except Exception:
+                raise release.ReleaseError("Post-deployment named-user smoke failed; inspect public release handover and access checks.") from None
             live = release.active_deployment(service, token, read=read)
             if live is None or live["id"] != deploy:
                 raise release.ReleaseError("The new deployment is no longer active after smoke.")
@@ -225,7 +252,8 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
             except release.ReleaseError:
                 emit({"status": "could_not_update_production_attempt"})
         raise
-    return {**result, "run_attempt": int(environ["GITHUB_RUN_ATTEMPT"])}
+    return {**result, **({"worker_compatibility": worker_proof} if worker_proof else {}),
+            "run_attempt": int(environ["GITHUB_RUN_ATTEMPT"])}
 
 
 def main():

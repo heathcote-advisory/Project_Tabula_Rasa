@@ -291,6 +291,18 @@ def test_spa_fallback_does_not_mask_api_asset_or_non_html_errors(runtime, tmp_pa
     (tmp_path / "index.html").write_text("<html>Shell</html>")
     (tmp_path / "assets" / "app-hash.js").write_text("export const value = 1;")
     with TestClient(create_app(settings=SETTINGS, runtime_factory=lambda settings: runtime, static_dir=tmp_path)) as client:
+        for accept in (None, "*/*", "text/html"):
+            headers = {} if accept is None else {"Accept": accept}
+            request = client.build_request("GET", "/", headers=headers)
+            if accept is None:
+                del request.headers["accept"]
+            response = client.send(request)
+            assert response.status_code == 200
+            assert response.text == "<html>Shell</html>"
+            assert response.headers["content-type"].startswith("text/html")
+            assert response.headers["cache-control"] == "no-cache"
+        assert client.head("/").status_code == 200
+        assert client.get("/accounts").status_code == 404
         assert client.get("/accounts", headers={"Accept": "text/html"}).status_code == 200
         assert client.head("/accounts", headers={"Accept": "text/html"}).status_code == 200
         for path in ["/api/v1/unknown", "/assets/missing.js", "/health/unknown", "/missing.js"]:

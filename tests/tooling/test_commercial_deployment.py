@@ -364,7 +364,8 @@ def test_workflow_credential_separation_serialization_and_main_only_image_build(
     config = load("commercial-promote.yml")
     job = config["jobs"]["deploy"]
     assert job["steps"][0]["with"] == {
-        "ref": "${{ github.sha }}", "fetch-depth": "0", "persist-credentials": "false",
+        "ref": "${{ inputs.automatic && inputs.environment == 'staging' && github.event.workflow_run.head_sha || github.sha }}",
+        "fetch-depth": "0", "persist-credentials": "false",
     }
     assert any(step.get("uses") == "docker/setup-buildx-action@v3" for step in job["steps"])
     assert job["concurrency"] == {"group": "commercial-deploy-${{ inputs.environment }}", "queue": "max"}
@@ -477,6 +478,50 @@ def production_release(monkeypatch, release_ancestry):
                            smoke=smoke, pre_smoke=pre_smoke, render=render)
 
 
+@pytest.mark.parametrize("variant", ["valid", "missing", "wrong_attempt", "changed_pin", "failed"])
+def test_production_requires_worker_proof_before_mutation(production_release, variant):
+    from tests.tooling.test_worker_compatibility import ENV as WORKER_ENV
+    from tabula_rasa.deployment.worker_compatibility import CHECKS, identity
+
+    fixture = production_release
+    fixture.environ.update(WORKER_ENV, WINDOW_WORKER_ROLE="recurring_worker")
+    candidate = {**metadata(IMAGE, REPOSITORY), "image": IMAGE}
+    worker = {"version": 1, "worker": identity(WORKER_ENV), "candidate": candidate,
+              "run_id": "123", "run_attempt": 1, "status": "passed",
+              "results": [{"schema": candidate["schema"], "success": True, "checks": CHECKS}]}
+    fixture.proof["worker_compatibility"] = worker
+    if variant == "missing":
+        fixture.proof.pop("worker_compatibility")
+    elif variant == "wrong_attempt":
+        worker["run_attempt"] = 2
+    elif variant == "changed_pin":
+        fixture.environ["NAS_WORKER_CONFIG_SHA256"] = "9" * 64
+    elif variant == "failed":
+        worker["results"][0]["success"] = False
+    if variant == "valid":
+        fixture.promote()
+    else:
+        with pytest.raises(release.ReleaseError):
+            fixture.promote()
+        assert all(not call.kwargs.get("body") for call in fixture.prod.call_args_list)
+
+
+def test_worker_source_schema_is_checked_during_production_revalidation(production_release):
+    from tests.tooling.test_worker_compatibility import ENV as WORKER_ENV
+    from tabula_rasa.deployment.worker_compatibility import CHECKS, identity
+
+    fixture = production_release
+    fixture.environ.update(WORKER_ENV, WINDOW_WORKER_ROLE="recurring_worker")
+    candidate = metadata(IMAGE, REPOSITORY)
+    fixture.proof["worker_compatibility"] = {
+        "version": 1, "worker": identity(WORKER_ENV), "candidate": {**candidate, "image": IMAGE},
+        "run_id": "123", "run_attempt": 1, "status": "passed",
+        "results": [{"schema": candidate["schema"], "success": True, "checks": CHECKS}],
+    }
+    with pytest.raises(release.ReleaseError, match="both release schemas"):
+        production.staging_evidence(IMAGE, candidate, fixture.environ, read=fixture.render, source_schema="old_schema")
+
+
 def test_production_submits_only_the_live_staging_digest_and_records_success(production_release):
     fixture = production_release
     result = fixture.promote()
@@ -488,7 +533,7 @@ def test_production_submits_only_the_live_staging_digest_and_records_success(pro
         {"imageUrl": IMAGE},
     ]
     fixture.pre_smoke.assert_called_once_with(PRODUCTION_ORIGIN, "d" * 40)
-    fixture.smoke.assert_called_once_with(PRODUCTION_ORIGIN, "c" * 40)
+    fixture.smoke.assert_called_once_with(PRODUCTION_ORIGIN, "c" * 40, previous_release="d" * 40)
 
 
 @pytest.mark.parametrize(("section", "key", "value"), [

@@ -17,6 +17,30 @@ artifacts cannot enter the build context. Server secrets are never build args.
 The release SHA is visible at `/version`; OCI labels record SHA and Alembic head.
 The browser uses relative API URLs and requires no per-environment build.
 
+Named-user rolling promotions pass the verified prior release to the shared
+public smoke check. After Render reports the candidate live, the version check
+may still reach the prior instance during traffic handover. Only that exact
+prior revision may be retried: at most 21 version probes, each with a five-second
+request timeout, separated by three seconds. The expected candidate must be
+observed before access-boundary checks can pass. An unrelated/malformed revision,
+failed readiness or access check, or exhausted handover budget stops qualification.
+Preflight checks and protected private-origin maintenance smoke remain strict.
+After automatic full-downtime schema maintenance, the shared public smoke also
+receives the verified prior revision. It checks version before readiness because
+the old application can correctly return readiness 503 against the new schema.
+Within the same 21-probe budget, it waits only for the known prior version or
+readiness 503 after observing the candidate; it requires the exact candidate and
+readiness 200 before running the unchanged access-boundary and sign-in checks.
+Unknown versions, other readiness statuses, transport failures, failed access
+checks and budget exhaustion fail closed. That complete public smoke is the
+final public verification for automatic maintenance; protected private-origin
+maintenance additionally verifies public ingress after reopening it. Unexpected
+post-maintenance smoke errors have a fixed safe phase diagnostic, and failure
+keeps the worker fenced and contains the application rather than retrying or
+downgrading the committed schema.
+This never retries a deployment or migration and does not replace the successful
+build, staging job and retained release artifact required for production.
+
 `commercial-image.yml` follows successful **push-to-main Repository CI** and
 builds/publishes a `linux/amd64` GHCR image tagged by SHA. Its summary records the
 immutable digest and expected schema head. Repository CI also builds/imports
@@ -84,6 +108,42 @@ from approved access; assistant execution alone does not demonstrate operator
 readiness. Record acknowledgment, any unclear step and the final observed state.
 Application promotion does not grant customer admission, broader recovery
 acceptance or commercial activation.
+
+## Hosted Maps configuration and credential rotation
+
+For each environment, use the [Maps restriction matrix](../GOOGLE_MAPS.md#hosted-key-restrictions)
+before binding a key. The Render operator owns the service, origin and outbound
+CIDR inventory. The Google Cloud credential owner owns the restriction,
+quota and budget changes. Agree on an alert recipient and rollback owner.
+Keep staging and production bindings and live acceptance evidence separate.
+
+1. Refresh the live release, browser origins and **Connect > Outbound** lists.
+   Repeat this check before a service moves region or adopts different egress.
+   Coordinate the new restrictions with the credential owner before routing
+   traffic from the new service.
+2. With separate authorization for Google key changes, create restricted
+   replacement keys and verify their settings. Identify all existing callers
+   and preserve the last working credentials in protected custody.
+3. With separate authorization for Render secret changes, set
+   `TABULA_RASA_MAPS_BROWSER_API_KEY` and `TABULA_RASA_MAPS_ROUTES_API_KEY` under
+   the target web service's **Environment** or its approved secret source.
+   In the service's [environment-variable save menu](https://render.com/docs/configure-environment-variables#setting-environment-variables),
+   choose **Save only** to defer activation until the next deploy. The other
+   save options trigger a deploy, so stop if **Save only** is unavailable and
+   deployment is not yet authorized. Use the selected immutable image for the
+   authorized deploy and verify the live deploy ID and `/version` before testing.
+4. Run [controlled Maps validation](../GOOGLE_MAPS.md#controlled-validation)
+   and record the outcome for that environment. If the new binding fails,
+   diagnose the restriction or runtime configuration. With operator approval,
+   restore the previous safe binding and deploy the compatible image. Verify
+   the recovered binding after deploy. Manual mileage remains available if
+   Maps must stay disabled.
+5. Wait for provider metrics to confirm expected traffic on the replacement
+   and that known callers have moved off the superseded key. Revoke it only
+   with separate operator approval. For suspected compromise, notify the
+   credential owner immediately, inspect key/API metrics and billing, and
+   coordinate containment and restricted replacement. A compromised key
+   cannot serve as the rollback credential.
 
 ## Manual operator checkpoint
 
@@ -575,15 +635,17 @@ environment.
   Connect with the administrator's protected connection settings. Review the
   exact role bindings before execution. The function can toggle only the
   selected worker login and grants execution to the migration role without
-  making that role a role administrator. Record the schemas supported by the
-  installed pinned worker as comma-separated revisions in
-  `WINDOW_WORKER_COMPATIBLE_SCHEMAS` after testing it on each listed schema.
+  making that role a role administrator. Scheduled production releases require
+  installed-worker compatibility evidence from the qualifying staging run,
+  as described below. The fence's schema list is derived from that evidence;
+  `WINDOW_WORKER_COMPATIBLE_SCHEMAS` is no longer an unattended-release proof.
   The workflow disables login before suspending Render, waits for existing
   worker sessions to exit, and enables login after validating the restarted
   application and target schema. If the release fails with the worker fenced,
   inspect the deployed image, committed schema and role login before restoring
   access. Only restore access once the deployed worker is safe on that schema.
   Keep the NAS timer and backup task definitions in place.
+
 - Configure `NEON_PROJECT_ID`, `NEON_BRANCH_ID`, `NEON_ENDPOINT_ID` and the
   project-scoped `NEON_RELEASE_API_KEY` secret in each environment that uses
   automatic checkpoints. The workflow verifies the exact read-write endpoint
@@ -641,6 +703,57 @@ a fresh disposable source for another forward trial.
 **Simulated commercial schema window** runs pinned images with disposable
 PostgreSQL, local public/private routes and simulated provider controls.
 Hosted Render and Neon acceptance requires a separate authorized staging run.
+
+### Installed NAS worker qualification
+
+Before enabling qualification, export the **installed** NAS worker image and
+audit its complete configuration, build history and every layer (including
+deleted files) for credentials and private data. Environment-key inspection
+alone is not an audit. Publish only an approved artifact to a CI-readable
+private registry repository; preserve the installed effective configuration
+and RootFS layers. Do not rebuild current source and call it the installed
+worker. Image publication and NAS upgrades require separate authorization.
+
+Configure `NAS_WORKER_IMAGE` as a `ghcr.io/...@sha256:...` registry digest,
+`NAS_WORKER_CONFIG_SHA256` and `NAS_WORKER_ROOTFS_SHA256` consistently for
+staging and production. The fingerprints are SHA-256 of UTF-8 JSON using
+sorted keys and compact separators: the export's `config` object and its
+ordered `rootfs.diff_ids` array respectively (Docker inspection exposes these
+as `Config` and `RootFS.Layers`). This compares the installed image content
+even when registry tooling normalizes the outer image configuration. Never
+print the full config or environment values. Record the installed/export
+identity and audit decision in the protected operational record. Give the
+workflow's package-read token access to that exact registry artifact.
+
+Set staging's `NAS_WORKER_BASE_SCHEMA` to the earliest supported production
+schema. Automatic staging qualification uses the candidate's reviewed linear
+Alembic path to test that schema and every revision through the candidate
+head. It uses candidate-image migrations and synthetic fixtures with the
+unchanged ARM64 worker, emulated on the CI runner. Each revision gets a new
+disposable PostgreSQL instance on an internal Docker network with no host
+ports, production credentials or external network access. Probes check recurring
+generation, repeated enqueue/execution, cross-business claim rejection and
+separate amounts, and bounded retry/backoff/dead-state behavior. These probes
+test the worker's repository/queue behavior with a synthetic runtime role;
+they do not establish production grants, NAS scheduling or monitoring health.
+Existing production privilege checks and login fencing remain required.
+
+The staging `release.json` retains the probe results, candidate digest/schema,
+installed-worker pin/fingerprints and qualifying run/attempt alongside existing
+restart/readiness/sign-in-shell/access-boundary smoke. Production checks that
+proof on selection and revalidation, requiring both its current schema and
+the candidate schema before migration. Missing proof, failed checks, a different
+worker pin or a stale attempt blocks promotion. There is no manual schema-list
+fallback. With no staging worker pin, staging can still deploy and retain
+application smoke, but that evidence cannot qualify a production worker.
+
+Provision the audited registry pin and matching environment variables before
+merging/enabling this contract for an unattended production worker. This setup
+does not change the immediate-staging/03:00 Eastern production schedule,
+authorize worker installation, or waive legal/customer release gates. After
+an approved worker upgrade, update both environment bindings from the newly
+installed export and obtain fresh staging qualification before promotion.
+
 ### Select and promote a release
 
 1. In **Commercial release image**, select the completed automatic run whose

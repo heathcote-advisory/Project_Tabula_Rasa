@@ -249,10 +249,10 @@ COMMIT;
             raise release.ReleaseError("Packaged migration command failed.")
         self.schema = self.sql("SELECT version_num FROM alembic_version;")
 
-    def smoke_app(self, origin, revision):
+    def smoke_app(self, origin, revision, **kwargs):
         if self.full_downtime:
             assert origin == ORIGIN
-            named_smoke(self.public, revision)
+            named_smoke(self.public, revision, **kwargs)
             return
         assert origin == PRIVATE
         if self.maintenance:

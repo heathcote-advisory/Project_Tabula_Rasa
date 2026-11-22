@@ -28,38 +28,43 @@ this repository.
    - API restrictions: **Maps JavaScript API** and **Places API (New)** only.
 5. Create a different server API key for route calculation:
    - API restriction: **Routes API** only.
-   - Add an IP-address application restriction when the deployment has a
-     documented stable outbound IP.
-   - If the actual API host cannot guarantee a stable egress address, use the Routes-only API
-     restriction, a dedicated key/project, conservative quotas, and monitoring.
-     A deployment policy that requires an IP-restricted server key needs a host
-     or proxy with stable egress before rollout.
+   - For Render, apply the IP-address restriction in
+     [Hosted key restrictions](#hosted-key-restrictions).
    - Never put this server key in browser component data or source control.
-6. In **Google Maps Platform > Quotas**, lower the available quotas before live
-   testing. A conservative single-operator starting point is 10 Compute Routes
-   requests per minute and 100 per day when a daily control is available. Start
-   browser/Places request quotas at 60 per minute, then raise them only from
-   observed legitimate use. A one-way calculation consumes one Routes request;
-   a round trip consumes two because each direction is calculated separately.
-7. In **Billing > Budgets & alerts**, create a project-scoped monthly budget.
-   For a controlled single-user rollout, `$10 USD` with actual-spend alerts at
-   50%, 90%, and 100%, plus a 100% forecast alert, is a reasonable starting
-   point; replace it with the maximum amount the operator is actually willing
-   to spend. Include an actively monitored email notification channel.
-8. Remember that ordinary budget alerts do not stop usage and cost reporting
-   can be delayed. The lowered API quotas are the operational guardrail. If the
-   billing console offers an enforceable spend-cap budget for this project,
-   review its current supported-services behavior before relying on it.
+6. In **Google Maps Platform > Quotas**, select each API and read the effective
+   limits in **Quotas & System Limits**. Check the ComputeRoutes request
+   quotas for Routes, the AutocompletePlacesRequest and GetPlaceRequest quotas
+   for Places (New), and the Map loads quotas for Maps JavaScript. Review
+   existing consumers before lowering shared project limits. A conservative
+   single-operator starting point is 10 Compute Routes requests per minute
+   and 100 per day when a daily control is available. Start browser/Places
+   request quotas at 60 per minute, then raise them only from observed
+   legitimate use. A one-way calculation consumes one Routes request. A
+   round trip consumes two because each direction is calculated separately.
+7. Open the project's linked **Cloud Billing** account, then **Budgets & caps**
+   (also labeled **Budgets & alerts**). Select **Create new**, choose an
+   alerts-only budget, and set the project filter to the Maps project.
+   Confirm the amount with the operator and set actual and forecast alert
+   thresholds. Use a monitored email channel. [Cloud Billing sends budget
+   emails when a configured threshold is met](https://docs.cloud.google.com/billing/docs/how-to/budgets)
+   and delivery may lag by several hours. Record the receipt time once the
+   recipient confirms delivery. If no alert has arrived, record delivery as
+   pending. If environments share a project, record how their combined usage
+   affects the quotas and budget.
+8. Budget alerts do not stop usage, and cost reporting can be delayed. Verify
+   the effective Routes, Places (New), and Maps JavaScript limits in Cloud
+   Console for the selected project. Record the time windows and whether daily
+   limits are available. The optional quota panel only reads project usage.
 9. Configure deployment-specific keys through the protected API server configuration
-   below and restart the selected runtime.
+   below and use the approved deploy procedure to activate them.
 10. Before public deployment, review the checked-in [Terms of Use](TERMS_OF_USE.md)
     and [Privacy Policy](PRIVACY_POLICY.md). The application footer exposes both
     documents without requiring the application password. Confirm they still
     satisfy the current Routes API policy and reference Google's terms and
     privacy policy as required. Keep the visible Google Maps attribution beside
     Google-derived suggestions and route mileage.
-11. Perform one controlled live validation, then inspect key usage, API metrics,
-    quota consumption, and billing. Rotate or disable any unused test key.
+11. Perform [controlled validation](#controlled-validation) separately for staging
+    and production, then inspect key usage, API metrics, quotas and billing.
 
 ## Commercial browser/API configuration
 
@@ -79,25 +84,45 @@ configuration is described below and is separate from the mileage keys.
 Absent configuration preserves manual entry; equal browser/server keys suppress
 the browser key so a server credential cannot accidentally cross the API.
 
-Before enabling lookup, add the exact commercial website origins to the browser key's
-website restrictions. Local Vite and same-origin API deployments need their actual
-ports/origins, matching the actual browser deployment. Restrict that key to Maps
-JavaScript API and Places API (New). Keep Routes excluded from it. The separate Routes
-key stays on the API server and is restricted to Routes API. Inspect the selected host's
-documented egress; use an IP-restricted key where stable egress is available. If
-unavailable, record the existing dedicated-key, quota and monitoring alternative
-explicitly under Maps key restrictions. Changing keys, broadening origins or removing
-restrictions is not authorized by the workflow port.
+### Hosted key restrictions
+
+Inventory both deployed environments before changing either. The same-origin
+React/FastAPI web service serves Mileage and makes the Routes request from
+FastAPI. In Render, open each web service and read its region, live deploy,
+domains and **Connect > Outbound**. Match the live deploy to the release SHA
+at the canonical origin's `/version`. Record whether each key is configured
+and identify its Google Cloud project and credential ID or label without
+revealing the value.
+
+| Environment | Browser key in Cloud Console | Server key in Cloud Console |
+| --- | --- | --- |
+| Staging | **Websites** with each approved staging HTTPS origin as `https://host/*`. **Restrict key** to **Maps JavaScript API** and **Places API (New)**. | **IP addresses** with every current CIDR from the staging API service's **Connect > Outbound**. **Restrict key** to **Routes API**. |
+| Production | **Websites** with each approved production HTTPS origin as `https://host/*`. **Restrict key** to **Maps JavaScript API** and **Places API (New)**. | **IP addresses** with every current CIDR from the production API service's **Connect > Outbound**. **Restrict key** to **Routes API**. |
+
+After operator approval, select the intended project in Cloud Console. Open
+**APIs & Services > Credentials**, select the key by its label, set the
+application and API restrictions in the matrix, save, then reopen the
+credential to verify the settings. Use distinct browser and server keys and
+prefer a separate pair for each environment. For proposed sharing, identify
+all callers, record the combined restrictions and effects on rotation and
+usage isolation, and get explicit operator approval before binding either
+environment to the shared key. Keep local development origins on a separate key.
+
+[Render outbound ranges](https://render.com/docs/outbound-ip-addresses) are
+shared with other Render services, so the IP allowlist is not proof of a
+specific service's identity. Oregon services in workspaces created before
+January 23, 2022 may lack fixed ranges. Confirm each service independently
+even when both are in the same region. If the ranges are unavailable, Google
+rejects them, or caller ownership is unclear, stop and document the cause.
+Any Routes-only exception without IP restrictions needs explicit operator
+approval before use.
 
 The widget uses the [Places autocomplete
 element](https://developers.google.com/maps/documentation/javascript/reference/places-widget),
 and restrictions follow [Google's API security
 guidance](https://developers.google.com/maps/api-security-best-practices). Retain the
-existing attribution, terms, privacy and transient-content policy. Run a controlled
-non-sensitive lookup and both route directions before rollout, then inspect usage/quota
-and record sanitized evidence against the selected revision. Synthetic validation does
-not prove deployed restrictions or complete Maps key restrictions and live owner cutover
-acceptance. See [workflow ports](browser/IMPORTS_EXPORTS_AND_INTEGRATIONS.md).
+existing attribution, terms, privacy and transient-content policy. See
+[workflow ports](browser/IMPORTS_EXPORTS_AND_INTEGRATIONS.md).
 
 ### Optional HTTP quota monitoring
 
@@ -234,19 +259,34 @@ sampling every recent request.
 
 ## Controlled validation
 
-1. Open Mileage > Add trip and confirm manual address/mileage entry still works.
-2. Select two Google suggestions and choose **Calculate mileage**. Confirm the
-   business-miles field is populated, remains editable, and shows one decimal
-   place; for a round trip, confirm the return-mileage field behaves the same.
-3. Change an endpoint and confirm the previous suggestion becomes stale and is
-   not silently reused.
-4. Select **Round trip**, calculate, and confirm two route requests are recorded
-   and outbound/return miles can differ before one save.
-5. Temporarily use an invalid test key or an exhausted test quota and confirm the
-   app gives a safe error while manual entry remains available. Restore the
-   valid restricted key immediately afterward.
-6. Inspect Google Maps Platform metrics and Billing reports after reporting has
-   caught up. Confirm only the expected APIs and keys appear.
+Run these steps separately at the live staging and production origins. Obtain
+separate production operator authorization before any production Maps probe.
+
+1. Verify quotas and budget coverage before testing. In an approved test entity,
+   open **Mileage > Add trip**. Use public landmarks for the two suggestions and
+   make one **Calculate mileage** request. Confirm the authorized browser lookup
+   works, FastAPI returns a route and the business miles can be edited. Close
+   the draft without saving. A round trip can be tested when approved and uses
+   two Routes requests.
+2. For a negative check, use an approved controlled origin outside the website
+   allowlist with the already browser-visible key and confirm Google rejects it.
+   Keep the key out of source, logs and evidence. Verify the server IP and API
+   restrictions in the provider console. If a runtime IP denial is needed, use
+   a disposable equivalently restricted Routes test key from a non-allowed
+   source. Record which credential and restriction each check actually covers
+   without exporting the deployed server key.
+3. Confirm a provider rejection or quota response produces a safe message and
+   leaves manual address and mileage fields usable. Use an isolated test
+   binding for fault rehearsal, or verify during a real provider failure.
+   Keep active credentials and shared quotas in place. Record the tested
+   release and environment and leave any live fallback check pending if the
+   approved setup cannot safely reproduce it.
+4. After reporting catches up, check Google Maps Platform metrics filtered by
+   credential ID and API, plus Billing reports. Record the deploy ID, release
+   SHA, UTC test time, restrictions, probe outcomes, effective quotas, budget
+   alert delivery, and any owner-approved exception in the release evidence.
+   Keep keys, addresses, provider payloads and screenshots containing them out
+   of the record.
 
 Automated tests always mock Google and must never use either live key.
 

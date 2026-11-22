@@ -652,7 +652,7 @@ edition.
 
 **Current behavior — customer portability:** Data & backup includes Accountant
 handoff for the selected business. Owner, Admin and Accountant can download a ZIP
-of all 26 canonical collections, instructions and a versioned checksum manifest.
+of all supported canonical bookkeeping collections, instructions and a versioned checksum manifest.
 The default includes retained receipts and verified unlinked provider files; an
 explicit metadata-only choice discloses that receipt bytes are absent. Audit
 history, identity, credentials and operational policies are excluded. The manifest

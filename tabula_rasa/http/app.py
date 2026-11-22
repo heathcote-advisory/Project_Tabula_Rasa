@@ -229,7 +229,7 @@ def create_app(*, settings=None, runtime_factory=None, schema_only=False, static
         @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False, operation_id='browser_shell')
         def browser(request: Request, path: str):
             if (path.split("/", 1)[0] in {"api", "health", "version", "assets"}
-                    or "." in path or "text/html" not in request.headers.get("accept", "")):
+                    or "." in path or (path and "text/html" not in request.headers.get("accept", ""))):
                 raise HTTPException(404)
             return FileResponse(assets / "index.html", headers={"Cache-Control": "no-cache"})
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 from fastapi.testclient import TestClient
 import pytest
@@ -25,7 +25,7 @@ def test_named_promotion_has_no_basic_credentials_or_automatic_alpha_rollback():
     read, check = provider(), Mock()
     result = release.promote(IMAGE, NAMED, read=read, metadata=metadata, verify=Mock(), smoke_check=check)
     assert result['access_mode'] == 'named_user'
-    check.assert_called_once_with(NAMED['TABULA_RASA_PUBLIC_ORIGIN'], 'c' * 40)
+    check.assert_called_once_with(NAMED['TABULA_RASA_PUBLIC_ORIGIN'], 'c' * 40, previous_release='d' * 40)
     read, check = provider(), Mock(side_effect=RuntimeError('private provider diagnostic'))
     with pytest.raises(release.ReleaseError, match='reviewed named-mode rollback') as failure:
         release.promote(IMAGE, NAMED, read=read, metadata=metadata, verify=Mock(), smoke_check=check)
@@ -88,6 +88,7 @@ def test_named_probe_against_http_guard_denies_before_composition(tmp_path):
                     base_url=configured.public_origin) as client:
         # Adapt only the response interface; real HTTP handlers enforce denial.
         def get(path, **kwargs):
+            kwargs.pop('timeout', None)
             response = client.get(path, **kwargs)
             return SimpleNamespace(status=response.status_code, headers=response.headers, json=response.json)
         smoke.named_probe(SimpleNamespace(request=SimpleNamespace(get=get)), configured.release_id)
@@ -103,6 +104,131 @@ def test_named_probe_does_not_accept_alpha_or_unavailable_boundary(status, chall
         SimpleNamespace(status=status, headers={'www-authenticate': challenge, 'cache-control': cache})]
     with pytest.raises(ValueError, match='access restriction'):
         smoke.named_probe(SimpleNamespace(request=request), 'c' * 40)
+
+
+def test_named_probe_waits_for_known_prior_release_before_checking_access():
+    versions = iter(['d' * 40, 'd' * 40, 'c' * 40])
+    request = Mock()
+
+    def get(path, **_):
+        if path == '/health/ready':
+            return SimpleNamespace(status=200)
+        if path == '/version':
+            return SimpleNamespace(json=lambda: {'release': next(versions)})
+        if path in ('/api/v1/unknown', '/assets/missing.js'):
+            return SimpleNamespace(status=404)
+        return SimpleNamespace(status=401, headers={'cache-control': 'no-store'})
+
+    request.get.side_effect = get
+    sleep = Mock()
+    smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                      previous_release='d' * 40, sleep=sleep)
+    assert sleep.call_args_list == [call(3), call(3)]
+    assert sum(c.args[0] == '/api/v1/session' for c in request.get.call_args_list) == 3
+
+
+@pytest.mark.parametrize('observed,previous', [
+    ({'release': 'e' * 40}, 'd' * 40),
+    ({'release': 'd' * 40}, None),
+    ({'release': 'd' * 40, 'unexpected': True}, 'd' * 40),
+])
+def test_named_probe_rejects_unexpected_release_without_waiting(observed, previous):
+    request = Mock()
+    request.get.side_effect = [SimpleNamespace(status=200), SimpleNamespace(json=lambda: observed)]
+    sleep = Mock()
+    with pytest.raises(ValueError, match='Release identity mismatch'):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release=previous, sleep=sleep)
+    sleep.assert_not_called()
+    assert request.get.call_count == 2
+
+
+def test_named_probe_stops_when_prior_release_never_hands_over():
+    request = Mock()
+    request.get.side_effect = lambda path, **_: (
+        SimpleNamespace(status=200) if path == '/health/ready'
+        else SimpleNamespace(json=lambda: {'release': 'd' * 40}))
+    sleep = Mock()
+    with pytest.raises(ValueError, match='handover did not converge'):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release='d' * 40, sleep=sleep)
+    assert sleep.call_count == 20
+    assert request.get.call_count == 22
+
+
+def test_handover_does_not_retry_a_failed_access_boundary():
+    request = Mock()
+    request.get.side_effect = [SimpleNamespace(status=200),
+        SimpleNamespace(json=lambda: {'release': 'd' * 40}),
+        SimpleNamespace(json=lambda: {'release': 'c' * 40}),
+        SimpleNamespace(status=403, headers={'cache-control': 'no-store'})]
+    sleep = Mock()
+    with pytest.raises(ValueError, match='access restriction'):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release='d' * 40, sleep=sleep)
+    sleep.assert_called_once_with(3)
+    assert request.get.call_count == 4
+
+
+def test_maintenance_handover_waits_for_prior_and_readiness_before_access():
+    versions = iter(['d' * 40, 'c' * 40, 'c' * 40])
+    readiness = iter([503, 200])
+    request = Mock()
+
+    def get(path, **_):
+        if path == '/version':
+            return SimpleNamespace(json=lambda: {'release': next(versions)})
+        if path == '/health/ready':
+            return SimpleNamespace(status=next(readiness))
+        if path in ('/api/v1/unknown', '/assets/missing.js'):
+            return SimpleNamespace(status=404)
+        return SimpleNamespace(status=401, headers={'cache-control': 'no-store'})
+
+    request.get.side_effect = get
+    sleep = Mock()
+    smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                      previous_release='d' * 40, maintenance=True, sleep=sleep)
+    assert sleep.call_args_list == [call(3), call(3)]
+    assert [c.args[0] for c in request.get.call_args_list[:6]] == [
+        '/version', '/version', '/health/ready', '/version', '/health/ready', '/api/v1/session',
+    ]
+
+
+@pytest.mark.parametrize('defect', ['no_prior', 'unknown_release', 'never_ready', 'unexpected_status', 'access'])
+def test_maintenance_handover_still_fails_closed(defect):
+    request = Mock()
+
+    def get(path, **_):
+        if path == '/version':
+            return SimpleNamespace(json=lambda: {'release': ('e' if defect == 'unknown_release' else 'c') * 40})
+        if path == '/health/ready':
+            return SimpleNamespace(status=503 if defect == 'never_ready' else 403 if defect == 'unexpected_status' else 200)
+        return SimpleNamespace(status=403, headers={'cache-control': 'no-store'})
+
+    request.get.side_effect = get
+    sleep = Mock()
+    expected = {'no_prior': 'verified prior', 'unknown_release': 'identity mismatch',
+                'never_ready': 'handover did not converge', 'unexpected_status': 'Readiness failed',
+                'access': 'access restriction'}[defect]
+    with pytest.raises(ValueError, match=expected):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release=None if defect == 'no_prior' else 'd' * 40,
+                          maintenance=True, sleep=sleep)
+    assert sleep.call_count == (20 if defect == 'never_ready' else 0)
+    if defect == 'never_ready':
+        assert request.get.call_count == 42
+    if defect != 'access':
+        assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
+
+
+def test_ordinary_handover_keeps_readiness_strict():
+    request, sleep = Mock(), Mock()
+    request.get.return_value.status = 503
+    with pytest.raises(ValueError, match='Readiness failed'):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release='d' * 40, sleep=sleep)
+    assert request.get.call_count == 1
+    sleep.assert_not_called()
 
 
 def test_workflow_selects_mode_before_migration_and_keeps_alpha_secrets_out_of_named_step():

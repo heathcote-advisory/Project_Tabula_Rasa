@@ -237,7 +237,8 @@ def promote(image, environ, *, read=api, metadata=image_metadata, verify=validat
     if mode == 'named_user':
         check = smoke_check or named_smoke
         def check_release(revision):
-            check(environ['TABULA_RASA_PUBLIC_ORIGIN'], revision)
+            check(environ['TABULA_RASA_PUBLIC_ORIGIN'], revision,
+                  previous_release=previous['release'] if previous else None)
     else:
         check = smoke_check or smoke
         def check_release(revision):

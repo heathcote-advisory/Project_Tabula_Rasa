@@ -224,3 +224,80 @@ External-admission evidence separately. Keep results and pending decisions in th
 release discussion, including accepted exclusions. Publication, deployment, provider
 writes, live cutover and customer admission each retain their explicit authorization
 boundary.
+
+## External beta release decision
+
+The invitation-only, noncharging beta needs a separate decision for an exact
+deployment and cohort. Use the existing workflow matrix above, [admission
+controls](../operations/BETA_ADMISSION.md), [hosted identity
+acceptance](../identity/HOSTED_ROLLOUT.md) and [incident
+drills](../operations/INCIDENT_DRILLS.md); this procedure introduces no new
+admission service, test runner or deployment path. Keep the completed matrix,
+private evidence references and human decisions in the owning release discussion,
+not in a repository status report.
+
+### Reconcile prior evidence first
+
+Read the owning issues' current bodies, completion comments and linked reviewed
+changes before requesting work. Record what was implemented, what was actually
+observed, the accepted stage/revision/environment, and any transferred remainder.
+An open issue can contain completed implementation and accepted internal operation;
+a closed issue can retain a narrower acceptance boundary. Preserve both facts.
+
+Reuse completed owner cutover and scheduled recurrence within their approved
+scope. Do not repeat migration, reopen frozen Sheets writers or demand a fresh
+cutover solely because external admission is being reviewed. Likewise reuse
+completed lifecycle, policy acknowledgement, export, UI, support and provider
+work. Review changes since the evidence revision and identify the specific gap
+that requires a new check. Historical recovery drills establish their measured
+outcomes; they do not establish a different environment's current protection.
+
+For every row below record the accountable person, evidence reference, observed
+revision/environment/date, result and remaining action. Use **PASS**, **FAIL**,
+**UNVERIFIED**, **ACCEPTED NONCRITICAL EXCEPTION**, or **NOT APPLICABLE**. A pass
+needs evidence covering the selected release, or an explicit rationale for reusing
+unchanged evidence. Failed, missing or stage-mismatched evidence remains a gap.
+Exceptions need owner approval, risk/rationale, mitigation and a review trigger;
+not-applicable decisions need a scope explanation. Neither status can conceal an
+essential security, recovery, customer-rights or legal protection.
+
+### Required evidence matrix
+
+| Gate and technical owner | Selected-release acceptance |
+| --- | --- |
+| Scope and cohort — [admission](../operations/BETA_ADMISSION.md) | Name the target environment, private approved identities/businesses, US/Canada eligibility and initial three-business aggregate cap; every collaborator needs named approval. Record actual program revision, freezes and `approval_required` mode. Expansion and self-service each need separate approval. Disclose included workflows and exclusions; advanced depreciation needs explicit qualification. |
+| Candidate and runtime — [deployment](../operations/DEPLOYMENT.md) | Bind reviewed SHA, current required CI/reviews, immutable image/index/runtime digests, schema, actual deployed version/readiness, worker identity/compatibility and feature configuration. Check the selected target rather than assuming staging and production match. A successful manual recovery is not successful unattended release acceptance. |
+| Identity and business isolation — [authentication](../identity/AUTHENTICATION.md), [authorization](../identity/AUTHORIZATION.md) | Verify Create Business/My Businesses without a Workspace step, exact invitations, distinct roles in two businesses, switching, forbidden direct reads/writes/exports/receipt bytes, stale tabs/caches, membership removal, logout/revocation and restart. Consume accepted adversarial tests and require applicable real-provider/session-store/configuration-epoch failure/restoration evidence for the selected topology. |
+| Account and administrator recovery — [hosted rollout](../identity/HOSTED_ROLLOUT.md) | Verify usable user password/factor recovery, mail delivery or a tested supported alternative, administrator recovery/custody and actual plan limits. An accepted synthetic-staging lockout risk is not beta recovery acceptance; no provider purchase alone proves recovery. |
+| Bookkeeping and usability — workflow matrix above and [browser testing](TESTING.md) | Qualify selected transactions, transfers, journals, recurring/mixed-use, receipts, mileage/imports and reports. Preserve accounting signs, separate mileage/transfers from income/expenses and verify Assets = Liabilities + Equity. Consume delivered table/hierarchy/navigation/accessibility improvements; record current desktop/mobile, keyboard/touch and failure-path observations without repeating unrelated UI implementation. |
+| Drive connectivity and bytes — [Google Drive](../identity/GOOGLE_DRIVE.md) | Consume accepted browser Connect/Reconnect/Disconnect and two-business receipt/restart evidence; verify applicability to the target client, custody backend and release. Preserve original account/folder/receipt bindings. Include authorized exact-byte download, reference-only unlink and retained-file recovery; a Connected badge alone is insufficient. |
+| Portable export — [customer delivery](../accounting/EXPORT.md) | Reuse the implemented authorized customer handoff; verify selected-business bookkeeping and document-inclusive delivery, missing-byte failure and revoked/foreign access denial. Respect documented audit exclusions. Do not rebuild the exporter or label metadata-only output as complete receipt recovery. |
+| Retention, rights and policies — [lifecycle](../operations/CUSTOMER_LIFECYCLE.md), [publication](../legal/READINESS.md) | Consume implemented closure/export/recovery windows, privacy intake, immutable evidence and policy-version acknowledgement. Obtain outstanding legal/owner decisions, accurate retention/backup limits, reviewed public Terms/Privacy and deployed acknowledgement. Verify applicable OAuth branding/publication; preserve existing NAS generations and frozen sources. No unimplemented destruction or immediate erasure promise. |
+| Independent protection and restore — [database recovery](../operations/DATABASE_RECOVERY.md), [receipt recovery](../storage/RECEIPT_RECOVERY.md) | Record actual operating DB, receipt-byte and credential-ciphertext/key protection separately, successful capture ages, independent custody, isolated restore integrity and measured full-service recovery time. The approved targets are DB RPO ≤24h, receipt-byte RPO ≤24h and full-service RTO ≤48h; do not claim them from SQL-only dumps, Cloud Sync alone, or a restore command's duration. Wednesday/Sunday archives have 72/96-hour intervals and cannot alone meet 24h RPO. An unresolved essential protection or unsupported recovery promise blocks GO; any revised objective needs an explicit owner decision and corresponding disclosures/evidence. |
+| Capacity, cost and support — [observability](../operations/OBSERVABILITY.md), [feedback](../operations/BETA_FEEDBACK.md) | Record selected provider plans/regions, quotas, headroom and budget exposure, backup failure/staleness and NAS-offline detection limits, incident/recovery delivery, named primary/alternate or accepted coverage limits. Reuse verified mailbox receipt/reply and restricted custody; support targets are best effort, not a 24/7 SLA. Consume accepted Maps restrictions/probes and explicitly recorded deferred checks. Do not invent real customer research or cost measurements from synthetic exercises. |
+| Pause, incident and rollback — [admission](../operations/BETA_ADMISSION.md), [incident response](../operations/INCIDENT_RESPONSE.md) | Verify separate creation/invitation freezes and per-business suspension while existing authorized reads/exports remain available. Treat security containment separately from enrollment pause. Record incident communication and a verified compatible rollback preserving current schema, admission enforcement, identities, receipts and financial history; no Sheets fallback. |
+| Authority and final owner decision — [controlled cutover](../accounting/CUTOVER.md) | Preserve completed trusted owner authority and its accepted limits. Identify whether the proposal activates commercial-production authority and obtain applicable recovery/operator/cutover sign-offs before that activation. Record legal, security and recovery reviewers' dispositions plus explicit owner GO/NO-GO for this cohort only. Free-beta approval does not authorize charging. |
+
+### Decision and execution handoff
+
+Record the decision's owner/date, exact target/release/schema and private cohort
+reference, approved workflows/data/geographies, all evidence and exception
+dispositions, support contacts, stop conditions and rollback/resume authority.
+Unknown target or cohort, unresolved essential protection, unreviewed policy,
+missing required current-revision checks or missing explicit admission approval
+means **NO GO**. Hold admission freezes; do not reinterpret readiness smoke or
+trusted internal operation as permission to invite external customers.
+
+Before closing the gate, review the retained identity and Drive download fault
+launchers after the applicable drills are accepted. Inspect callers/shared helpers
+and preserve ordinary provider-failure and two-business isolation coverage. Remove
+launchers, exclusive test helpers and launcher-only instructions when no consumer
+remains; otherwise record the concrete recurring consumer, responsible owner and
+reconsideration trigger. A selected deferred removal needs a linked cleanup issue.
+Historical drill evidence and recovery artifacts remain preserved. Source cleanup
+does not authorize fault injection or deployment.
+
+After written GO, use existing operator controls only within the authorized target
+and cohort, record the actual admission outcome and monitor the agreed stop
+conditions. A material release/configuration/cohort change requires review of the
+affected evidence and renewed authorization before expansion or resumption.
