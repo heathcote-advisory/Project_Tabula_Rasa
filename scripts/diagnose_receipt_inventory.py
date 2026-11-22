@@ -111,8 +111,9 @@ def main(argv=None):
                 try:
                     database.dispose()
                 except Exception:
-                    result = {'status': 'failed', 'failed_phase': 'database_cleanup',
-                              'completed_phases': completed}
+                    if result is None or result['status'] != 'failed':
+                        result = {'status': 'failed', 'failed_phase': 'database_cleanup',
+                                  'completed_phases': completed}
         print(json.dumps(result, sort_keys=True))
         return 0 if result['status'] == 'inventoried' else 1
 

@@ -44,6 +44,40 @@ def test_connection_failure_exposes_only_its_boundary(tmp_path, monkeypatch, cap
     assert database.disposed and not output.exists()
 
 
+@pytest.mark.parametrize('query_fails', [False, True])
+def test_cleanup_failure_preserves_first_failure(tmp_path, monkeypatch, capsys, query_fails):
+    from tabula_rasa.infrastructure.postgres.runtime import DatabaseError
+
+    class Database:
+        @contextmanager
+        def transaction(self, **kwargs):
+            yield self
+
+        def scalar(self, statement):
+            return 1
+
+        def dispose(self):
+            raise RuntimeError('private-cleanup-details')
+
+    def inventory(*args):
+        if query_fails:
+            raise DatabaseError('insufficient_privilege')
+        return {'businesses': []}
+
+    monkeypatch.setattr(diagnostic.runner, 'open_database', Database)
+    monkeypatch.setattr(diagnostic, 'database_identity', lambda _: 'a'*64)
+    monkeypatch.setattr(diagnostic.runner, 'inventory', inventory)
+    output = tmp_path / 'inventory.json'
+    assert diagnostic.main(['--database-sha256', 'a'*64, '--output', str(output)]) == 1
+    captured = capsys.readouterr().out
+    assert 'private-cleanup-details' not in captured
+    result = json.loads(captured)
+    assert result['failed_phase'] == ('metadata_inventory_read' if query_fails else 'database_cleanup')
+    if query_fails:
+        assert result['database_failure'] == 'insufficient_privilege'
+    assert output.exists() is not query_fails
+
+
 @pytest.mark.parametrize('sqlstate,category', [
     ('42501', 'insufficient_privilege'), ('42P01', 'undefined_table'),
     ('42703', 'undefined_column'), ('57014', 'query_canceled'),
