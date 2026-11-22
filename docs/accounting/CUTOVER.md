@@ -86,23 +86,15 @@ editable local profile store or accept them from a browser request. Example:
 
 ```toml
 [bookkeeping_backends.alpha]
-backend = "maintenance"
-
-[bookkeeping_backends.beta]
-backend = "sheets"
-```
-
-`create_application(profile_key, secrets, database=...)` requires an explicit
-entry and composes exactly one backend. `maintenance` refuses composition;
-`sheets` reuses existing Sheets composition. `postgres` requires the activated
-entity, environment, database identity and accepted document-folder binding:
-
-```toml
-[bookkeeping_backends.alpha]
 backend = "postgres"
 entity_id = "entity-alpha"
 mode = "rehearsal"
 ```
+
+`create_application(profile_key, secrets, database=...)` requires an explicit
+PostgreSQL entry and verifies the activated entity, activation environment,
+database identity and accepted document-folder binding. A `maintenance` entry
+blocks bookkeeping composition for that profile. A legacy `sheets` entry is rejected.
 
 The caller supplies the pool from approved server database settings and owns its
 lifecycle. Merely configuring a database URL never activates PostgreSQL. No
@@ -174,8 +166,8 @@ marks its matching run `validated`, verifies the complete export again after
 that metadata change, and atomically records `prepared` with the accepted export
 digest. A prepared target rejects bookkeeping mutations. A matching preparation
 can be repeated; another source/run/profile cannot take over its evidence.
-Failure before preparation leaves Sheets authoritative and changes no target
-authority/status. `activate` requires that prepared export remain unchanged.
+Failure before preparation leaves the source and target authority status as they
+were. `activate` requires that prepared export remain unchanged.
 
 For production use `--mode commercial_production` during preparation. Inspect
 both intended production and separate staging endpoints through their approved
@@ -206,27 +198,30 @@ sharing or starts a scheduler. The operator performs that archival control.
 
 ## Rollback and subsequent recovery
 
-Before any committed PostgreSQL bookkeeping mutation, re-extract the preserved
-format-13 source and explicitly roll back:
+To abandon preparation or activation before any committed PostgreSQL bookkeeping
+mutation, keep bookkeeping in maintenance, drain target writers and explicitly
+roll back the activation record:
 
 ```powershell
 python scripts/cutover_bookkeeping.py rollback --profile alpha --entity entity-alpha
 ```
 
-The source must match the accepted snapshot/run, and the complete target export
-must still match its accepted digest. Stop/drain PostgreSQL processes, change
-trusted configuration back to `sheets`, restart the Sheets edition and resume
-source jobs only after this command records `sheets`. The PostgreSQL target is
-retained for inspection and its cached services cannot commit bookkeeping
-writes. A prepared target can use the same rollback procedure if activation is
-abandoned. No reverse migration or deletion occurs.
+The command re-extracts the preserved format-13 source and verifies the accepted
+snapshot/run and target export digest. The stored `sheets` state records that
+PostgreSQL activation was reversed. Current runtime rejects `backend = "sheets"`.
+Keep the source frozen and its writers disabled. Keep the target for inspection;
+its cached services refuse bookkeeping writes. The current CLI stops at the
+existing cutover record if you try to prepare the same target again. Keep the
+profile in maintenance until the cutover and PostgreSQL recovery owners agree on
+a supported target and verify its activation and smoke checks. Preserve the
+rolled-back record as operator evidence.
 
 Native entity-scoped triggers guard every canonical bookkeeping table. Their authority
 lock serializes mutations with preparation/activation/rollback. The first **committed**
 insert/update/delete while active marks `divergent` in the same transaction; a
 rolled-back mutation does not. Secondary/document/reference writes count even if P&L
 totals are unchanged. The marker stays set even if an edit is later reversed. Other
-entities do not affect this profile's marker. Once set, Sheets rollback is refused:
+entities do not affect this profile's marker. Once set, activation rollback is refused:
 recover PostgreSQL through managed database recovery and platform operations's tested
 backup/PITR procedure and coordinated DocumentStore recovery. An old Sheets source is
 then a historical recovery artifact, never a live fallback. Database administrator

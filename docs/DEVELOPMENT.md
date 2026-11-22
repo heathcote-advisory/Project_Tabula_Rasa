@@ -20,10 +20,15 @@ The Codex-managed Windows environment intentionally requires Python 3.12 so
 worktrees use one interpreter series. Its environment setup fails clearly when
 that interpreter is unavailable.
 
-The optional PostgreSQL development runtime, migration policy, environment
+The Dev Container installs the root Python requirements. Open the browser/API
+runtime guide below to start that stack explicitly. For profile administration,
+use the [loopback-only local launcher](SETUP.md#local-profile-administration).
+
+The PostgreSQL development runtime, migration policy, environment
 variables, and real-database test setup are documented in
 [PostgreSQL development and operations](database/POSTGRESQL.md). Development dependencies
-include the database tools; the Sheets runtime does not require them or a DB URL.
+include the database tools. The loopback profile administrator and Sheets-only
+source/recovery tools can run without a PostgreSQL connection.
 
 ## Browser/API development
 

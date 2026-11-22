@@ -354,9 +354,9 @@ and workflow tests retire with their single-use entry points.
 
 Restricted-alpha routes, synthetic contexts and their deployment/tests remain
 supported independently. A named staging handoff does not retire those callers.
-Streamlit/Sheets writers and owner migration, conversion and recovery paths retain
-[controlled cutover](../accounting/CUTOVER.md) and capability-specific retirement
-conditions. Bridge cleanup supplies no live-cutover or deletion authority.
+Streamlit bookkeeping and its Sheets writers are retired. Retained source migration
+and recovery tools follow [controlled cutover](../accounting/CUTOVER.md) and the
+[format-13 source contract](../SHEETS_SOURCE_CONTRACT.md).
 
 ### Retired support-schema bridge: 0014 to 0015
 

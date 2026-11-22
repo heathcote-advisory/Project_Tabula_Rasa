@@ -23,17 +23,13 @@ remain live owner cutover and hosted identity rollout.
 | Unrelated external beta (external release and customer lifecycle) | Named MFA-protected sessions, server membership enforcement, invitation/onboarding and verified tenant/document/connection isolation. | Applicable identity control plane and hosted identity rollout evidence, platform operations recovery/operations and external release and customer lifecycle legal/release approval. Free provider plans never waive these gates. |
 | Paid launch | Same named identity/security contract plus accepted customer lifecycle, capacity/support and operational guarantees. | external release and customer lifecycle and commercial recovery agreement's separate launch and recovery agreement; identity completion alone is insufficient. |
 
-Legacy Streamlit remains within its existing restricted deployment-wide-password,
-profile-scoped Sheets/Drive boundary. Do not weaken its password, administrator
-reauthentication, loopback-only OAuth or backup rules. Do not retrofit a second
-Streamlit commercial ACL system for legacy access control. identity and tenancy replaces
-that security model in the new runtime; disposition of legacy access control follows
-verified replacement. Business Profiles administration remains a separate loopback-only
-internal operator interface during transition: commercial login or selecting a business
-does not unlock local credential/profile administration. existing entity claims and
-local administration retires that interface once in-app login, business creation and
-management fully replace its supported functions and the replacement is verified. Do not
-expose it as a commercial fallback or remove its restrictions before that checkpoint.
+Named sessions and business membership authorize access to the browser/API runtime.
+The [local profile administrator](../SETUP.md) is a separate loopback-only tool for
+Google grants, Sheets source access and recovery. The deployment-wide application
+password and administrator reauthentication protect that interface; credentials,
+workbooks and folders remain scoped to each profile. Commercial sign-in and business
+selection grant no local authority. The [retained local administration inventory](CONNECTIONS_AND_CLAIMS.md#retained-local-administration-inventory)
+defines the operator actions and the criteria for retiring each one.
 
 Named login does not migrate books or claim all configured profiles. existing entity
 claims and local administration's explicit dry-run/apply maps an approved internal
@@ -42,16 +38,11 @@ preserving acceptance, provenance and rollback boundaries. live owner cutover al
 actual private/live cutover. No new session or identity provider can silently activate
 PostgreSQL authority or restore stale Sheets after target divergence.
 
-Named-user authentication and hosted identity rollout must introduce an explicit access
-mode contract: `restricted_alpha` versus `named_user`; unknown mode denies startup.
-Named hosted deployments must explicitly select `named_user`; the existing
-restricted-alpha compatibility default is not a production admission gate. Named mode
-rejects every alpha credential, trusted entity, synthetic resolver and alpha-only
-document configuration, including on hosted development/staging. Existing `HttpSettings`
-currently requires alpha configuration on hosted dev/staging: extend that validation for
-named mode, rather than relaxing the existing alpha branch or labelling it commercial
-login. The settings names below are a **future implementation contract**, not
-instructions that make today's runtime authenticate users.
+Hosted deployments explicitly select `named_user` or `restricted_alpha`. Production
+requires `named_user`, which rejects synthetic context, alpha credentials and alpha
+document configuration. `restricted_alpha` is available for approved synthetic use in
+development and staging. The environment loader defaults to `restricted_alpha` for
+loopback development/test. An unknown mode rejects startup.
 
 ## Manual provider/secret/mail checkpoint
 
@@ -119,7 +110,7 @@ login/logout/revoke/switch/document/export tests,
    compatible rollback and secret custody. No schema downgrade, live migration
    or external admission is implied by that rehearsal.
 
-| Future setting / registration | Contract and owner |
+| Setting / registration | Contract and owner |
 | --- | --- |
 | `TABULA_RASA_ACCESS_MODE` | named-user authentication and hosted identity rollout: explicit `named_user` or `restricted_alpha`, with the stage rules above. |
 | `TABULA_RASA_PUBLIC_ORIGIN` | Existing exact origin, e.g. synthetic `https://stage.example.test`; loopback development uses `http://127.0.0.1:5173`. No path/trailing slash. |
@@ -131,9 +122,7 @@ login/logout/revoke/switch/document/export tests,
 | Mail/recovery custody | Provider-admin-owned SMTP credentials and factor recovery; membership administration owns application invitation delivery, platform operations owns operational secret rotation/incident evidence. |
 | Google/document secrets | external connections: authorized organization/entity connection secret reference, independent of OIDC settings. Existing alpha document secret files remain synthetic-alpha-only. |
 
-These names must be validated and documented as implemented in named-user authentication
-and hosted identity rollout, rather than silently becoming optional fallbacks. Provider
-client-secret rotation interrupts new logins until configured coherently and revokes
+Provider client-secret rotation interrupts new logins until configured coherently and revokes
 affected application sessions and pending login transactions. User credential changes,
 forced resets/recovery and compromise revoke that user's sessions across organizations;
 environment-wide identity/session security or trusted provider key changes revoke
@@ -298,7 +287,7 @@ for provider-hosted cases.
 | T16: private route added without policy; privileged valid request bypasses baseline/accounting checks | Route inventory test requires declared identity/capability policy before composition on every private route/byte/export family. Authorized stale edits still fail; valid bookkeeping retains invariants. | server authorization and identity security testing |
 | T17: non-owner backup/restore/migration/admin request or platform operator treated as tenant Owner | Owner succeeds only within the approved business and supported recovery procedure; other tenant roles deny owner-only capabilities. Infrastructure operator authority alone grants no business access. Preserve blank-target restore and current backup validation; record owner approval separately from execution. | server authorization, existing entity claims and local administration and platform operations |
 | T18: credential/key change, forced reset or provider recovery with old sessions | User change revokes that user's sessions in every organization; unrelated users remain authorized. Environment-wide change revokes affected sessions/login transactions in that environment only. Copied old cookies deny after confirmed revocation; fresh named login succeeds. Provider events must be authenticated or use coordinated operator revocation; no deadline-only fallback. | named-user authentication, membership administration and hosted identity rollout |
-| T19: commercial user reaches legacy profile administration or premature retirement | Login, role and business selection confer no legacy local credential access. Existing loopback/operator restrictions persist until replacement login/creation/management is verified; after retirement the legacy administration surface is unavailable. | existing entity claims and local administration, identity security testing and hosted identity rollout |
+| T19: commercial user attempts to reach local profile administration | Login, role and business selection confer no local credential access. The retained interface requires loopback, the local administration flag, the application password and operator reauthentication. | existing entity claims and local administration, identity security testing and hosted identity rollout |
 
 Denials and assertions must use synthetic data. Captured logs/HTTP errors must
 exclude email, authorization codes, cookies, provider tokens, invitation

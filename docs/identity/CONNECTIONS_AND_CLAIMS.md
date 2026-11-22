@@ -1,7 +1,8 @@
 # External connections and existing entity claims
 
 Connections preserve accepted PostgreSQL entity and ledger IDs, separate named
-login from Google grants and retain the restricted internal Sheets edition.
+login from Google grants and preserve the separate loopback-only operator workflow
+for local Google grants and Sheets source/recovery administration.
 Operator grant installation, existing-entity claims and live authority activation
 require explicit operator approval. Customers can use the [Owner consent flow](GOOGLE_DRIVE.md)
 when self-service is enabled. [Hosted rollout](HOSTED_ROLLOUT.md),
