@@ -13,8 +13,8 @@ their implementation contract; those tickets build the runtime. No HTTP endpoint
 browser workflows, identity system, infrastructure resources, or cutover are implemented
 by this ADR.
 
-The existing Streamlit/Sheets application remains the operational internal
-edition and a behavioral reference. Commercial HTTP contracts represent domain
+At the time of this decision, Streamlit and Sheets served internal bookkeeping
+and provided a behavioral reference. Commercial HTTP contracts represent domain
 resources and commands, never worksheet rows, Streamlit session state, reruns,
 or local profile configuration. Simple Ledger remains an input/display model
 over canonical postings. Accounting rules remain in Python application/domain

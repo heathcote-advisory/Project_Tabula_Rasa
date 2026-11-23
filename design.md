@@ -204,17 +204,12 @@ value is truly zero. Do not put every metric in a heavily bordered card.
 ## Application shell
 
 The browser shell below owns bookkeeping navigation and selected-business context.
-The local administrator has a title, a bookkeeping destination notice, Account
-settings and Log out. It has no bookkeeping page selector or automatic workbook
-initialization/reconciliation. Stale bookmarked bookkeeping route state cannot
-restore a retired page.
-
-Local administration requires application-password login, the explicit local-admin
-flag and a loopback bind. Configuration changes require password reauthentication.
-Its own business selector scopes Google and recovery controls to the selected local
-profile. Named-user membership never unlocks this interface. Public Terms of Use and
-Privacy Policy remain available before and after authentication without loading
-workbooks, Google grants or ledger data.
+The [local operator CLI](docs/SETUP.md#local-profile-administration) prompts for the
+application password on each invocation and uses the profile key to scope Google,
+workbook and recovery commands. Google consent and Picker open temporary loopback
+browser flows. Commercial membership grants no access to the local CLI or its
+configuration. Public Terms of Use and Privacy Policy remain available before and
+after browser authentication without loading workbooks, Google grants or ledger data.
 
 
 ## Commercial shell
@@ -236,8 +231,6 @@ provisioning. Disconnect preserves files/links and explains separate Google revo
 folder locators or credential-entry fields are displayed. Unavailable/stale
 commands remain visible failures and are not automatically retried.
 Read-only, Editor, Accountant and Admin do not see connection management.
-The local operator CLI checks the application password on each invocation.
-Commercial membership and claimed profile IDs grant no local access.
 
 **Current behavior** for the opt-in named-user foundation:
 

@@ -5,7 +5,6 @@ domain services retain normalization and bookkeeping decisions. Mutations carry
 loaded baselines and validate fresh state at the write boundary. Supported commit
 units and canonical relationships are defined by
 [ADR 0001](../adr/0001-canonical-accounting-schema.md#operation-boundaries).
-Configuring this runtime does not activate PostgreSQL in Streamlit.
 
 ## Reuse and ownership
 
@@ -133,8 +132,8 @@ includes ID, name, kind and parent ID. Mileage comparison includes every stored
 trip field, including sorted tag IDs and creation timestamp, excluding resolved
 tag names. Comparisons normalize decimal and boolean representations. They run
 against the existing fresh row while holding the workbook's existing lock.
-They do not add tokens/columns to frozen workbook format 13, and do not change
-current Streamlit form behavior or upgrade existing optional snapshot semantics.
+Frozen workbook format 13 retains its existing columns and optional snapshot
+semantics.
 Snapshot equality cannot detect an edit/revert or recreation with identical
 persisted values; PostgreSQL incarnation/version tokens provide that protection.
 

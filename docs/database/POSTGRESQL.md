@@ -2,13 +2,11 @@
 
 The PostgreSQL runtime provides explicit database configuration, connections, forward
 migrations and isolated test infrastructure. [ADR
-0001](../adr/0001-canonical-accounting-schema.md) owns the accounting model. This
-foundation does not select a managed provider or activate a PostgreSQL ledger. The
-Streamlit composition still uses Google Sheets, even if a database URL is present.
-Installing only `requirements.txt` remains sufficient for it. Explicit per-profile
-service composition and the whole-profile acceptance and authority cutover acceptance,
-maintenance, activation and rollback procedure are documented in [Bookkeeping acceptance
-and cutover](../accounting/CUTOVER.md). Forward revision `0005_bookkeeping_cutover` adds
+0001](../adr/0001-canonical-accounting-schema.md) owns the accounting model.
+PostgreSQL backs browser and API bookkeeping. Follow [Bookkeeping acceptance and
+cutover](../accounting/CUTOVER.md) for whole-profile acceptance, maintenance,
+authority activation and rollback. The [local operator CLI](../SETUP.md#local-profile-administration)
+sets up Sheets source and recovery profiles. Forward revision `0005_bookkeeping_cutover` adds
 operator controls without rewriting the retained schema baseline or changing the
 canonical export v1 bookkeeping inventory. Identity revisions
 `0006_identity_control_plane` and `0007_identity_sessions` attach organization ownership
