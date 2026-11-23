@@ -242,96 +242,38 @@ still refuses stale Sheets reactivation. Use PostgreSQL/document recovery.
 
 ## Retained local administration inventory
 
-The new commercial runtime needs named business access, approved provider grants
-and separate database/document recovery. Sheets profile registration, workbook
-Picker/bootstrap, local backup/Cloud Sync settings serve retained operator/source/recovery workflows only; the two preparation
-converters are retired. These workflows are not new
-commercial feature requirements. Streamlit Cloud Secrets handoff is retired.
-Retaining an internal tool does not require porting it into the new application.
+The [local operator CLI](../SETUP.md#local-profile-administration) administers
+protected Sheets source and recovery profiles. The legacy Streamlit launcher,
+renderers and synthetic viewport samples are retired. Commercial routes keep
+their existing role, authentication and business-scope rules.
 
-Local administration remains supported for those retained actions. Commercial
-business creation, membership management and connection activation cover only part of its responsibilities.
-The following matrix defines the supported replacement boundary; implementation
-coverage does not attest to a selected deployment or authorize retirement.
-
-| Action and current implementation owner | In-app coverage and disposition | Remaining operator / verification responsibility |
-| --- | --- | --- |
-| Authenticate and select a business (`http/identity.py`, React session and scope boundary) | **Verified replacement for commercial access:** named login and My Businesses resolve independent server-authorized memberships. **Retain** the local application password/unlock for local administration. | [Authentication](AUTHENTICATION.md), [authorization](AUTHORIZATION.md) and [business access](BUSINESS_TENANCY.md) own session, removal, foreign-business and cache isolation. Membership never unlocks local configuration. |
-| Register a new business/profile (`local_profile_admin_forms.py`, `local_profile_store.py`) | **Verified replacement for new PostgreSQL businesses:** Create business calls `POST /api/v1/businesses`; `WorkspaceService.create_business` reuses idempotent ledger bootstrap and creates a private backing organization. **Retain** local profile configuration for Google grant/folder and source/recovery administration. | [Business access](BUSINESS_TENANCY.md) owns creation/isolation. Creation must not claim existing books, create a new Google grant or rewrite an accepted entity binding. Existing books use the separately approved claim procedure above. |
-| Edit business name and local profile settings (`render_local_profile_edits`) | **Retain.** Business creation/member controls are not a profile-settings editor. The commercial business routes do not provide a general business rename or local workbook/path editor. | Local setup owns immutable profile keys, name validation, workbook ID and backup-path preservation. Identity/control-plane maintainers must verify any future edit replacement independently of creation. |
-| Manage members, roles and invitations (business routes and `WorkspaceService.business_operation`) | **Verified commercial capability**, not local configuration authority. Business-specific Owner/Admin controls reuse server role rules; My Businesses lists only authorized businesses. | [Business access](BUSINESS_TENANCY.md) owns last-Owner, role-change, invitation and cross-business checks. Member removal is not deletion of a local profile, ledger or provider grant. |
-| Configure Google client/consent and acquire or replace offline grants (`google_drive_admin.py`, Google OAuth helpers) | **Extend.** Configured [customer consent](GOOGLE_DRIVE.md) acquires the business grant. Retain operator client/consent configuration and loopback/source tooling. | Follow operator-assisted setup above and [Google setup](../GOOGLE_DRIVE.md). Verify exact account/client, approved loopback callback, `drive.file`, intended profile and folder; protect the shared client and each profile's grant separately. |
-| Create/validate managed root, receipt and backup folders (`google_drive_admin.py`) | **Extend.** Customer consent creates/reuses dedicated managed folders and validates them. Retain local selection/provisioning for existing source and recovery use. | Operator verifies profile labels, parentage and accepted receipt scope. Preserve existing file/folder IDs and bytes. Do not infer ownership from a folder name or reuse another business's grant. |
-| Picker workbook selection, initial workbook creation and recovery-workbook authorization (`google_drive_picker.py`, Google setup) | **Retain.** Native PostgreSQL bootstrap replaces only the new commercial ledger path, not Sheets provisioning or granting access to a restore target. | Verify selected profile/grant and exact workbook before saving. Existing ledgers are selected, not recreated. Recovery targets remain separate from the active workbook; [Setup](../SETUP.md) owns these actions. |
-| Stage encrypted provider credentials / bind an accepted entity (`scripts/manage_identity_bindings.py`) | **Retain operator CLI.** There is no browser secret-upload or legacy-claim endpoint. Customer consent writes a new encrypted grant through the same custody; it does not expose secret upload or legacy claims. | Separate infrastructure authority, exact private mapping, dry-run plan and approved apply are required. Verify environment/org/entity/profile/folder envelope, revision and key/ciphertext custody as above. |
-| Inspect connection status; Connect/Reconnect/Disconnect (`http/routes/connections.py`, `TenantConnections`) | **Verified in-app equivalent for application connection lifecycle:** Data & backup > Google Drive connection. **Extend** with configured customer consent; retain operator client configuration and separate Google revocation. | Active Owner only; changes require authentication within five minutes, Origin/CSRF and current revision. Foreign/removed/non-Owner requests deny before secret access. Disconnect preserves grants/bytes and does not revoke Google consent. |
-| Export hosted Streamlit Secrets (`local_profile_admin_security.py`, former export CLI) | **Approved retirement.** The Streamlit Cloud handoff is no longer used. The UI action, export CLI and export-only tests are removed. Commercial provisioning already uses the encrypted operator path above. | Never replace this with a hosted credential export. Preserve protected existing configuration/recovery material; no secret file or provider grant is deleted by retiring the source code. |
-| Configure local/Drive backup destinations and Synology readiness (`local_profile_admin_synology.py`, readiness helpers) | **Retain.** Commercial ledger export and scoped support diagnostics do not configure these paths or prove NAS delivery. | [Sheets backup/recovery](../BACKUP_RECOVERY.md) owns profile-scoped paths and readiness. [NAS database backup](../operations/NAS_BACKUP.md) and [document recovery](../storage/RECEIPT_RECOVERY.md) own the separate new-stack recovery paths; accepting one does not verify the other. |
-| Restore/recover, change authority or perform privileged support actions | **Retain the separate operator procedures.** Support containment/diagnostics are not a browser clone of local restore or credential controls. | [Support](../operations/SUPPORT.md) requires independent operator grants and business authorization. [Cutover](../accounting/CUTOVER.md) and recovery owners retain exact-target approval, blank-target/live-workbook refusal, checksum/version checks, source freeze and post-divergence prohibition on stale Sheets fallback. |
+| Action | Supported owner and disposition |
+| --- | --- |
+| Sign in and select a business | Named login and My Businesses authorize commercial access. The operator CLI prompts for the local application password on each invocation and requires filesystem access to protected configuration. |
+| Register a business or local profile | Commercial Create business owns PostgreSQL bootstrap. Operators use `profile add` for local Google and Sheets settings. Claiming existing books uses the approved procedure above. |
+| Edit local profile settings | `profile edit` changes the business name or local backup path. The local key stays immutable. Google and workbook changes have dedicated commands. |
+| Manage members, roles and invitations | Existing [business access](BUSINESS_TENANCY.md) workflows own membership and role authorization. Membership carries no local operator authority. |
+| Configure OAuth and obtain or replace an offline grant | Operators configure the existing shared client in protected TOML and use `google connect` with a short-lived loopback callback. [Customer Drive consent](GOOGLE_DRIVE.md) owns the separately enabled Owner flow. |
+| Select a root and create or validate managed children | `google pick-root` or `google create-root`, followed by `google provision-folders` and `google check`, serve local receipts and backup destinations. Customer receipt provisioning remains in the Owner flow. |
+| Select a Sheets workbook, initialize a blank ledger or authorize a candidate | `workbook select`, `workbook create`, `workbook initialize` and `workbook authorize` use the selected profile's grant. Candidate authorization preserves the configured workbook. |
+| Stage encrypted credentials or bind an accepted entity | Retain `scripts/manage_identity_bindings.py` and the approved mapping, plan and apply workflow above. |
+| Inspect connection and disconnect | `profile list`, `profile check` and `google disconnect` serve the local store. Commercial Data & backup retains the Owner lifecycle. Provider revocation remains a separate Google operation. |
+| Export hosted Streamlit Secrets | Retired because the hosted deployment is gone. Encrypted operator staging is the supported commercial path. |
+| Set local backup and Synology destinations | `profile edit --backup-folder` and `recovery set/show/disable` serve [Sheets backup and recovery](../BACKUP_RECOVERY.md). Verify actual Cloud Sync in DSM. |
+| Back up, validate, restore, migrate or change authority | Retain the separate [Sheets backup and restore](../BACKUP_RECOVERY.md), [cutover](../accounting/CUTOVER.md) and [support](../operations/SUPPORT.md) procedures. Restore refuses every configured live workbook and validates the backup before writing to a new blank target. |
 
 ### Local authority and credential custody
 
-Local UI actions require `TABULA_LOCAL_PROFILE_ADMIN=1`, loopback-only Streamlit
-binding, application-password authentication and administrator reauthentication.
-The renderer rechecks the boundary before configuration access. Unlock is bound
-to the current password hash so stale/misbound booleans do not survive rotation.
-Commercial membership, claimed IDs and forwarded headers grant no local
-authority. Keep the listener out of public proxies and use
-`scripts/run_local_profile_admin.ps1`. The legacy application password/shared
-OAuth client intentionally remain deployment-wide. Standalone operator CLIs
-require protected OS/configuration access and the approvals in their own
-procedures; they do not inherit a browser unlock.
+The local application password and shared OAuth client are deployment-wide.
+Profile grants, workbook IDs, folders and recovery settings are profile-scoped.
+Only OAuth consent and Picker open the browser; their listener binds to loopback
+and closes on completion, cancellation or timeout. Local JSON grants require
+restricted filesystem custody. Commercial grants use their own encrypted
+custody and authorized activation. Standalone backup, restore and migration
+commands use protected OS access and their procedures' approvals.
 
-Local profile JSON and previously generated Secrets files contain plaintext
-grants and require restricted filesystem custody; source retirement does not
-delete them. Commercial grants use the encrypted store described above, with independent key custody. Neither browser sessions,
-DTOs, logs nor bookkeeping exports may carry these secrets. Verify two distinct
-businesses even when the same human Google account serves both: workbook,
-receipt namespace, grant and cached authorization must never cross scopes.
-
-### Retirement decision and verification owners
-
-**Retain** local actions marked above except the explicitly retired Streamlit
-Secrets export. The profile/OAuth and receipt-association converters are retired. The
-maintainers' direction to stop using local administration is conditional on full needed functional coverage. A
-completed commercial business-access implementation is not proof of that
-condition. A future removal needs a per-action verified replacement or an
-explicit maintainer decision that the action is no longer needed, including
-remaining operator access and credential/recovery custody.
-
-[Connections and claims](https://github.com/Roklion/Project_Tabula_Rasa/issues/318)
-and [existing-entity administration](https://github.com/Roklion/Project_Tabula_Rasa/issues/319)
-own the retained provider/local boundaries;
-[server authorization](https://github.com/Roklion/Project_Tabula_Rasa/issues/313)
-and [support operations](https://github.com/Roklion/Project_Tabula_Rasa/issues/341)
-own their distinct permission checks. Business-access owners verify only their
-implemented creation/member/switching functions. Live selected-business acceptance
-belongs to [owner cutover](https://github.com/Roklion/Project_Tabula_Rasa/issues/303);
-[identity coordination](https://github.com/Roklion/Project_Tabula_Rasa/issues/222)
-records the per-action retirement decision. This is a maintenance boundary,
-not a new alpha/cutover gate or external-beta admission approval.
-
-Source verification lives in `tests/test_legacy_admin_boundary.py`,
-`tests/test_local_profile_admin.py`, `tests/test_sheets_oauth.py`,
-`tests/postgres/test_business_access.py`, `tests/postgres/test_workspaces.py`
-and `tests/postgres/test_tenant_connections.py`. These cover local boundary and
-password rotation, removal of credential export controls, safe readiness
-failures, selected-profile workbook operations, business roles/bootstrap and foreign/revoked/stale grant denials.
-They do not certify live provider setup, NAS restoration or operator retirement.
-[Explicit source preparation](../accounting/SHEETS_MIGRATION.md#explicit-source-preparation-tools)
-owns current source-preparation and retired-format guidance.
-
-## Reuse and verification
-
-Reuse: shared membership/action policy, named sessions/freshness/CSRF, existing
-cutover acceptance/authority/divergence, Google OAuth/managed folders,
-EntityDocumentStore/profile labels and PostgreSQL receipt metadata.
-New logic: connection lifecycle/secret resolution and operator claims.
-There is no parallel ledger, login, OAuth migration engine or retry framework.
-
-Regressions exercise real PostgreSQL claims, unchanged 26-domain exports and
-cutover records, two-org grants, missing/revoked secrets, reconnect, revision/
-freshness/CSRF, logged-out bytes and legacy remote/misbound authority. Browser
-tests exercise confirmation, safe states, uncertain failure and cancellation.
-Hosted provider setup, credentials, live mapping and release acceptance remain
-explicit operator checkpoints, not evidence supplied by mocks.
+Connection regression coverage exercises membership, CSRF and freshness checks,
+foreign or revoked grants, reconnection and revision handling. Operator tests cover
+credential isolation and synthetic recovery. Use [hosted rollout](HOSTED_ROLLOUT.md)
+for live provider checks and [explicit source preparation](../accounting/SHEETS_MIGRATION.md#explicit-source-preparation-tools)
+for retained migration tools.

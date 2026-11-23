@@ -1,14 +1,11 @@
 """Local-only business-profile configuration storage.
 
-The local store is deliberately separate from Streamlit Secrets. Hosted
-deployments continue to use their platform-managed secrets, while an explicitly
-enabled local app can merge profiles from this ignored JSON file.
+The local store holds profile settings for operator tools. Hosted deployments
+use their separate platform-managed secrets.
 """
 
 from __future__ import annotations
 
-import hashlib
-import ipaddress
 import json
 import os
 import re
@@ -16,7 +13,6 @@ import stat
 import tempfile
 import threading
 import tomllib
-import unicodedata
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -35,7 +31,6 @@ from tabula_rasa.synology_recovery import (
 )
 
 
-LOCAL_PROFILE_ADMIN_ENV = "TABULA_LOCAL_PROFILE_ADMIN"
 LOCAL_PROFILE_STORE_PATH = (
     Path(__file__).resolve().parents[1]
     / ".streamlit"
@@ -64,28 +59,6 @@ def ensure_google_drive_disconnect_allowed(
             "Disable Synology recovery before disconnecting "
             "this profile's Google Drive."
         )
-
-
-def local_profile_admin_enabled(environment: Mapping[str, str] | None = None) -> bool:
-    """Return whether the fail-closed local profile administrator is enabled."""
-    values = os.environ if environment is None else environment
-    return values.get(LOCAL_PROFILE_ADMIN_ENV) == "1"
-
-
-def local_profile_admin_available(
-    server_address: object,
-    environment: Mapping[str, str] | None = None,
-) -> bool:
-    """Require both the explicit flag and a loopback-only Streamlit bind."""
-    if not local_profile_admin_enabled(environment):
-        return False
-    address = str(server_address or "").strip().casefold()
-    if address == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(address).is_loopback
-    except ValueError:
-        return False
 
 
 def parse_spreadsheet_id(value: str) -> str:
@@ -123,17 +96,6 @@ def validate_profile_key(value: str) -> str:
             "lowercase letters, numbers, underscores, or hyphens (48 characters max)."
         )
     return key
-
-
-def suggest_profile_key(value: str) -> str:
-    """Suggest an editable safe profile key from a business display name."""
-    normalized = unicodedata.normalize("NFKD", str(value or "")).encode(
-        "ascii", "ignore"
-    ).decode("ascii")
-    slug = re.sub(r"[^a-z0-9]+", "-", normalized.casefold()).strip("-")
-    if not slug or not slug[0].isalpha():
-        slug = f"business-{slug}" if slug else "business"
-    return slug[:48].rstrip("-_") or "business"
 
 
 def build_profile_settings(
@@ -517,32 +479,19 @@ def merged_profile_secrets(
     return merged
 
 
+def load_local_app_secrets(secrets_path: Path) -> Mapping[str, Any]:
+    """Read the protected operator TOML without exposing parse errors."""
+    try:
+        with secrets_path.open("rb") as secrets_file:
+            return tomllib.load(secrets_file)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise LocalProfileStoreError("Application secrets could not be read safely.") from exc
+
+
 def load_business_profile_document(
     secrets_path: Path,
     *,
     profiles_path: Path = LOCAL_PROFILE_STORE_PATH,
 ) -> Mapping[str, Any]:
     """Load app secrets plus canonical JSON business profiles."""
-    try:
-        with secrets_path.open("rb") as secrets_file:
-            base_secrets = tomllib.load(secrets_file)
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        raise LocalProfileStoreError(
-            "Application secrets could not be read safely."
-        ) from exc
-    return merged_profile_secrets(
-        base_secrets,
-        path=profiles_path,
-    )
-
-
-def local_profile_revision(path: Path = LOCAL_PROFILE_STORE_PATH) -> str:
-    """Return a non-secret cache revision for the current local store."""
-    if not path.exists():
-        return "absent"
-    try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-    except OSError as exc:
-        raise LocalProfileStoreError(
-            "Local profile store could not be read safely."
-        ) from exc
+    return merged_profile_secrets(load_local_app_secrets(secrets_path), path=profiles_path)

@@ -6,7 +6,6 @@ import pytest
 
 from tabula_rasa.profile_readiness import (
     profile_configuration_readiness,
-    profile_settings_fingerprint,
 )
 
 
@@ -121,12 +120,3 @@ def test_local_only_validation_failure_is_sanitized_and_actionable() -> None:
     assert report.status == "incomplete"
     assert report.validation_errors == ("Sheets validation failed",)
     assert "credential" not in " ".join(report.validation_errors).casefold()
-
-
-def test_settings_fingerprint_changes_when_persisted_profile_settings_change() -> None:
-    settings = _settings()
-
-    original = profile_settings_fingerprint(settings)
-    settings["backup_folder_path"] = r"G:\\Backups\\north"
-
-    assert profile_settings_fingerprint(settings) != original

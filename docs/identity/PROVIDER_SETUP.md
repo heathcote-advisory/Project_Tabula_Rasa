@@ -24,12 +24,11 @@ remain live owner cutover and hosted identity rollout.
 | Paid launch | Same named identity/security contract plus accepted customer lifecycle, capacity/support and operational guarantees. | external release and customer lifecycle and commercial recovery agreement's separate launch and recovery agreement; identity completion alone is insufficient. |
 
 Named sessions and business membership authorize access to the browser/API runtime.
-The [local profile administrator](../SETUP.md) is a separate loopback-only tool for
-Google grants, Sheets source access and recovery. The deployment-wide application
-password and administrator reauthentication protect that interface; credentials,
-workbooks and folders remain scoped to each profile. Commercial sign-in and business
+The [local operator CLI](../SETUP.md) manages Google grants, Sheets source access
+and recovery. It uses the application password and protected filesystem access.
+Credentials, workbooks and folders remain scoped to each profile. Commercial sign-in and business
 selection grant no local authority. The [retained local administration inventory](CONNECTIONS_AND_CLAIMS.md#retained-local-administration-inventory)
-defines the operator actions and the criteria for retiring each one.
+defines the owners of those actions.
 
 Named login does not migrate books or claim all configured profiles. existing entity
 claims and local administration's explicit dry-run/apply maps an approved internal
@@ -287,7 +286,7 @@ for provider-hosted cases.
 | T16: private route added without policy; privileged valid request bypasses baseline/accounting checks | Route inventory test requires declared identity/capability policy before composition on every private route/byte/export family. Authorized stale edits still fail; valid bookkeeping retains invariants. | server authorization and identity security testing |
 | T17: non-owner backup/restore/migration/admin request or platform operator treated as tenant Owner | Owner succeeds only within the approved business and supported recovery procedure; other tenant roles deny owner-only capabilities. Infrastructure operator authority alone grants no business access. Preserve blank-target restore and current backup validation; record owner approval separately from execution. | server authorization, existing entity claims and local administration and platform operations |
 | T18: credential/key change, forced reset or provider recovery with old sessions | User change revokes that user's sessions in every organization; unrelated users remain authorized. Environment-wide change revokes affected sessions/login transactions in that environment only. Copied old cookies deny after confirmed revocation; fresh named login succeeds. Provider events must be authenticated or use coordinated operator revocation; no deadline-only fallback. | named-user authentication, membership administration and hosted identity rollout |
-| T19: commercial user attempts to reach local profile administration | Login, role and business selection confer no local credential access. The retained interface requires loopback, the local administration flag, the application password and operator reauthentication. | existing entity claims and local administration, identity security testing and hosted identity rollout |
+| T19: commercial user attempts to reach local profile administration | Login, role and business selection confer no local credential access. The operator CLI requires filesystem access and the application password. Its temporary Google listener binds to loopback. | existing entity claims and local administration, identity security testing and hosted identity rollout |
 
 Denials and assertions must use synthetic data. Captured logs/HTTP errors must
 exclude email, authorization codes, cookies, provider tokens, invitation
