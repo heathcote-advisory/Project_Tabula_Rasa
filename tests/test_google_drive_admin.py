@@ -248,7 +248,7 @@ def test_reconnect_drops_managed_child_with_missing_parents_safely() -> None:
     }
 
 
-def testsave_storage_root_refreshes_name_when_id_is_unchanged(tmp_path: Path) -> None:
+def test_save_storage_root_refreshes_name_when_id_is_unchanged(tmp_path: Path) -> None:
     root_id = "rootfolder123"
     client = FolderClient(
         {root_id: managed_folder(root_id, "Tabula Rasa Data", kind="storage-root")}
@@ -281,7 +281,7 @@ def testsave_storage_root_refreshes_name_when_id_is_unchanged(tmp_path: Path) ->
     )
 
 
-def testsave_storage_root_handles_missing_folder_name_without_key_error(
+def test_save_storage_root_handles_missing_folder_name_without_key_error(
     tmp_path: Path,
 ) -> None:
     root_id = "rootfolder123"
@@ -300,7 +300,7 @@ def testsave_storage_root_handles_missing_folder_name_without_key_error(
     update.assert_not_called()
 
 
-def testsave_storage_root_handles_non_mapping_folder_response(
+def test_save_storage_root_handles_non_mapping_folder_response(
     tmp_path: Path,
 ) -> None:
     root_id = "rootfolder123"
@@ -356,7 +356,7 @@ def test_storage_root_check_does_not_read_parent_folders() -> None:
     _ensure_storage_root_is_not_directly_nested("north", selected_root, profiles)
 
 
-def testcreate_storage_root_checks_drive_root_isolation(
+def test_create_storage_root_checks_drive_root_isolation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     north_root = managed_folder("northroot123", "North Storage", kind="storage-root")

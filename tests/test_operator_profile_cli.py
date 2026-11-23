@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from unittest.mock import Mock
 
@@ -224,3 +225,22 @@ def test_password_is_required_before_profile_or_browser_access(
     assert not profiles_path.with_suffix(".lock").exists()
     browser.assert_not_called()
     assert "bad-private-password" not in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Exercises Windows byte-range locking")
+def test_windows_operator_lock_uses_first_byte_of_existing_file(tmp_path):
+    import msvcrt
+
+    profile_path = tmp_path / "profiles.json"
+    lock_path = profile_path.with_suffix(".lock")
+    lock_path.write_bytes(b"existing lock file")
+    with lock_path.open("r+b") as other_operator:
+        msvcrt.locking(other_operator.fileno(), msvcrt.LK_NBLCK, 1)
+        with pytest.raises(
+            cli.LocalProfileStoreError, match="Another operator command"
+        ):
+            with cli._operator_lock(profile_path):
+                pytest.fail("A second operator acquired the same lock")
+    with cli._operator_lock(profile_path):
+        pass
+    assert lock_path.read_bytes() == b"existing lock file"

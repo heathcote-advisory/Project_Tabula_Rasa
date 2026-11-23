@@ -128,6 +128,7 @@ def _operator_lock(path: Path) -> Iterator[None]:
             if os.name == "nt":
                 import msvcrt
 
+                lock.seek(0)
                 msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
             else:
                 import fcntl

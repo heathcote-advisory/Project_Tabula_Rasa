@@ -4,6 +4,7 @@ pytest==9.1.1
 ruff==0.15.22
 playwright==1.62.0
 PyYAML==6.0.3
+toml==0.10.2
 -r requirements-api.txt
 -r requirements-object-storage.txt
 httpx==0.28.1
