@@ -5,7 +5,7 @@
 This document is the durable user-interface and interaction specification for
 Project Tabula Rasa. It defines the product character, visual tokens, layout
 rules, reusable component behavior, responsive and accessibility requirements,
-Streamlit constraints, page contracts, and objective UI acceptance criteria.
+page contracts, and objective UI acceptance criteria.
 
 It is intentionally text-first. Screenshots are optional implementation
 evidence; they do not replace the written contract.
@@ -25,11 +25,10 @@ design because code drifted, and do not change runtime behavior as part of a
 documentation-only cleanup.
 
 Bookkeeping uses the React/FastAPI/PostgreSQL application. The commercial shell
-and first-use sections below specify its current interface. The Streamlit entry
-point is retained solely for loopback operator administration, Google consent/grant
-replacement, folder administration and source/recovery setup. Its bookkeeping pages,
-navigation and session generation are retired. New PostgreSQL businesses use native
-in-app creation; this does not acquire a Google grant.
+and first-use sections below specify its current interface. Privileged Sheets
+and Drive setup uses the local operator CLI. Google consent and Picker open a
+temporary browser interaction. Commercial onboarding and customer Drive
+connections remain in the commercial application.
 
 Architecture, setup, usage and recovery belong in [Architecture](docs/ARCHITECTURE.md),
 [Setup](docs/SETUP.md), [Using Tabula Rasa](docs/USING_TABULA_RASA.md) and
@@ -79,11 +78,6 @@ indicator.
 
 Important actions, values, warnings, and states must remain visible or
 keyboard-accessible without hover.
-
-### Native Streamlit first
-
-Prefer native Streamlit controls. Use custom CSS, HTML, or components only
-when the benefit is substantial and maintainable.
 
 ### Safe actions are explicit
 
@@ -242,9 +236,8 @@ provisioning. Disconnect preserves files/links and explains separate Google revo
 folder locators or credential-entry fields are displayed. Unavailable/stale
 commands remain visible failures and are not automatically retried.
 Read-only, Editor, Accountant and Admin do not see connection management.
-Existing local Account settings remains under its loopback flag/password gate,
-with unlock tied to the current application-password configuration; commercial
-membership and claimed profile IDs do not unlock that interface.
+The local operator CLI checks the application password on each invocation.
+Commercial membership and claimed profile IDs grant no local access.
 
 **Current behavior** for the opt-in named-user foundation:
 
@@ -400,12 +393,11 @@ values use tabular numerals, and Accounts aligns the opening-balance heading
 with its values. Shared metrics use 28px values and ordinary labels. These are
 foundations for later page slices, not completion of the full design epic.
 The compact [requirement/implementation audit](docs/browser/UI_COMPONENTS.md)
-records commercial/Streamlit conflicts, reuse owners, hooks and visual evidence.
+records commercial design decisions, reuse owners, hooks and visual evidence.
 
 **Current behavior — light Soft workspace (owner-selected direction):**
 The commercial app stays light even when the operating system prefers dark.
-This explicitly replaces the earlier commercial neutral palette; the internal
-Streamlit palette above retains its own owner.
+The commercial palette below defines the active browser surfaces.
 
 | Commercial token | Value / treatment |
 | --- | --- |
@@ -596,8 +588,6 @@ the explicit server-only [Drive file configuration](docs/storage/STAGING_RECEIPT
 Absent configuration retains the availability screen; invalid supplied bindings
 stop startup. No credential controls or Google authorization routes are added to
 the commercial browser.
-The Streamlit-specific shell requirements above continue to govern the internal
-edition.
 
 ## Commercial first-use setup
 
@@ -915,32 +905,7 @@ outlines without an equivalent replacement. Icons are never the only
 representation of delete, edit, warning, success, financial direction,
 active/inactive, or balanced/out-of-balance state. Avoid nonessential motion.
 
-## Streamlit constraints
 
-Prefer the following mappings:
-
-| Need | Preferred control |
-| --- | --- |
-| Text | st.text_input or st.text_area |
-| Amount, miles | st.number_input |
-| Date | st.date_input |
-| Single choice | st.selectbox |
-| Account filter | st.multiselect |
-| Transaction type | st.segmented_control |
-| Boolean or acknowledgement | st.checkbox or st.toggle |
-| Upload | st.file_uploader |
-| Submission | st.form and st.form_submit_button |
-| Read-only selectable table | st.dataframe with selection |
-| Edit/Bulk mode | segmented control or toggle with explicit labels |
-| Export | st.download_button |
-| Status | st.success, st.warning, st.error, or st.info |
-| Metric | st.metric |
-| Chart | st.plotly_chart |
-
-Avoid replacing native controls solely for styling. Large prepared exports
-should not be regenerated on every rerun. Show their preparation timestamp,
-change Prepare to Refresh when a set exists, and invalidate a set after a
-confirmed workbook write.
 
 ### Commercial table readability and management
 
@@ -997,105 +962,23 @@ recurring and asset data remain part of migration, canonical export and recovery
 **Current behavior:** The commercial support surface is a restricted operator CLI
 and typed API, separately authorized by expiring organization/environment grants.
 It exposes bounded metadata and read-only audit inspection, plus preview/confirm
-access containment. It adds no customer navigation or remote Account settings
-clone. See [Support operations](docs/operations/SUPPORT.md). Tenant membership,
+access containment. It has no customer navigation. See [Support operations](docs/operations/SUPPORT.md). Tenant membership,
 selected business and legacy local administration do not grant support authority.
 
-### Account settings
+### Local operator administration
 
-#### Purpose and availability
+**Current behavior:** `python -m scripts.local_profile_admin` requires protected
+filesystem access and prompts for the application password. Commands identify
+the intended profile. Profile keys remain immutable, and candidate workbook
+authorization preserves the configured workbook. The listener is limited to
+one loopback Google consent or Picker interaction; configuration and readiness
+run in the terminal. Operator output provides status and actionable errors
+without printing credential material or ledger data.
 
-Account settings is the local administration home for business profiles,
-credentials, Drive storage, and recovery metadata. It requires loopback-only availability and application-password reauthentication.
-It is unavailable for writable administration in hosted environments.
-
-Organize the surface as Business profiles, Google setup, Recovery, and
-Security & deployment information. The last section is informational.
-Streamlit Cloud Secrets generation/export is retired; commercial deployment uses
-separate server secret provisioning and authorized connection activation.
-
-#### Business profiles
-
-When no local profile exists, lead with profile creation and do not render
-unrelated Drive or Synology controls. Preserve:
-
-- profile summary with key, business, masked spreadsheet ID, local backup
-  folder, Google connection/account, Synology state/path,
-  and configuration source;
-- business name and immutable safe profile key;
-- optional local backup folder and Save profile for the initial setup record;
-- profile-scoped Connect/reconnect Google;
-- ledger spreadsheet selection through Google Picker, with OAuth open and
-  Editor capability validation before saving its ID, rejecting a ledger
-  already assigned to another local business profile;
-- Validate ledger: initialize genuinely blank workbooks; populated legacy or
-  incompatible workbooks are rejected without writes under the frozen
-  [format-13 source contract](docs/SHEETS_SOURCE_CONTRACT.md); historical
-  ledger/archive conversion is retired;
-- edit of business name and local backup folder; and
-- candidate workbook Picker authorization for recovery/migration that preserves
-  the active ledger ID.
-
-Sheets and Drive use the same human Google OAuth grant with `drive.file`.
-There are no Sheets service-account upload, private-key, or rotation controls.
-
-Failed validation leaves the prior profile intact. Never display private keys,
-refresh tokens, private ledger data, or receipt contents. Readiness performs
-fresh workbook and configured-destination checks without walking ordinary
-Drive parent folders.
-
-#### Google setup
-
-Preserve profile-scoped Connect or reconnect, disconnect without deleting
-Drive files or revoking the Google application grant, existing-root Picker selection or app-managed root creation,
-Provision storage folders, and authorized-account/destination summaries.
-Managed Receipts and Ledger Backups children are identified by stored IDs and
-profile metadata rather than names alone.
-
-#### Initial recovery workbook provision
-
-This retained operator action prepares approved source/recovery workbooks. New
-PostgreSQL businesses use native in-app creation.
-
-In Account settings > Google setup, a connected profile with no ledger can use
-Create ledger spreadsheet instead of selecting an existing file. The app creates
-`Business name Ledger` in that Google account's My Drive, saves its ID, and
-initializes the existing required worksheets and default accounts/categories.
-This does not require a separate Picker grant because the app creates the file.
-The action is hidden once a ledger is configured and never replaces an existing
-ledger. Drive receipt/backup folders are still configured in the same setup tab.
-
-If creation or initialization is uncertain, no file is deleted or blindly
-recreated. Inspect Drive and select the created file through Picker; if its ID
-was saved, use Validate ledger to finish supported blank-workbook initialization.
-
-
-#### Recovery
-
-Preserve enable/disable, profile-root Cloud Sync summary, NAS destination,
-schedule, retention, download-only direction, and destination-deletion
-protection. Enabled records use layout profile-root automatically. Saving
-these local metadata fields must not access Drive or verify DSM, and equivalent,
-shared, or nested normalized NAS destinations are rejected.
-
-Local backup and Synology metadata remain local configuration.
-Changing a Drive root while recovery is enabled is blocked until the recovery
-record is disabled and saved.
-
-#### Security and deployment
-
-State that the application password grants access to every configured profile,
-profile keys are configuration identifiers rather than users, local profile
-storage is plaintext protected by the operating system, and commercial provider
-grants require separately approved encrypted server provisioning. Do not provide
-credential export controls or direct users to paste local configuration into
-Streamlit Cloud Secrets.
-
-#### Acceptance criteria
-
-Retained profile, credential, Drive, storage, recovery and readiness functions
-remain discoverable. Security information exposes no credential export action.
-The page does not imply per-profile permissions, DSM monitoring, or in-app restore.
+[Setup](docs/SETUP.md) defines profile and workbook commands, [Google
+Drive](docs/GOOGLE_DRIVE.md) defines the restricted Picker contract, and
+[backup and recovery](docs/BACKUP_RECOVERY.md) defines separate restore
+and DSM validation procedures.
 
 ## Component contracts
 
@@ -1178,8 +1061,8 @@ semantic purpose, hidden critical errors, generic confirmation language, or
 irreversible actions without explicit confirmation.
 
 When implementing a UI change, inspect the current page implementation and
-the relevant canonical guide, preserve every current function, prefer native
-Streamlit controls, and verify success and relevant failure paths at the
+the relevant canonical guide, preserve current functions, and verify success
+and relevant failure paths at the
 supported desktop and narrow viewports. This is an implementation discipline,
 not a PR or agent-review procedure; repository review rules belong in
 AGENTS.md and .gemini/styleguide.md.

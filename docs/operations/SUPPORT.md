@@ -21,7 +21,7 @@ Existing Owner/Admin member administration remains owned by the workspace
 service; Editor/Reader have no extra backup, restore, credential, local profile
 or audit authority. Existing recovery commands still require their independent
 platform capabilities and one-execution approvals. Support grants confer none
-of those capabilities. Legacy loopback-only Account settings stays separate.
+of those capabilities. Local Sheets and Drive administration uses its protected operator CLI.
 
 | Use case | Returned metadata / effect |
 | --- | --- |

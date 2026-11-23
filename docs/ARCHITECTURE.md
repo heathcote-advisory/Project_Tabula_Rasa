@@ -1,7 +1,6 @@
 # Architecture
 
-Bookkeeping uses React/FastAPI/PostgreSQL. Streamlit serves protected local operator
-administration only. Preserved Google Sheets sources and format-13 archives support
+Bookkeeping uses React/FastAPI/PostgreSQL. A local CLI serves protected operator administration. Preserved Google Sheets sources and format-13 archives support
 explicit migration and recovery commands; they are not a fallback live ledger.
 The broader commercial initiative retains separate identity, provider, deployment,
 recovery and release acceptance boundaries. Source cleanup proves no deployment or
@@ -18,7 +17,7 @@ flowchart LR
     Services --> Documents[Scoped document store]
     Timer[NAS runner] --> Jobs[PostgreSQL queue and authority guards]
     Jobs --> Services
-    Operator[Loopback operator and password reauthentication] --> Admin[Local Streamlit administration]
+    Operator[Protected configuration and password] --> Admin[Local operator CLI]
     Admin --> Google[Google consent, grants, folders and target authorization]
     CLI[Explicit source and recovery CLI] --> Sheets[Format-13 workbook and archive]
     CLI --> Google
@@ -28,11 +27,9 @@ flowchart LR
 
 Named sessions and server-resolved business membership authorize PostgreSQL requests.
 A client profile/entity identifier is not authorization. The local application
-password and shared Google OAuth client are deployment-wide; local administration
-requires the explicit flag, loopback binding and fresh password unlock independently
-of named business membership. `app.py` renders only that administration shell and
-public legal routes. It performs no ledger initialization, default seeding or recurring
-reconciliation on startup or profile selection.
+password and shared Google OAuth client are deployment-wide. Operator profile
+commands require protected OS/configuration access and a fresh password prompt.
+Only consent and Picker open a short-lived loopback listener.
 
 Google grants and workbook/Drive folder selections remain profile-scoped. Sheets and
 Drive use the selected human grant through the shared OAuth client and narrow
@@ -88,7 +85,7 @@ and `ledger_presentation.py`; these shared calculations outlive the deleted page
 | NAS backup runner, source inspector and `deploy/nas/` | Operator SQL capture/health/restore procedures and CI's `tests/tooling/nas_backup_smoke.py` TLS/encryption/restore check |
 | Hosted Drive recovery workflow and runner; receipt recovery benchmark | Explicit isolated two-entity Drive drill and encrypted evidence capture; synthetic Sheets receipt-remap performance comparison, respectively |
 | `infrastructure/postgres/jobs.py`, `recurring_jobs.py`, job CLI and NAS monitor | PostgreSQL recurring dispatch, reconciliation and the NAS runner/heartbeat |
-| `presentation.py`, `ledger_auth.py`, public legal routes | Local administration styling, login, password reauthentication and footer |
+| `scripts/local_profile_admin.py`, `ledger_auth.py`, `operator_google_browser.py` | Local operator commands, password verification, short-lived loopback consent and Picker |
 
 The former Sheets application service graph, ordinary bookkeeping writers, Streamlit
 page contexts/renderers and UI-only pending recurrence/submission state are retired.
@@ -176,7 +173,7 @@ contracts without creating another accounting engine.
 
 `infrastructure/postgres/` owns the SQLAlchemy Core/Psycopg/Alembic runtime. [Database
 operations](database/POSTGRESQL.md) covers connection/transaction boundaries, forward
-migrations, native test infrastructure and integrity rules. The local Streamlit administrator does not assemble bookkeeping services;
+migrations, native test infrastructure and integrity rules. The local operator CLI does not assemble bookkeeping services;
 its retained Google/source/recovery operations do not require a database URL.
 
 Provider-neutral migration plans live in `migration/`, read-only Sheets extraction in

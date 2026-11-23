@@ -22,12 +22,12 @@ that interpreter is unavailable.
 
 The Dev Container installs the root Python requirements. Open the browser/API
 runtime guide below to start that stack explicitly. For profile administration,
-use the [loopback-only local launcher](SETUP.md#local-profile-administration).
+use the [local operator CLI](SETUP.md#local-profile-administration).
 
 The PostgreSQL development runtime, migration policy, environment
 variables, and real-database test setup are documented in
 [PostgreSQL development and operations](database/POSTGRESQL.md). Development dependencies
-include the database tools. The loopback profile administrator and Sheets-only
+include the database tools. The local profile CLI and Sheets-only
 source/recovery tools can run without a PostgreSQL connection.
 
 ## Browser/API development
@@ -258,9 +258,8 @@ application credentials, service-account keys, or OAuth tokens.
 
 Use the React Playwright and native HTTP/PostgreSQL browser checks described in
 [CI ownership](development/CI.md). The Streamlit bookkeeping viewport fixtures and
-smoke scripts are retired. Retained local administration uses focused AppTest
-coverage for login, reauthentication, loopback denial, Google setup and profile
-isolation; it never runs bookkeeping generation on startup.
+smoke scripts are retired. Focused operator tests cover terminal authentication, loopback lifecycle, Google
+setup, profile isolation and a synthetic format-13 restore.
 
 
 ## Live read-only validation
@@ -278,7 +277,7 @@ every module:
 
 - normal pytest unit and integration tests cover domain logic, storage,
   authentication, imports, recovery, and page behavior;
-- focused Streamlit AppTest scenarios cover retained local administration;
+- operator CLI and loopback tests cover local Google setup and format-13 recovery;
 - tests/sheets_fixtures.py seeds synthetic format-13 rows directly for retained
   backup/receipt recovery and read-only validation checks;
 - tests/conftest.py provides reusable pytest fixtures for shared concepts;

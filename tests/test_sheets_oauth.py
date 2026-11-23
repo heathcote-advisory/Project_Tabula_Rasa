@@ -11,7 +11,6 @@ from tabula_rasa.business_profiles import load_business_profiles, select_profile
 from tabula_rasa.google_drive.errors import GoogleDriveConfigurationError
 from tabula_rasa.google_drive.oauth import profile_google_credentials
 from tabula_rasa.google_drive_admin import select_profile_ledger
-from tabula_rasa.google_drive_picker import _PICKER_JS, spreadsheet_picker
 from tabula_rasa.local_profile_store import (
     LocalProfileStoreError,
     load_local_profiles,
@@ -105,25 +104,6 @@ def test_revoked_token_during_read_is_actionable():
     storage = GoogleSheetsStorage(FakeWorkbook())
     with pytest.raises(StorageAuthenticationError, match="Reconnect this profile"):
         storage._api(Mock(side_effect=RefreshError("private-error")))
-
-
-def test_spreadsheet_picker_sends_spreadsheet_mode():
-    result = Mock(selected={"id": "chosen-ledger-123", "name": "Ledger"})
-    with patch(
-        "tabula_rasa.google_drive_picker._folder_picker_component", return_value=result
-    ) as component:
-        assert (
-            spreadsheet_picker(
-                access_token="short-token",
-                api_key="key",
-                project_number="123",
-                key="profile-north",
-            )
-            == result.selected
-        )
-    assert component.call_args.kwargs["data"]["kind"] == "spreadsheet"
-    assert "ViewId.SPREADSHEETS" in _PICKER_JS
-    assert "application/vnd.google-apps.spreadsheet" in _PICKER_JS
 
 
 @pytest.mark.parametrize("persist", [True, False])
@@ -377,51 +357,6 @@ def test_ledger_provision_recovers_prior_created_file_without_second_create():
             == "created-ledger-123"
         )
     create.assert_not_called()
-
-
-def test_onboarding_create_action_initializes_and_hides_after_save(tmp_path):
-    from streamlit.testing.v1 import AppTest
-
-    path = tmp_path / "profiles.json"
-    save_local_profile("north", {**profile(), "spreadsheet_id": ""}, path=path)
-    fake_storage = GoogleSheetsStorage(FakeWorkbook())
-    client = Mock()
-    client.access_token.return_value = "short-token"
-    client.create_ledger_spreadsheet.return_value = {
-        "id": "created-ledger-123",
-        "name": "Business Ledger",
-    }
-    source = f"""
-from pathlib import Path
-from tabula_rasa.google_drive_admin import render_google_drive_admin
-from tabula_rasa.local_profile_store import load_local_profiles
-from tests.google_auth_fixtures import GOOGLE_OAUTH_CONFIG
-path = Path({str(path)!r})
-render_google_drive_admin({{"google_drive_oauth": GOOGLE_OAUTH_CONFIG}}, load_local_profiles(path),
-                         current_url="http://localhost:8501/", selected_profile_key="north", store_path=path)
-"""
-    with (
-        patch(
-            "tabula_rasa.google_drive_admin._cached_drive_client", return_value=client
-        ),
-        patch("tabula_rasa.google_drive_admin.GoogleDriveClient", return_value=client),
-        patch(
-            "tabula_rasa.google_drive_admin.initialize_candidate_storage",
-            return_value=fake_storage,
-        ) as initialize,
-    ):
-        app = AppTest.from_string(source).run()
-        next(
-            button
-            for button in app.button
-            if button.label == "Create ledger spreadsheet"
-        ).click().run()
-    assert len(app.exception) == 0
-    assert load_local_profiles(path)["north"]["spreadsheet_id"] == "created-ledger-123"
-    assert not any(button.label == "Create ledger spreadsheet" for button in app.button)
-    assert any(button.label == "Validate ledger" for button in app.button)
-    assert any("created and initialized" in item.value for item in app.success)
-    initialize.assert_called_once()
 
 
 @pytest.mark.parametrize("same_account", [False, True])

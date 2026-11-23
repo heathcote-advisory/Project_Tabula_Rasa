@@ -8,15 +8,11 @@ import pytest
 
 from tabula_rasa.business_profiles import load_business_profiles
 from tabula_rasa.local_profile_store import (
-    LOCAL_PROFILE_ADMIN_ENV,
     LocalProfileStoreError,
     build_profile_settings,
     load_local_profiles,
-    local_profile_admin_available,
-    local_profile_admin_enabled,
     merged_profile_secrets,
     save_local_profile,
-    suggest_profile_key,
     update_local_profile,
     update_local_profile_google_drive,
     update_local_profile_synology_recovery,
@@ -37,39 +33,6 @@ def settings(
 
 
 class TestLocalProfileStore:
-    @pytest.mark.parametrize(
-        ("business_name", "expected"),
-        (
-            ("North Shop & Café", "north-shop-cafe"),
-            ("123 Holdings", "business-123-holdings"),
-            ("   ", "business"),
-        ),
-    )
-    def test_profile_key_suggestion_is_safe_and_editable(
-        self,
-        business_name: str,
-        expected: str,
-    ) -> None:
-        assert suggest_profile_key(business_name) == expected
-
-    def test_admin_flag_is_strict_and_fail_closed(self) -> None:
-        assert not local_profile_admin_enabled({})
-        assert not local_profile_admin_enabled({LOCAL_PROFILE_ADMIN_ENV: "true"})
-        assert local_profile_admin_enabled({LOCAL_PROFILE_ADMIN_ENV: "1"})
-        assert not local_profile_admin_available(
-            "0.0.0.0",
-            {LOCAL_PROFILE_ADMIN_ENV: "1"},
-        )
-        assert local_profile_admin_available(
-            "127.0.0.1",
-            {LOCAL_PROFILE_ADMIN_ENV: "1"},
-        )
-        assert local_profile_admin_available(
-            "::1",
-            {LOCAL_PROFILE_ADMIN_ENV: "1"},
-        )
-
-
     def test_blank_backup_path_is_not_stored(self) -> None:
         configured = build_profile_settings(
             "Cloud Shop",

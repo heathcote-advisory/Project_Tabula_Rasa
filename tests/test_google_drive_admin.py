@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
@@ -13,13 +12,11 @@ from tabula_rasa.google_drive import (
     GoogleDriveConfigurationError,
 )
 from tabula_rasa.google_drive_admin import (
-    _folder_display_name,
     _ensure_storage_root_is_not_directly_nested,
-    _create_storage_root,
-    _provision_storage_children,
+    create_storage_root,
+    provision_storage_children,
     _revalidated_storage_settings,
-    _save_storage_root,
-    process_google_drive_oauth_callback,
+    save_storage_root,
     validate_google_drive_profile,
 )
 
@@ -51,7 +48,7 @@ def test_readiness_rechecks_direct_profile_root_conflict() -> None:
         "tabula_rasa.google_drive_admin.load_oauth_config",
         return_value=Mock(),
     ), patch(
-        "tabula_rasa.google_drive_admin._cached_drive_client",
+        "tabula_rasa.google_drive_admin.GoogleDriveClient",
         return_value=client,
     ), patch(
         "tabula_rasa.google_drive_admin._ensure_storage_root_is_not_directly_nested"
@@ -74,71 +71,6 @@ def test_readiness_rechecks_direct_profile_root_conflict() -> None:
     )
 
 
-def test_oauth_callback_persists_profile_grant_and_clears_query(
-    tmp_path: Path,
-) -> None:
-    config = Mock()
-    drive_settings = {
-        "authorized_email": "owner@example.test",
-        "refresh_token": "refresh-token",
-    }
-    with (
-        patch.object(
-            google_drive_admin.st,
-            "query_params",
-            {"state": "signed-state", "code": "authorization-code"},
-        ),
-        patch.object(
-            google_drive_admin,
-            "load_oauth_config",
-            return_value=config,
-        ),
-        patch.object(
-            google_drive_admin,
-            "verify_oauth_state",
-            return_value={"profile": "north", "redirect_uri": "http://localhost"},
-        ),
-        patch.object(
-            google_drive_admin,
-            "load_local_profiles",
-            return_value={"north": {"name": "North Shop"}},
-        ),
-        patch.object(
-            google_drive_admin,
-            "exchange_authorization_code",
-            return_value=drive_settings,
-        ),
-        patch.object(google_drive_admin, "update_local_profile_google_drive") as update,
-        patch.object(google_drive_admin.st, "rerun"),
-    ):
-        assert process_google_drive_oauth_callback(
-            {"google_drive_oauth": {}},
-            store_path=tmp_path / "profiles.json",
-        )
-
-    update.assert_called_once_with(
-        "north",
-        drive_settings,
-        path=tmp_path / "profiles.json",
-    )
-    assert not google_drive_admin.st.query_params
-
-
-def test_missing_oauth_configuration_shows_loopback_setup_example() -> None:
-    with patch.object(google_drive_admin, "st") as streamlit:
-        google_drive_admin.render_google_drive_admin(
-            {}, {}, current_url="http://localhost:8501/"
-        )
-
-    streamlit.warning.assert_called_once()
-    streamlit.code.assert_called_once()
-    example = tomllib.loads(streamlit.code.call_args.args[0])
-    assert example["google_drive_oauth"]["redirect_uris"] == [
-        "http://localhost:8501/",
-        "http://127.0.0.1:8501/",
-    ]
-
-
 def test_drive_validation_uses_only_visible_parent_ids() -> None:
     client = Mock()
     client.folder.return_value = {
@@ -158,7 +90,7 @@ def test_drive_validation_uses_only_visible_parent_ids() -> None:
         "tabula_rasa.google_drive_admin.load_oauth_config",
         return_value=Mock(),
     ), patch(
-        "tabula_rasa.google_drive_admin._cached_drive_client",
+        "tabula_rasa.google_drive_admin.GoogleDriveClient",
         return_value=client,
     ), patch(
         "tabula_rasa.google_drive_admin._ensure_storage_root_is_not_directly_nested"
@@ -200,7 +132,7 @@ def test_drive_validation_rejects_direct_known_root_parent() -> None:
         "tabula_rasa.google_drive_admin.load_oauth_config",
         return_value=Mock(),
     ), patch(
-        "tabula_rasa.google_drive_admin._cached_drive_client",
+        "tabula_rasa.google_drive_admin.GoogleDriveClient",
         return_value=client,
     ), pytest.raises(GoogleDriveConfigurationError, match="cannot be nested"):
         validate_google_drive_profile(
@@ -236,7 +168,8 @@ def managed_folder(
     return folder
 
 
-def test_reconnect_preserves_only_valid_managed_root_and_children() -> None:
+@pytest.mark.parametrize("managed_root", [True, False])
+def test_reconnect_preserves_confirmed_root_and_children(managed_root: bool) -> None:
     root_id = "rootfolder123"
     folders = {
         root_id: managed_folder(root_id, "North Storage", kind="storage-root"),
@@ -247,6 +180,8 @@ def test_reconnect_preserves_only_valid_managed_root_and_children() -> None:
             root_id=root_id,
         ),
     }
+    if not managed_root:
+        folders[root_id].pop("appProperties")
     client = FolderClient(folders)
     previous = {
         "storage_root": {"id": root_id, "name": "Old Root Name"},
@@ -326,13 +261,11 @@ def test_save_storage_root_refreshes_name_when_id_is_unchanged(tmp_path: Path) -
 
     with (
         patch.object(google_drive_admin, "update_local_profile_google_drive") as update,
-        patch.object(google_drive_admin.st.cache_resource, "clear"),
-        patch.object(google_drive_admin.st, "rerun"),
     ):
-        assert _save_storage_root(
+        assert save_storage_root(
             "north",
             drive_settings,
-            {"id": root_id, "name": "Tabula Rasa Data"},
+            root_id,
             client=client,
             store_path=tmp_path / "profiles.json",
         )
@@ -346,9 +279,6 @@ def test_save_storage_root_refreshes_name_when_id_is_unchanged(tmp_path: Path) -
         },
         path=tmp_path / "profiles.json",
     )
-    assert "name refreshed" in google_drive_admin.st.session_state[
-        "google_drive_admin_notice"
-    ]
 
 
 def test_save_storage_root_handles_missing_folder_name_without_key_error(
@@ -359,10 +289,10 @@ def test_save_storage_root_handles_missing_folder_name_without_key_error(
 
     with patch.object(google_drive_admin, "update_local_profile_google_drive") as update:
         with pytest.raises(GoogleDriveAccessError, match="folder details"):
-            _save_storage_root(
+            save_storage_root(
                 "north",
                 {},
-                {"id": root_id},
+                root_id,
                 client=client,
                 store_path=tmp_path / "profiles.json",
             )
@@ -378,10 +308,10 @@ def test_save_storage_root_handles_non_mapping_folder_response(
 
     with patch.object(google_drive_admin, "update_local_profile_google_drive") as update:
         with pytest.raises(GoogleDriveAccessError, match="folder details"):
-            _save_storage_root(
+            save_storage_root(
                 "north",
                 {},
-                {"id": root_id},
+                root_id,
                 client=client,
                 store_path=tmp_path / "profiles.json",
             )
@@ -456,7 +386,7 @@ def test_create_storage_root_checks_drive_root_isolation(
     )
 
     with pytest.raises(GoogleDriveConfigurationError, match="cannot be nested"):
-        _create_storage_root(
+        create_storage_root(
             "south",
             "South",
             {"refresh_token": "token"},
@@ -467,21 +397,9 @@ def test_create_storage_root_checks_drive_root_isolation(
 
 def test_provisioning_rejects_a_storage_root_without_an_id() -> None:
     with pytest.raises(GoogleDriveConfigurationError, match="folder ID"):
-        _provision_storage_children(
+        provision_storage_children(
             "north",
             {"storage_root": {}},
             client=FolderClient({}),
             store_path=Path("unused.json"),
         )
-
-
-@pytest.mark.parametrize(
-    ("folder", "fallback", "expected"),
-    (({"name": None}, "", ""), ({"name": None}, "Provisioned", "Provisioned")),
-)
-def test_folder_display_name_handles_null_names(
-    folder: dict[str, Any],
-    fallback: str,
-    expected: str,
-) -> None:
-    assert _folder_display_name(folder, fallback) == expected

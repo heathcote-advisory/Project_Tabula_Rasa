@@ -1,9 +1,9 @@
 # Using Tabula Rasa
 
-Bookkeeping runs in the browser application with named login and PostgreSQL business
-scope. The local Streamlit entry point is an operator administration utility; its
-bookkeeping pages and automatic startup generation are retired. Local Google grant,
-folder and recovery setup remain in [Setup](SETUP.md) and [Google Drive](GOOGLE_DRIVE.md).
+Bookkeeping runs in the browser application with named login and PostgreSQL
+business scope. Operators manage local Google grants, folders and recovery
+setup through the separately protected CLI. See [Setup](SETUP.md) and
+[Google Drive](GOOGLE_DRIVE.md).
 
 ## Sign in and select a business
 

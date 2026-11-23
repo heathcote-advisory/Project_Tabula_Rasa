@@ -2,8 +2,8 @@
 
 Use these guides by application area. [Architecture](ARCHITECTURE.md) describes
 the system boundaries and [design.md](../design.md) defines the interface.
-Bookkeeping uses the browser application and PostgreSQL. The loopback operator
-interface and Sheets tools support source migration, archive validation and recovery.
+Bookkeeping uses the browser application and PostgreSQL. The local operator CLI
+supports profile administration. Sheets tools support source migration, archive validation and recovery.
 
 ## Application use and internal setup
 

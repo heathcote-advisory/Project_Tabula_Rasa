@@ -146,14 +146,14 @@ through PostgreSQL.
 Hosted Streamlit and the obsolete Google OAuth entries were removed. The
 [hosted retirement record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/507)
 holds the owner-confirmed provider readback and post-removal checks. Commercial
-images already exclude Streamlit, and CI verifies HTTP import and schema construction.
+images exclude Streamlit, and CI verifies HTTP import and schema construction.
 
-The remaining [local operator interface](../SETUP.md) is loopback-only and
-requires the local admin flag, application password and reauthentication. Before
-removing it, verify a replacement or explicit retirement decision for each action
-in the [local administration inventory](../identity/CONNECTIONS_AND_CLAIMS.md#retained-local-administration-inventory).
-Preserve format-13 source and archive recovery, profile-scoped Google grants,
-existing receipts and PostgreSQL recovery history.
+The [local operator CLI](../SETUP.md#local-profile-administration) covers profile
+setup, Google consent and Picker, and local recovery metadata. Use the
+[local administration inventory](../identity/CONNECTIONS_AND_CLAIMS.md#retained-local-administration-inventory)
+to find each supported entry point. Format-13 source and archive recovery,
+profile-scoped Google grants, existing receipts and PostgreSQL recovery history
+retain their separate procedures.
 
 ## Restricted-alpha support and retirement
 

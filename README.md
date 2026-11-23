@@ -6,8 +6,7 @@ Project Tabula Rasa is a bookkeeping and financial management application design
 
 Bookkeeping runs in the React/FastAPI/PostgreSQL application. Named business access,
 shared accounting services, Google Drive receipts, recurring jobs and separate database
-and document recovery are documented in the guides below. The Streamlit entry point
-now serves local operator administration only.
+and document recovery are documented in the guides below. Local Sheets and Drive administration uses an operator CLI.
 
 ## Quick start
 
@@ -22,17 +21,14 @@ receipt storage from **Data & backup > Google Drive connection**. See
 reconnection and deployment setup.
 
 For protected local Google consent, grant replacement, folder administration and
-format-13 recovery setup, follow [Setup](docs/SETUP.md) and launch:
+format-13 recovery setup, follow [Setup](docs/SETUP.md).
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/run_local_profile_admin.ps1
+```text
+python -m scripts.local_profile_admin --help
 ```
 
-The administrator requires the application password, explicit local-admin flag,
-loopback binding and password reauthentication. It does not initialize a ledger or
-generate recurring occurrences on startup. See
-[Connections and claims](docs/identity/CONNECTIONS_AND_CLAIMS.md) for operator-assisted
-activation, encrypted grant custody and legacy claims.
+See [Connections and claims](docs/identity/CONNECTIONS_AND_CLAIMS.md) for operator-assisted
+activation, encrypted grant custody and existing entity claims.
 
 ## Documentation
 
@@ -49,7 +45,7 @@ and technical component:
 
 ## Repository layout
 
-- `tabula_rasa/` contains the Streamlit entry point and application modules.
+- `tabula_rasa/` contains application and infrastructure modules.
 - `scripts/` contains setup, validation, backup, and recovery utilities.
 - `tests/` contains the automated test suite and UI workflow scenarios.
 - `docs/` contains the canonical architecture, setup, Google integration, user,

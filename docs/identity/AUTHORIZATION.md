@@ -145,7 +145,7 @@ their current independent target, maintenance, evidence and approval boundaries.
 No role check turns them into public endpoints. Later HTTP/worker/support slices
 must register the distinct action, authorize before resource/secret binding,
 and apply their domain and operator preconditions. Login grants no access to
-Streamlit's loopback-only Business Profiles/local Account settings.
+the local operator CLI and its protected profile store.
 
 Tenant-owned Google connection status/connect/disconnect are exposed under
 `connections_manage`; [Connections and claims](CONNECTIONS_AND_CLAIMS.md)

@@ -82,7 +82,7 @@ and [receipt recovery](storage/RECEIPT_RECOVERY.md).
 
 The explicit Sheets CLI commands below remain available for approved format-13
 source/archive preservation and recovery. They do not reactivate Sheets bookkeeping
-or change the frozen-source/divergence boundary. Local Account settings retains
+or change the frozen-source/divergence boundary. The local operator CLI retains
 recovery configuration and Google target authorization.
 
 
@@ -184,11 +184,9 @@ generation, and validate again.
 
 1. Create a new blank Google spreadsheet.
 2. Give the selected profile's Google account Editor access and authorize the
-   blank target through Google setup > Authorize a recovery or migration workbook.
-   This does not change the active ledger.
-3. Copy its spreadsheet ID.
-4. Validate the archive locally.
-5. Restore it with:
+   blank target with `python -m scripts.local_profile_admin workbook authorize PROFILE_KEY`.
+   Copy the ID reported in the terminal.
+3. Validate the archive locally and restore it with:
 
    ```powershell
    python scripts\restore_google_sheets_backup.py "C:\Safe-Recovery\tabula-rasa-backup-YYYYMMDDTHHMMSSZ.zip" --profile PROFILE_KEY --target-spreadsheet-id NEW_SPREADSHEET_ID --initialize
@@ -311,16 +309,17 @@ equivalent, shared, or nested normalized NAS paths.
 
 ### Record a profile's recovery settings
 
-Run the loopback-only profile administrator:
+Use the local operator CLI after provisioning the profile's Drive root and children.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run_local_profile_admin.ps1
+```text
+python -m scripts.local_profile_admin recovery set PROFILE_KEY
+python -m scripts.local_profile_admin recovery show PROFILE_KEY
 ```
 
-In Account settings > Recovery, select the business, enable the optional
-Synology recovery copy, review the derived profile destination, and save the
-schedule and retention policy. The app stores layout profile-root
-automatically; there is no layout selector.
+Review the derived profile destination, schedule and retention policy. Override
+them with `--destination`, `--schedule` and `--retention` when needed.
+The command records the profile-root layout. Use `recovery disable PROFILE_KEY`
+to remove the local record.
 
 Optional app-wide defaults belong only in local secrets:
 
@@ -335,9 +334,8 @@ The base path is never used directly as a destination; the profile key is
 appended. Saving this record changes local metadata only. Disabling it removes
 the record but does not delete a DSM task or NAS archive.
 
-Synology metadata is excluded from hosted Streamlit Secrets. A hosted runtime
-without the local record says that the settings are unavailable and directs
-administrators to local Account settings and DSM. It does not infer health.
+Use `recovery show` for the saved local settings and DSM Cloud Sync logs for
+actual sync health.
 
 ### Configure Cloud Sync
 
@@ -410,14 +408,15 @@ inventory already exists in the current local ISO week.
 
 ### Cloud authorization cannot refresh
 
-Reconnect the profile in local Account settings, confirm folders, and retry.
+Reconnect with `python -m scripts.local_profile_admin google connect PROFILE_KEY`,
+confirm the folders, and retry.
 For commercial grants, follow [connection staging](identity/CONNECTIONS_AND_CLAIMS.md)
 and Owner confirmation separately.
 
 ### Restore refuses the target
 
 Create a new blank workbook, share it with the selected profile's Sheets
-Google account and authorize it through the candidate Picker, verify the target is not any configured live workbook, and
+Google account and authorize it with `python -m scripts.local_profile_admin workbook authorize PROFILE_KEY`, verify the target is not any configured live workbook, and
 use `--initialize`.
 
 ### An archive fails validation

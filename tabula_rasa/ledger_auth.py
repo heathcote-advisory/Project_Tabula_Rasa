@@ -1,14 +1,10 @@
-"""Password authentication helpers for the Streamlit application."""
+"""Password authentication helpers for the local operator tools."""
 
 from __future__ import annotations
 
 import base64
 import hashlib
 import secrets
-
-import streamlit as st
-
-from tabula_rasa.presentation import render_global_footer, render_page_header
 
 
 SCHEME = "scrypt"
@@ -63,49 +59,3 @@ def verify_password(password: str, encoded_hash: str) -> bool:
     except (TypeError, ValueError):
         return False
     return secrets.compare_digest(actual, expected)
-
-
-def require_authentication() -> None:
-    """Stop the Streamlit script until the configured password is accepted."""
-    if st.session_state.get("authenticated") is True:
-        return
-
-    encoded_hash = st.secrets.get("app_password_hash")
-    if not encoded_hash:
-        st.error("Application authentication is not configured.")
-        render_global_footer()
-        st.stop()
-
-    show_authentication_error = bool(
-        st.session_state.get("authentication_error", False)
-    )
-    with st.container(border=True, key="login_surface"):
-        render_page_header(
-            "Project Tabula Rasa", "Enter the application password to continue."
-        )
-        authentication_error = st.container()
-        if show_authentication_error:
-            authentication_error.error("Incorrect password.")
-        with st.form("login_form", clear_on_submit=True):
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button(
-                "Sign in", type="primary", width="stretch"
-            )
-
-        if submitted:
-            if verify_password(password, encoded_hash):
-                st.session_state["authenticated"] = True
-                st.session_state.pop("authentication_error", None)
-                st.rerun()
-            st.session_state["authentication_error"] = True
-            if not show_authentication_error:
-                st.rerun()
-
-    render_global_footer()
-    st.stop()
-
-
-def logout() -> None:
-    """Clear the authenticated session and return to the login screen."""
-    st.session_state.clear()
-    st.rerun()

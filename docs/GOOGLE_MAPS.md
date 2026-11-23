@@ -225,7 +225,7 @@ Omit `autocomplete_region_code` when the deployment has no clear country rule.
 Do not copy Maps keys or the quota-monitoring credential into a
 `business_profiles` entry. Streamlit Cloud Secrets export is retired. Configure
 commercial Maps credentials through the protected server environment described
-in [deployment](operations/DEPLOYMENT.md); local Streamlit configuration does not
+in [deployment](operations/DEPLOYMENT.md); local Sheets and Drive configuration does not
 update that environment.
 
 The quota reader is an app-wide service account, separate from every profile's

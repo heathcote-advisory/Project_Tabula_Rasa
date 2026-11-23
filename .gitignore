@@ -9,6 +9,7 @@ __pycache__/
 !.env.example
 .streamlit/secrets*.toml
 .streamlit/*.json
+.streamlit/*.lock
 tabula-rasa-streamlit-secrets-*.toml
 tabula-rasa-alpha-documents-*.toml
 *service-account*.json

@@ -207,7 +207,7 @@ client-supplied profile key.
 The HTTP environment/public-origin/release/trusted-entity settings below are implemented
 by HTTP foundation and read from process environment only. deployment implements the
 alpha gate and deployment settings; identity and tenancy still owns commercial
-identity/session settings. They do not alter Streamlit settings.
+identity/session settings. Local operator configuration has separate custody.
 
 | Setting | Owner and visibility |
 | --- | --- |
