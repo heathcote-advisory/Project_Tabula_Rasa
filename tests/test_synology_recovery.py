@@ -71,24 +71,12 @@ def test_rejects_unsupported_synology_recovery_fields_explicitly() -> None:
         )
 
 
-def test_normalizes_equivalent_dsm_paths() -> None:
+@pytest.mark.parametrize("destination", ["/volume1/Backups/team/../north//", "//volume1/Backups/north"])
+def test_normalizes_equivalent_dsm_paths(destination: str) -> None:
     settings = validate_synology_recovery_settings(
         {
             "layout": PROFILE_ROOT_LAYOUT,
-            "destination_path": "/volume1/Backups/team/../north//",
-            "schedule": "Continuous",
-            "retention_policy": "Keep all.",
-        }
-    )
-
-    assert settings["destination_path"] == "/volume1/Backups/north"
-
-
-def test_collapses_double_leading_dsm_slashes() -> None:
-    settings = validate_synology_recovery_settings(
-        {
-            "layout": PROFILE_ROOT_LAYOUT,
-            "destination_path": "//volume1/Backups/north",
+            "destination_path": destination,
             "schedule": "Continuous",
             "retention_policy": "Keep all.",
         }

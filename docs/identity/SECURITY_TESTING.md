@@ -68,7 +68,7 @@ after the change commits. Tests do not claim a transaction spanning provider,
 control plane, ledger and browser, or protection from an administrator modifying
 the running application. All data is synthetic.
 
-## Sanitized evidence and unresolved gap register
+## Release evidence
 
 Independent-business acceptance extends the existing matrix rather than replacing
 it. `test_business_access.py` covers the business-only list, foreign member/invite
@@ -91,11 +91,6 @@ bookkeeping/downloads. Native tests assert no-store error envelopes and correlat
 redacted `identity_denied`/`authorization_denied` signals for revoked/forbidden
 requests. These hooks do not establish hosted telemetry delivery or alert acceptance.
 
-Reviewed implementation, remediation and validation results are recorded in [Identity security evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/320) and [PR
-#374](https://github.com/Roklion/Project_Tabula_Rasa/pull/374). Historical local counts
-and the pre-partition browser timeout are not current CI configuration; [CI
-ownership](../development/CI.md) defines the required independent partitions.
-
 The route audit's documentation exemption accepts only concrete Starlette HTTP
 routes at the framework documentation/OpenAPI paths. Mounted applications at
 either path are rejected, including child routes that would otherwise evade
@@ -104,11 +99,12 @@ The factory captures the generated endpoint identities before registering
 application routes; only those endpoints with GET/HEAD methods qualify.
 Arbitrary added handlers and replaced endpoint identities are rejected.
 
-Current acceptance gaps and their dispositions belong in [Identity security evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/320), not a duplicated status table here. Its outstanding
-hosted lifecycle/recovery requirement consumes [hosted identity
-rollout](HOSTED_ROLLOUT.md)'s provider, MFA/mail/recovery, logout/revoke/outage and
-rollback evidence. Approved fixture bindings and partial observations do not establish a
-complete hosted pass.
+Use [hosted identity rollout](HOSTED_ROLLOUT.md) to verify provider behavior, MFA,
+mail and recovery, logout and revocation, outages and compatible rollback. Record
+outstanding acceptance and its disposition in the owning release discussion.
+The [identity acceptance record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/320)
+and [security matrix PR](https://github.com/heathcote-advisory/Project_Tabula_Rasa/pull/374)
+preserve the original implementation and verification history.
 
 [operational observability](../operations/OBSERVABILITY.md) owns delivered security
 telemetry/retention/alerts; [operational readiness

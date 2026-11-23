@@ -1,9 +1,6 @@
 """Mileage business contracts run against small fakes without Sheets or UI."""
 
 from dataclasses import replace
-from pathlib import Path
-import subprocess
-import sys
 from typing import Callable
 
 import pytest
@@ -14,6 +11,7 @@ from tabula_rasa.application.mileage import (
     MileageTrip,
     MileageValidationError,
 )
+from tests.application_import_probe import assert_application_runs_without_infrastructure
 
 
 class FakeMileageRepository:
@@ -239,18 +237,7 @@ def test_backend_failures_propagate_without_service_retry(method):
 
 
 def test_mileage_application_imports_without_storage_ui_maps_or_google():
-    code = """
-import importlib.abc
-import sys
-
-class RejectInfrastructure(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        blocked = ('tabula_rasa.storage', 'tabula_rasa.infrastructure', 'tabula_rasa.composition',
-                   'tabula_rasa.google_routes', 'tabula_rasa.address_autocomplete',
-                   'gspread', 'google', 'streamlit', 'pandas')
-        if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise AssertionError('Mileage imported infrastructure: ' + fullname)
-sys.meta_path.insert(0, RejectInfrastructure())
+    assert_application_runs_without_infrastructure("""
 from tabula_rasa.application.mileage import MileageService
 class Repository:
     def list_tags(self, **kwargs): return ()
@@ -261,12 +248,4 @@ trip = service.create_trip(trip_date='2026-07-20', miles='2', start_location='A'
                            destination='B', business_purpose='Meeting')
 assert trip.miles == '2.0'
 assert service.list_trips() == ()
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=Path(__file__).resolve().parents[1],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
+""")

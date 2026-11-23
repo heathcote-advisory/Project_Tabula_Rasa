@@ -209,15 +209,11 @@ Keep actual outcomes in the owning issue/PR and private incident record, not in
 repository evidence reports. Source tests and client output prove no hosted
 execution, notification, stage readiness or launch acceptance.
 
-## Reuse and validation
+## Verification and operator handoff
 
-The implementation extends identity control plane and server authorization's existing
-users, sessions, memberships and last-owner guards, durable job queue's job diagnostic
-contract, atomic audit history's private `AuditReader` and atomic append-only event
-triggers, and operational observability HTTP telemetry. New ownership is limited to
-expiring scoped support grants, bounded redacted DTOs, confirmation plans and immutable
-support-action records. It introduces no second identity store, role system, accounting
-engine, scheduler, document provider or recovery state machine.
+Support uses the existing identity, job and audit services. Support controls own
+expiring scoped grants, redacted responses, confirmation plans and immutable
+support-action records.
 
 Run `tests/postgres/test_support_controls.py` against disposable PostgreSQL, plus
 affected identity/authorization/audit/migration/export/recovery checks,
@@ -228,14 +224,9 @@ provisioning and atomic audit failure. Local synthetic evidence does not establi
 hosted production provisioning or external release and customer lifecycle and commercial
 recovery agreement release acceptance.
 
-### Implementation evidence and operational handoff
-
-Reviewed implementation, local diagnostics and current-candidate CI/reviewer results are
-recorded in [support implementation
-evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/341) and [PR
-#396](https://github.com/Roklion/Project_Tabula_Rasa/pull/396). [operational readiness
-verification](AUDIT_RECOVERY.md) owns actual operator provisioning, deployed
-denial/telemetry observations and primary/alternate operator execution. [operational
-observability](OBSERVABILITY.md) retains hosted telemetry activation. Code/test delivery
-does not establish that operational handoff or external release and customer lifecycle
-and commercial recovery agreement release acceptance.
+Use [operational readiness verification](AUDIT_RECOVERY.md) for actual operator
+provisioning, deployed denial checks and primary/alternate operator execution.
+Use [observability](OBSERVABILITY.md) to verify hosted telemetry. The [support
+implementation record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/341)
+and [support controls PR](https://github.com/heathcote-advisory/Project_Tabula_Rasa/pull/396)
+preserve the original validation evidence.

@@ -181,18 +181,6 @@ def test_readiness_cache_is_ignored_after_profile_settings_change() -> None:
     )
 
 
-def test_security_information_has_no_credential_export_action() -> None:
-    with patch.object(st, "subheader"), patch.object(st, "write") as render_write, patch.object(
-        st, "info"
-    ), patch.object(st, "markdown"), patch.object(st, "button") as button:
-        render_security_deployment_info()
-
-    button.assert_not_called()
-    rendered = " ".join(str(call.args[0]) for call in render_write.call_args_list)
-    assert "separate encrypted server provisioning" in rendered
-    assert "export is retired" in rendered
-
-
 def test_ready_local_does_not_direct_operator_to_retired_hosted_export() -> None:
     from tabula_rasa.local_profile_admin_readiness import render_profile_readiness
 
@@ -210,14 +198,18 @@ def test_ready_local_does_not_direct_operator_to_retired_hosted_export() -> None
     assert "App settings > Secrets" not in message
 
 
-def test_security_deployment_info_links_use_canonical_guides() -> None:
-    with patch.object(st, "subheader"), patch.object(st, "write"), patch.object(
+def test_security_guidance_links_to_operator_guides_without_offering_credential_export() -> None:
+    with patch.object(st, "subheader"), patch.object(st, "write") as render_write, patch.object(
         st, "info"
     ), patch.object(st, "markdown") as render_markdown, patch.object(
-        st, "button", return_value=False
-    ):
+        st, "button"
+    ) as button:
         render_security_deployment_info()
 
+    button.assert_not_called()
+    guidance = " ".join(str(call.args[0]) for call in render_write.call_args_list)
+    assert "separate encrypted server provisioning" in guidance
+    assert "export is retired" in guidance
     rendered = " ".join(
         str(call.args[0]) for call in render_markdown.call_args_list if call.args
     )

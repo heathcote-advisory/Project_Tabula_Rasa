@@ -548,9 +548,8 @@ Receipts group linked files, attachment and unreferenced recovery separately,
 with full filenames, keyboard-accessible metadata, upload/link status and clear
 unlink-retains-file guidance. Read-only users retain inspection/downloads;
 unconfigured storage offers availability/reload without attachment controls.
-Data & backup provides the three import workflows described below for authorized
-users. Browser backup remains outside this slice; absent workflows are not shown
-as disabled controls or promised as a release.
+Data & backup provides imports, financial CSV downloads, accountant handoff and
+Google Drive connection controls according to the selected business and user role.
 The integrated named-user signed-out, session-unavailable and setup-required
 surfaces also share headers, surfaces and Sign in/Sign out actions, while their
 identity, private-view unmount and receipt-abort behavior retains the authentication boundary.
@@ -581,9 +580,10 @@ distance confirmation updates the editable draft, and only Save persists it.
 Round-trip directions are calculated independently; failures preserve manual
 entry. Optional lookup fields share the light two-column field grid; route
 guidance, calculation and failure messages span its full width before editable
-mileage and stack with the fields on narrow screens. [Workflow ports](docs/browser/IMPORTS_EXPORTS_AND_INTEGRATIONS.md) owns these contracts.
-Transaction and QuickBooks mileage imports, copy, bulk and Expense-to-recurring conversion are also available through their existing domain services. [Commercial mileage and receipts](docs/browser/MILEAGE_AND_RECEIPTS.md)
-owns this slice's transport, recovery and validation contract.
+mileage and stack with the fields on narrow screens. [Imports, exports and integrations](docs/browser/IMPORTS_EXPORTS_AND_INTEGRATIONS.md)
+documents CSV downloads, provider integrations, imports, copy, bulk actions and
+Expense-to-recurring conversion. [Mileage and receipts](docs/browser/MILEAGE_AND_RECEIPTS.md)
+documents the mileage log, receipt links and recovery workflows.
 [Commercial core workflows](docs/browser/BOOKKEEPING.md) owns core workflow contract.
 Named identity supplies authenticated identity/membership context selection,
 [Secondary workflows](docs/browser/RECURRING_AND_ASSETS.md) delivers recurring, mixed-use and asset workflows.

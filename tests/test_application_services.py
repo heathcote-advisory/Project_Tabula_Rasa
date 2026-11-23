@@ -1,12 +1,10 @@
 """Shared application ports preserve repository ownership without provider dependencies."""
 
-from pathlib import Path
-import subprocess
-import sys
 
 import pytest
 
 from tabula_rasa.application import LedgerInfo, assemble_application_services
+from tests.application_import_probe import assert_application_runs_without_infrastructure
 
 
 class FakeLedgerSetupRepository:
@@ -54,23 +52,7 @@ def test_receipt_capability_requires_both_ports(missing: str) -> None:
 
 
 def test_application_package_loads_without_ui_or_google_infrastructure() -> None:
-    # A separate interpreter also catches transitive imports; pytest's shared
-    # storage fixtures already import gspread in this interpreter.
-    code = """
-import importlib.abc
-import sys
-
-class RejectInfrastructure(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        blocked = (
-            'tabula_rasa.storage', 'tabula_rasa.infrastructure',
-            'tabula_rasa.composition', 'tabula_rasa.google_drive',
-            'tabula_rasa.page_renderers', 'gspread', 'google', 'streamlit', 'pandas',
-        )
-        if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise AssertionError('Application imported infrastructure: ' + fullname)
-
-sys.meta_path.insert(0, RejectInfrastructure())
+    assert_application_runs_without_infrastructure("""
 from tabula_rasa.application import LedgerInfo, assemble_application_services
 from tabula_rasa.application.documents import ReceiptInventory
 from tabula_rasa.application.reporting_contracts import LedgerSnapshot
@@ -118,12 +100,4 @@ assert services.reporting.period_report(services.reporting.read_ledger()).totals
 assert services.mileage.list_trips() == ()
 assert services.receipts.references('transaction') == ()
 assert services.receipts.unreferenced().documents == ()
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=Path(__file__).resolve().parents[1],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
+""")

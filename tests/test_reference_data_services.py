@@ -1,8 +1,5 @@
 """Reference services validate without persistence and preserve the Sheets contract."""
 
-from pathlib import Path
-import subprocess
-import sys
 
 import pytest
 
@@ -15,6 +12,7 @@ from tabula_rasa.errors import (
     StorageNotFoundError,
     StorageValidationError,
 )
+from tests.application_import_probe import assert_application_runs_without_infrastructure
 
 
 class RecordingRepository:
@@ -226,20 +224,7 @@ def test_service_failures_are_propagated_without_retry(service_type, operation):
 
 
 def test_reference_services_run_without_importing_ui_or_persistence():
-    code = """
-import importlib.abc
-import sys
-
-class RejectInfrastructure(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        blocked = (
-            'tabula_rasa.storage', 'tabula_rasa.infrastructure',
-            'tabula_rasa.composition', 'gspread', 'google', 'streamlit', 'pandas',
-        )
-        if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise AssertionError('Application imported infrastructure: ' + fullname)
-
-sys.meta_path.insert(0, RejectInfrastructure())
+    assert_application_runs_without_infrastructure("""
 from tabula_rasa.application import assemble_application_services
 from tabula_rasa.errors import StorageValidationError
 
@@ -286,12 +271,4 @@ except StorageValidationError:
 else:
     raise AssertionError('Invalid classification reached repository')
 assert len(accounts.calls) == 2
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=Path(__file__).resolve().parents[1],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
+""")

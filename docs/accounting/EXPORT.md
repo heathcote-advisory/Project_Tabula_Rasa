@@ -200,29 +200,17 @@ the explicit bookkeeping allowlist. Raw import files and document bytes are
 excluded. Descriptions, receipt metadata and source workbook identifiers inside
 the artifact remain private bookkeeping data and must be protected accordingly.
 
-## Initiative handoff and activation evidence
+## Customer delivery and cutover
 
-[external release and customer lifecycle](../browser/RELEASE_VALIDATION.md) should reuse
-`EntityExportService`/the PostgreSQL composition helper for customer exports. It owns
-authenticated entity selection, asynchronous delivery, access expiry, retention/deletion
-and accountant handoff UX. This operator command adds no commercial endpoint, membership
-model or customer lifecycle policy.
+`EntityExportService` supplies the canonical bookkeeping artifact for operator
+export and [customer and accountant downloads](../browser/IMPORTS_EXPORTS_AND_INTEGRATIONS.md#customer-bookkeeping-and-accountant-handoff).
+The download workflow owns user authorization and any document delivery.
 
-[authority cutover](CUTOVER.md) must record a verified **target PostgreSQL entity**
-export before migrated-entity activation: offline validation result, coverage counts,
-reviewed diagnostics, and normalized accounting/report comparisons with whole-profile
-acceptance's accepted whole-profile evidence. Store private evidence outside the
-repository. A complete export of a partially loaded target, or an export with unresolved
-bookkeeping diagnostics, is not activation evidence by itself. Final reconciliation and
-the frozen Sheets source contract source-format boundary remain independent
-requirements; commercial production additionally requires mutation baseline contract
-integrity/concurrency and managed database recovery evidence.
-
-Export is not managed backup/PITR, reverse migration to Sheets, a new import/ restore
-workflow, or authorization for cutover. managed database recovery and platform
-operations retain backup, requested-point recovery and restore rehearsal ownership. This
-capability does not delay reference repositories, transaction and journal repositories
-and reporting repository's milestone for browser/API integration.
+Before activation, [controlled cutover](CUTOVER.md#activation-evidence-and-operator-decision-points)
+requires an independently verified target-entity export together with whole-profile
+reconciliation and the approved recovery evidence. Follow that procedure for the
+validation result, counts, diagnostics and accounting comparisons to retain privately.
+For restore and point-in-time recovery, use the [database recovery runbook](../operations/DATABASE_RECOVERY.md).
 
 ## Validation
 

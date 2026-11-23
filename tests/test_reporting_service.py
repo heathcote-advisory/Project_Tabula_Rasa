@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, getcontext, localcontext
-from pathlib import Path
-import subprocess
-import sys
 
 import pytest
 
@@ -20,6 +17,7 @@ from tabula_rasa.application.reporting_contracts import (
     ReportingAccount,
     ReportingCategory,
 )
+from tests.application_import_probe import assert_application_runs_without_infrastructure
 
 
 class FakeLedgerQueryRepository:
@@ -183,16 +181,7 @@ def test_repository_failures_propagate_once_and_profiles_share_no_snapshot(ledge
 
 
 def test_reporting_import_and_fake_query_need_no_ui_or_provider() -> None:
-    code = """
-import importlib.abc
-import sys
-class RejectInfrastructure(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        blocked = ('streamlit', 'pandas', 'gspread', 'google',
-                   'tabula_rasa.storage', 'tabula_rasa.infrastructure', 'tabula_rasa.composition')
-        if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise AssertionError('Reporting imported infrastructure: ' + fullname)
-sys.meta_path.insert(0, RejectInfrastructure())
+    assert_application_runs_without_infrastructure("""
 from tabula_rasa.application.reporting import ReportingService
 from tabula_rasa.application.reporting_contracts import LedgerSnapshot
 class Repository:
@@ -201,8 +190,4 @@ class Repository:
 service = ReportingService(Repository())
 assert service.query_ledger().entries == ()
 assert service.period_report(service.read_ledger()).totals['net'] == 0
-"""
-    result = subprocess.run([sys.executable, "-c", code],
-                            cwd=Path(__file__).resolve().parents[1],
-                            capture_output=True, text=True, timeout=30)
-    assert result.returncode == 0, result.stderr
+""")

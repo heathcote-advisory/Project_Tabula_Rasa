@@ -48,8 +48,8 @@ format-13 header and domain validators. Earlier, additional or otherwise unsuppo
 populated source formats fail before any source/target writes; there is no historical
 conversion path.
 
-The report records frozen Sheets source contract/PR #263 and its delivered commit as
-source-contract evidence. It verifies every supported source-owned unit and loaded
+The report records the [frozen Sheets source contract](../SHEETS_SOURCE_CONTRACT.md)
+and its delivered commit as provenance. It verifies every supported source-owned unit and loaded
 checkpoint, stable/mapped identities and original update provenance; reference
 hierarchies and opening balances; exact Decimal postings; complete journals; recurring
 and mixed-use owners/occurrences/projections; assets, overrides and posted history;
@@ -382,15 +382,12 @@ never falls back to the ordinary native runtime. Omitting the setting retains
 the ordinary runtime for independent native workspaces; explicitly verify the
 setting and mounted file in the selected owner deployment before cutover.
 
-### Reuse and completion evidence
+### Runtime verification
 
-Inspected/reused: `composition.py` owns authority/profile/document binding;
-the cutover controller/CLI and revision 0005 own acceptance and durable authority;
-native guards own divergence; `http/app.py`, `PostgresRuntime`, request context
-and `MigratedProfileServices` own shared HTTP lifecycle/authorization; existing
-repositories and export/report services own bookkeeping reads/writes. The new
-factory extends that existing composition with startup validation. No parallel
-domain logic or schema/mode extension is needed.
+The shared HTTP runtime checks the selected identity and business scope.
+`composition.py` verifies migrated profile, database and document bindings.
+The cutover controller and PostgreSQL guards enforce active authority and
+record divergence on the first committed bookkeeping mutation.
 
 `tests/postgres/test_owner_operated_cutover.py` exercises the actual shared
 production HTTP app and native PostgreSQL with two synthetic migrated profiles,

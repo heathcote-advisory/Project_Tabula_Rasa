@@ -285,20 +285,12 @@ hosted results and outstanding acceptance. deployment records the precise proxy
 boundary: Uvicorn trusts no forwarded headers; configured Host and Origin remain
 authoritative. Spoofed forwarding/Host inputs are covered by tests.
 
-Retain staging across releases and coordinate its separate migration rehearsal with [the
-persistent staging
-checkpoint](../accounting/SHEETS_MIGRATION.md#persistent-staging-checkpoint). The Sheets
-migration framework framework drill already passed on the operator-selected Neon UAT
-environment on 2026-10-06; deployment must verify authorized reuse of a compatible
-retained target or provision a separate commercial staging target. That drill does not
-substitute for realistic source reconciliation, whole-profile acceptance or the
-browser/API staging smoke. Migrated-profile HTTP composition must reuse [authority
-cutover's trusted authority/document binding](../accounting/CUTOVER.md) through
-`create_application`, rather than bypassing it with the low-level PostgreSQL factory. Do
-not overwrite an existing operator UAT target, stamp a retained old schema, or claim
-that a local UUID integration database satisfies this gate. Selection of this stack does
-not activate entities or complete migration, exports, recovery/PITR, commercial auth,
-beta or Streamlit retirement requirements.
+Retain staging across releases. Verify authorization and schema compatibility before
+reusing a retained target, and follow the [persistent staging rehearsal procedure](../accounting/SHEETS_MIGRATION.md#persistent-staging-checkpoint)
+for source loads. Migrated-profile HTTP composition verifies the [authority and
+document binding](../accounting/CUTOVER.md) through `create_application`. Use the
+[release validation guide](RELEASE_VALIDATION.md) for staging smoke and selected
+workflow acceptance.
 
 ## Browser quality and alpha gate
 
