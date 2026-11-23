@@ -328,13 +328,20 @@ Named smoke instead verifies the public sign-in shell and anonymous/forged-Basic
 denial without provider login or private reads; readiness verifies DB connectivity.
 It does not complete the named hosted rehearsal. Results identify `access_mode`.
 
-Current automation supports releases whose deployed schema is already the image's head.
-Unknown/old revisions stop before migration; there is no stamp, reconsolidation or
-automatic downgrade. A future schema-changing release must first implement/test a
-compatibility bridge (old and target revisions), or use a reviewed maintenance/drain
-runbook. The bridge cannot be enabled by a wildcard environment variable. Ordinary
-`upgrade` remains the PostgreSQL persistence forward-migration owner, and
-startup/readiness never run it. Bootstrap is manual and initial only.
+Development and ordinary manual promotions require the deployed database to
+already match the candidate image's schema. In development, preflight also
+requires an active Render service. If Render suspended it, check the service
+dashboard for the reason. For a Free usage suspension, wait for Render to
+restore capacity or use the account owner's approved capacity plan. Once the
+service is active, verify the existing image and schema before promoting the
+latest validated main image. A schema mismatch requires a reviewed maintenance
+or compatibility procedure before retrying.
+
+Automatic staging and scheduled production can apply reviewed forward schema
+changes under the [approved forward release procedure](#schedule-an-approved-forward-release).
+Unknown or unsupported revisions stop before migration. PostgreSQL `upgrade`
+owns forward migrations. Startup and readiness never run it. Bootstrap is
+manual and initial only.
 
 ### Retired staging bridge: 0012 to 0014
 

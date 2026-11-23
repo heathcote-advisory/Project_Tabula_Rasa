@@ -41,6 +41,8 @@ def metadata(image, repository):
 def provider(*, existing=True, platform_sha=False, prior_ref=PRIOR):
     def read(path, token, *, body=None):
         assert token == "synthetic-only"
+        if path == "/services/srv-test":
+            return {"id": "srv-test", "suspended": "not_suspended"}
         if path.endswith("?limit=100"):
             return [{"deploy": {"status": "live", "image": {"ref": prior_ref,
                      "sha": PRIOR_MANIFEST[7:] if platform_sha else "sha256:" + "b" * 64}}}] if existing else []
@@ -104,7 +106,49 @@ def test_development_preflight_checks_live_image_before_migration(monkeypatch, c
         with pytest.raises(SystemExit, match="Prior image needs a verified immutable reference"):
             release.main()
         assert not capsys.readouterr().out
-    read.assert_called_once_with("/services/srv-test/deploys?limit=100", "synthetic-only")
+    assert [call.args[0] for call in read.call_args_list] == [
+        "/services/srv-test", "/services/srv-test/deploys?limit=100",
+    ]
+
+
+@pytest.mark.parametrize(("state", "message"), [
+    ({"id": "srv-test", "suspended": "suspended"}, "Render development is suspended"),
+    ({"id": "srv-test"}, "Could not verify that Render development is active"),
+    ({"id": "srv-other", "suspended": "not_suspended"}, "Render returned a different service"),
+])
+def test_development_preflight_and_promotion_require_active_render_service(monkeypatch, capsys, state, message):
+    environ = {**ENV, "TABULA_RASA_ENVIRONMENT": "development"}
+    for key, value in environ.items():
+        monkeypatch.setenv(key, value)
+    read, verify, smoke = Mock(return_value=state), Mock(), Mock()
+    monkeypatch.setattr(release, "image_metadata", metadata)
+    monkeypatch.setattr(release, "validated_main", verify)
+    monkeypatch.setattr(release, "api", read)
+    monkeypatch.setattr("sys.argv", ["release", "verify", "--image", IMAGE])
+
+    with pytest.raises(SystemExit, match=message):
+        release.main()
+    assert not capsys.readouterr().out
+    read.assert_called_once_with("/services/srv-test", "synthetic-only")
+    read.reset_mock()
+
+    with pytest.raises(release.ReleaseError, match=message):
+        release.promote(IMAGE, environ, read=read, metadata=metadata, verify=verify, smoke_check=smoke)
+    read.assert_called_once_with("/services/srv-test", "synthetic-only")
+    smoke.assert_not_called()
+
+
+def test_active_development_service_can_promote_compatible_image():
+    environ = {**ENV, "TABULA_RASA_ENVIRONMENT": "development"}
+    read, smoke = provider(), Mock()
+    result = release.promote(IMAGE, environ, read=read, metadata=metadata, verify=Mock(), smoke_check=smoke)
+
+    assert result["environment"] == "development" and result["status"] == "smoke_passed"
+    assert [call.args[0] for call in read.call_args_list] == [
+        "/services/srv-test", "/services/srv-test/deploys?limit=100", "/services/srv-test/deploys",
+        "/services/srv-test/deploys/dep-new",
+    ]
+    smoke.assert_called_once_with(ENV["TABULA_RASA_PUBLIC_ORIGIN"], "stage", "synthetic", "c" * 40)
 
 
 def test_same_revision_staging_retry_is_allowed(release_ancestry):

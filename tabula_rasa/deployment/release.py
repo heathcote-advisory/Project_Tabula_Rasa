@@ -138,6 +138,21 @@ def render_target(environ):
     return service, token
 
 
+def render_service_state(read, service, token):
+    state = read(f"/services/{service}", token)
+    if not isinstance(state, dict) or state.get("id") != service:
+        raise ReleaseError("Render returned a different service.")
+    return state
+
+
+def verify_development_service(read, service, token):
+    state = render_service_state(read, service, token)
+    if state.get("suspended") == "suspended":
+        raise ReleaseError("Render development is suspended. Check the suspension reason in Render before retrying.")
+    if state.get("suspended") != "not_suspended":
+        raise ReleaseError("Could not verify that Render development is active.")
+
+
 def render_deployments(service, token, *, read):
     deployments = read(f"/services/{service}/deploys?limit=100", token)
     if not isinstance(deployments, list):
@@ -252,6 +267,8 @@ def promote(image, environ, *, read=api, metadata=image_metadata, verify=validat
     if parsed.scheme != "https" or not parsed.hostname or parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password:
         raise ReleaseError("An exact HTTPS origin is required.")
     service, token = render_target(environ)
+    if environment == "development":
+        verify_development_service(read, service, token)
     previous_image, previous = live_image(service, token, repository, read=read, metadata=metadata)
     rollback_from = environ.get("STAGING_ROLLBACK_FROM", "")
     evidence = {}
@@ -327,6 +344,8 @@ def main():
             validated_main(metadata["release"], environ)
             environment = environ["TABULA_RASA_ENVIRONMENT"]
             service, token = render_target(environ)
+            if environment == "development":
+                verify_development_service(api, service, token)
             previous_image, previous = live_image(service, token, repository, read=api, metadata=image_metadata)
             if environment == "production":
                 metadata.update(production_preflight(
