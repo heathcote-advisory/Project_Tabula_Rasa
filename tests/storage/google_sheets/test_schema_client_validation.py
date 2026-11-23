@@ -129,16 +129,13 @@ class TestGoogleSheetsStorage(GoogleSheetsStorageTestCase):
         with pytest.raises(StorageValidationError, match="is missing headers"):
             GoogleSheetsStorage(FakeWorkbook(headers))
 
-    def test_current_schema_rejects_blank_header(self) -> None:
+    @pytest.mark.parametrize(("extra_header", "message"), [
+        ("", "blank header"),
+        ("active", "duplicate headers"),
+    ])
+    def test_current_schema_rejects_blank_and_duplicate_headers(self, extra_header: str, message: str) -> None:
         headers = dict(WORKSHEET_HEADERS)
-        headers["Payees"] = ("id", "name", "active", "")
+        headers["Payees"] = ("id", "name", "active", extra_header)
 
-        with pytest.raises(StorageValidationError, match="blank header"):
-            GoogleSheetsStorage(FakeWorkbook(headers))
-
-    def test_current_schema_rejects_duplicate_header(self) -> None:
-        headers = dict(WORKSHEET_HEADERS)
-        headers["Payees"] = ("id", "name", "active", "active")
-
-        with pytest.raises(StorageValidationError, match="duplicate headers"):
+        with pytest.raises(StorageValidationError, match=message):
             GoogleSheetsStorage(FakeWorkbook(headers))

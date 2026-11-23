@@ -13,6 +13,7 @@ from urllib.request import build_opener
 from zoneinfo import ZoneInfo
 
 from . import release
+from .release import render_service_state as service_state
 from .worker_fence import WorkerLoginFence
 
 EASTERN = ZoneInfo("America/New_York")
@@ -59,13 +60,6 @@ def approval(environ, now):
     except (KeyError, TypeError, ValueError):
         raise release.ReleaseError("An exact image, prior image, fresh recovery record and writer-pause approval are required.") from None
     return plan, None
-
-
-def service_state(read, service, token):
-    state = read(f"/services/{service}", token)
-    if state.get("id") != service:
-        raise release.ReleaseError("Render returned a different service.")
-    return state
 
 
 def maintenance_state(state):

@@ -3,9 +3,6 @@
 from copy import deepcopy
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
-import subprocess
-import sys
 from unittest.mock import Mock
 
 import pytest
@@ -14,6 +11,7 @@ from tabula_rasa.asset import ASSET_TYPES
 from tabula_rasa.errors import StorageConflictError, StorageValidationError
 from tabula_rasa.recurrence import occurrence_id
 from tests.workflow_service_fakes import Workflows
+from tests.application_import_probe import assert_application_runs_without_infrastructure
 
 
 def asset_data(**changes):
@@ -242,15 +240,7 @@ def test_workflow_services_are_isolated_between_two_profiles():
 
 
 def test_all_workflow_rules_run_with_infrastructure_imports_blocked():
-    code = """
-import importlib.abc
-import sys
-class RejectInfrastructure(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        blocked = ('tabula_rasa.storage', 'tabula_rasa.infrastructure', 'tabula_rasa.composition', 'gspread', 'google', 'streamlit', 'pandas')
-        if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise AssertionError('Imported infrastructure: ' + fullname)
-sys.meta_path.insert(0, RejectInfrastructure())
+    assert_application_runs_without_infrastructure("""
 from tests.test_workflow_services import (
     test_asset_lifecycle_posting_boundary_and_accounting_invariants,
     test_mixed_use_uses_transaction_service_and_preserves_source_relationship,
@@ -259,11 +249,4 @@ from tests.test_workflow_services import (
 test_asset_lifecycle_posting_boundary_and_accounting_invariants()
 test_mixed_use_uses_transaction_service_and_preserves_source_relationship()
 test_recurring_crud_reconciliation_stable_identity_and_pause_resume()
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=Path(__file__).resolve().parents[1],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
+""")

@@ -2,15 +2,15 @@
 
 Use these guides by application area. [Architecture](ARCHITECTURE.md) describes
 the system boundaries and [design.md](../design.md) defines the interface.
-Streamlit/Google Sheets and React/FastAPI/PostgreSQL have separate configuration
-and authority boundaries during transition; follow the guide for your runtime.
+Bookkeeping uses the browser application and PostgreSQL. The local operator CLI
+supports profile administration. Sheets tools support source migration, archive validation and recovery.
 
 ## Application use and internal setup
 
 - [User workflows](USING_TABULA_RASA.md): accounts, transactions, journals,
   recurring records, assets, receipts, mileage, reports and imports.
-- [Internal application setup](SETUP.md), [Google Drive](GOOGLE_DRIVE.md),
-  [Google Maps](GOOGLE_MAPS.md) and [OAuth migration](OAUTH_MIGRATION.md).
+- [Local operator setup](SETUP.md), [local Google Drive setup](GOOGLE_DRIVE.md),
+  [Google Maps](GOOGLE_MAPS.md) and [Google authorization recovery](OAUTH_MIGRATION.md).
 - [Sheets backup and recovery](BACKUP_RECOVERY.md) and the
   [frozen Sheets source contract](SHEETS_SOURCE_CONTRACT.md).
 - [Terms of Use](TERMS_OF_USE.md) and [Privacy Policy](PRIVACY_POLICY.md).
@@ -35,6 +35,7 @@ and authority boundaries during transition; follow the guide for your runtime.
 - [Server authorization](identity/AUTHORIZATION.md) and
   [business switching, membership and onboarding](identity/WORKSPACES.md).
 - [External connections and existing entity claims](identity/CONNECTIONS_AND_CLAIMS.md).
+- [Customer Google Drive connections](identity/GOOGLE_DRIVE.md).
 - [Hosted rollout](identity/HOSTED_ROLLOUT.md) and
   [identity/tenant security testing](identity/SECURITY_TESTING.md).
 

@@ -27,37 +27,13 @@ a profile merely because loading succeeded.
   read snapshot. No separate report, allocation or generation engine is added.
 - No parallel runtime recovery or accounting state machine is introduced.
 
-## Initial schema decision
+## Target schema
 
-On 2026-10-05 the operator confirmed that only disposable development/test
-databases have used revisions `0001_canonical`–`0003_domain_integrity`; no
-persistent staging database exists. Consolidate these pre-production revisions
-into one initial baseline before provisioning staging. Git preserves their
-original implementation history. Never stamp an old database to the new
-baseline. Recreate only an explicitly confirmed disposable target; preserve
-any unexpectedly retained database and investigate before proceeding.
-
-Persistent staging provision and a representative rehearsal were required before Sheets
-migration framework acceptance; the completed framework drill is recorded below.
-Whole-profile acceptance and authority activation follow the cutover procedure. Matching
-core totals and local disposable tests do not authorize cutover. managed database
-recovery and complete entity export remain independent gates.
-
-The initial baseline is `0001_initial`; `0004_mileage_order` from mileage repository
-remains in the deployed forward chain, followed by `0005_bookkeeping_cutover` from
-authority cutover. The baseline's four SQL assets preserve the existing canonical
-definitions, balance/hierarchy checks, aggregate-version triggers and domain/history
-enforcement. The mapping table additionally records original source update timestamps.
-The original revision modules are removed from the active chain; zero-to-head, repeat
-upgrade, all current guards, downgrade/rebuild and two-entity behavior are tested
-against native PostgreSQL.
-
-Parallel recurring and mixed-use repositories and ledger setup service implementations
-can proceed. If they need a schema change, add a coordinated forward revision after
-`0001_initial`; adapter code alone need not add a revision. Before initializing retained
-staging, integrate required schema changes and inspect the exact head. After a retained
-deployment, the baseline is immutable. Do not regenerate it to absorb later repository
-work.
+Use the [supported PostgreSQL migration chain](../database/POSTGRESQL.md#initial-baseline-and-sheets-migration)
+and verify the target revision before loading. Apply schema changes through the
+normal forward migration procedure. Preserve an unexpected retained database
+and investigate its revision before proceeding. Whole-profile acceptance and
+authority activation follow [controlled cutover](CUTOVER.md).
 
 ## Explicit source preparation tools
 
@@ -297,15 +273,14 @@ Verify current schema initialization/connectivity and retain sanitized target,
 source/run and acceptance references. Local UUID fixtures do not establish hosted
 acceptance, and a synthetic framework drill does not establish private migration.
 
-Completed framework/reconciliation evidence lives in [Framework validation evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/254), [Core loader validation evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/255) and
-[Secondary loader validation evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/256). Selected private/live execution and
-unresolved owner requirements belong to [live owner cutover](CUTOVER.md), using the
-[whole-profile acceptance/cutover procedure](CUTOVER.md). [operational readiness
-verification](../operations/AUDIT_RECOVERY.md) owns stage-specific recovery/capacity
-evidence; [commercial recovery agreement](../operations/DATABASE_RECOVERY.md) retains
-commercial activation. Preserve every retained source and recovery target.
+Use [controlled cutover](CUTOVER.md) for private source execution and whole-profile
+acceptance. Use [audit-aware recovery](../operations/AUDIT_RECOVERY.md) for recovery
+and capacity evidence, and [managed database recovery](../operations/DATABASE_RECOVERY.md)
+for commercial activation requirements. Preserve retained source and recovery targets.
+The [original persistent UAT rehearsal](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/254)
+records the historical framework evidence.
 
-## Implementation validation
+## Migration tests
 
 Run scoped source/CLI and native migration checks from the repository root:
 

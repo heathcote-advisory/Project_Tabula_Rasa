@@ -62,26 +62,15 @@ below. After Render confirms the digest and smoke verifies readiness and version
 the Actions job summary records the staging commit, image digest, schema,
 environment, Render deployment ID, deployment start and verification time.
 
-Closed [deployment evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/279)
-records hosted development/staging acceptance on October 9, 2026, including retained
-Neon UAT and successful [staging
-promotion](https://github.com/Roklion/Project_Tabula_Rasa/actions/runs/37951248477). The
-setup instructions below remain the operator contract for new/reconfigured environments.
-Local native tests and a local container prove implementation only. Technical-alpha
-validation's complete core workflow/real-provider receipt gate, compatible rollback
-rehearsal and manual-device evidence remain separate in [Technical
-alpha](../browser/RELEASE_VALIDATION.md). On October 8, 2026, the operator approved
-reuse of the existing retained UAT database for staging. Confirm its exact endpoint
-binding, current forward schema and runtime/migration role custody before connecting the
-commercial service; this approval does not authorize overwriting its existing records. A
-read-only check of the locally configured direct Neon target on that date confirmed
-`0005_bookkeeping_cutover`, matching this release's schema head. Its local URL included
-unsupported `channel_binding`; remove that option when copying the URL into deployment
-secrets, as documented in PostgreSQL operations. The check normalized the URL in memory
-and changed no files or database records. Enable `COMMERCIAL_DEPLOY_ENABLED=true` only
-after the checkpoint below. Unattended production needs one-time owner activation.
-Emergency manual production needs explicit release authorization. Promotion leaves entity authority
-under its separate cutover procedure.
+Verify a retained UAT target's endpoint, forward schema and runtime and migration
+roles before connecting staging. Preserve its existing records. Follow
+[PostgreSQL connection configuration](../database/POSTGRESQL.md) for supported
+connection options. Enable `COMMERCIAL_DEPLOY_ENABLED=true` after the operator
+checkpoint below. Unattended production requires one-time owner activation.
+Emergency manual production requires explicit release authorization. Entity
+authority remains governed by [controlled cutover](../accounting/CUTOVER.md).
+The [original development and staging rollout](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/279)
+records the historical UAT selection and promotion evidence.
 
 ## Release matrix and operator handoff
 
@@ -328,13 +317,20 @@ Named smoke instead verifies the public sign-in shell and anonymous/forged-Basic
 denial without provider login or private reads; readiness verifies DB connectivity.
 It does not complete the named hosted rehearsal. Results identify `access_mode`.
 
-Current automation supports releases whose deployed schema is already the image's head.
-Unknown/old revisions stop before migration; there is no stamp, reconsolidation or
-automatic downgrade. A future schema-changing release must first implement/test a
-compatibility bridge (old and target revisions), or use a reviewed maintenance/drain
-runbook. The bridge cannot be enabled by a wildcard environment variable. Ordinary
-`upgrade` remains the PostgreSQL persistence forward-migration owner, and
-startup/readiness never run it. Bootstrap is manual and initial only.
+Development and ordinary manual promotions require the deployed database to
+already match the candidate image's schema. In development, preflight also
+requires an active Render service. If Render suspended it, check the service
+dashboard for the reason. For a Free usage suspension, wait for Render to
+restore capacity or use the account owner's approved capacity plan. Once the
+service is active, verify the existing image and schema before promoting the
+latest validated main image. A schema mismatch requires a reviewed maintenance
+or compatibility procedure before retrying.
+
+Automatic staging and scheduled production can apply reviewed forward schema
+changes under the [approved forward release procedure](#schedule-an-approved-forward-release).
+Unknown or unsupported revisions stop before migration. PostgreSQL `upgrade`
+owns forward migrations. Startup and readiness never run it. Bootstrap is
+manual and initial only.
 
 ### Retired staging bridge: 0012 to 0014
 
@@ -800,23 +796,18 @@ Preserve the forward schema and retain the failed workflow record. If the prior
 image or identity epoch is incompatible, keep ingress restricted and use the
 reviewed forward repair procedure.
 
-## Hosted evidence and technical-alpha handoff
+## Hosted deployment verification
 
-After operator setup and explicitly authorized publishing/deployment, record safe
-dev/staging origins, target fingerprint references, image digest/SHA/head, successful
-ordered migration and browser smoke runs, repeated promotion, and a controlled
-compatible application rollback under the selected hosted rollout procedure. Verify
-runtime DML versus migration-role privilege separation and actual provider ingress/gate behavior.
-Keep target credentials and private evidence private. Free-tier limits must be part of
-that record. deployment's reachable dev/staging, retained PostgreSQL and hosted smoke
-acceptance are recorded in its closed issue. Use
-[Release validation](../browser/RELEASE_VALIDATION.md) for the preserved workflow matrix and automated journey boundaries, and [named-user hosted
-rollout](../identity/HOSTED_ROLLOUT.md) for current provider, rollback and manual
-acceptance. The synthetic hosted acceptance runner is retired; development promotion,
-authenticated read-only smoke, target binding, migrations and image verification remain
-supported.
-deployment's completion does not complete technical-alpha validation, retire Streamlit
-or activate commercial production.
+Record safe origin, target fingerprint, image digest, release SHA and schema
+after a successful deployment. Retain the migration and browser smoke results
+and the compatible rollback evidence for the selected environment. Verify
+runtime and migration role separation and the actual ingress and access gate.
+Keep credentials and private drill evidence in operator custody.
+
+Use [release validation](../browser/RELEASE_VALIDATION.md) for the workflow matrix,
+and [named-user hosted rollout](../identity/HOSTED_ROLLOUT.md) for provider,
+rollback and manual acceptance. Keep current provider plan and capacity
+observations with the release evidence.
 
 ## Operational telemetry
 

@@ -122,7 +122,7 @@ agreement. An uncertain deploy stops for inspection under existing deployment ru
 
 ## Feature routing and authority during transition
 
-| Workflow | Browser/API availability | Remaining internal/reference path and tracker |
+| Workflow | Browser/API availability | Operator or release boundary |
 | --- | --- | --- |
 | Accounts/categories/payees/tags, ordinary transactions/journals, ledger/core reports | Implemented new-stack routes; no redirect to legacy UI | The Streamlit bookkeeping pages and writers are retired; local operator administration remains.  |
 | Ordinary transaction receipts | Implemented with [Owner self-service Google Drive consent](../identity/GOOGLE_DRIVE.md) on configured deployments | Operators configure the OAuth client and encrypted custody, and verify the selected hosted provider flow. Deployments without self-service use an [operator-assisted binding](../identity/CONNECTIONS_AND_CLAIMS.md). Asset acquisition receipts stay on the ordinary acquisition transaction. |
@@ -132,54 +132,28 @@ agreement. An uncertain deploy stops for inspection under existing deployment ru
 | Mileage log/filter/CSV/detail and Maps lookup/routing | Manual trip workflow and optional browser/API Maps integration, with explicit review and manual fallback | Configured Maps key restrictions and controlled provider validation remain operator prerequisites; QuickBooks mileage import is available under mileage imports. Mileage bulk actions remain proposed. See [workflow ports](IMPORTS_EXPORTS_AND_INTEGRATIONS.md). |
 | Selected-ledger, transactions and journal-postings financial CSV downloads | Implemented; selected complete entries on Transactions and two full financial downloads on `/data` | Outside the default alpha; these existing CSVs do not replace the complete recovery export or an authorized customer portability artifact. See [workflow ports](IMPORTS_EXPORTS_AND_INTEGRATIONS.md). |
 | Transaction CSV/QuickBooks imports; ordinary copy/bulk | Implemented, with read-only previews and explicit protected commands | Outside the default alpha; consume the delivering revision’s evidence before live cutover. |
-| Category-template import and standalone report downloads | Excluded by the owner's October 11 scope correction | These routes are not planned; these are unimplemented feature ideas, not migration prerequisites. Existing category management and on-screen reports remain supported. |
 | Sheets workbook/backup administration and restore | `/data` exposes financial CSVs; no Sheets administration or live-ledger fallback | PostgreSQL persistence and frozen Sheets source contract preserve frozen format-13 internal recovery; platform operations owns operational backup/recovery; complete entity export supplies complete PostgreSQL operator export and external release and customer lifecycle owns customer delivery. |
 | Google/profile/local credential administration | Not a commercial browser workflow | identity and tenancy owns native onboarding/authorization; live owner cutover consumes authorized owner bindings. Do not port deployment-password/all-profile access as commercial identity. |
 
-Existing workflow integration includes financial imports/exports, source-owned receipts,
-recurring conversion, Maps and mileage imports. The selected owner-use scope requires
-the applicable existing workflows before live cutover. The [workflow-port
-guide](IMPORTS_EXPORTS_AND_INTEGRATIONS.md) records the delivered behavior; [browser and
-API workflows](RUNTIME.md) retains implementation ownership and approved exclusions.
-Local implementation and synthetic checks do not establish deployment, real-provider
-verification or live-cutover approval.
-
-PostgreSQL bookkeeping uses the supported browser/API surfaces and the existing
-cutover authority contract. Retained Sheets tooling supports authorized format-13
-source migration, archive recovery and local administration; it does not provide a
-bookkeeping runtime. Unavailable workflows remain unavailable until implemented.
-Do not route bookkeeping back to stale Sheets to finish an action, dual-write, or
-re-enable Sheets after PostgreSQL divergence. Live owner cutover owns private live
-execution; synthetic alpha performs no authority activation.
+Each release verifies the workflows in its approved scope on the selected
+environment. Use [controlled cutover](../accounting/CUTOVER.md) for authority
+activation and [the user guide](../USING_TABULA_RASA.md) for supported bookkeeping
+behavior. Keep Sheets sources frozen after activation and route bookkeeping
+through PostgreSQL.
 
 ## Streamlit retirement criterion
 
-**Current source boundary:** The local operator CLI covers profile setup,
-Google consent and Picker, and local recovery metadata. Format-13 backup,
-validation, migration and restore remain separate entry points. Commercial
-release acceptance uses the workflow matrix above.
+Hosted Streamlit and the obsolete Google OAuth entries were removed. The
+[hosted retirement record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/507)
+holds the owner-confirmed provider readback and post-removal checks. Commercial
+images exclude Streamlit, and CI verifies HTTP import and schema construction.
 
-For hosted Streamlit retirement, the deployment owner verifies the exact app
-and its recovery dependencies before the approved shutdown. Record the app's
-absence in the provider workspace and check the old public URL separately.
-See [Streamlit Community Cloud app removal](https://docs.streamlit.io/deploy/streamlit-community-cloud/manage-your-app/delete-your-app).
-The Google Cloud project owner verifies the shared OAuth client and its active
-consumers, then removes the approved legacy authorized domain, JavaScript
-origin and redirect URI. Reopen Branding and the client settings to confirm all
-three entries are absent and the approved staging, production and loopback
-entries are present. Preserve the shared client, scopes, credentials, existing
-grants and archived source and recovery artifacts. Run the approved staging and
-production [Drive connection checks](../identity/GOOGLE_DRIVE.md#troubleshooting-and-hosted-acceptance)
-using the authorized test scope for each environment. Record sanitized provider
-readback and connection results for the OAuth branding handoff.
-
-Before disabling an entity's old writers, consume the supported migration,
-acceptance/export, authentication and recovery boundaries for its release stage. Preserve source and recovery artifacts under their own custody and retention procedures. The
-[capability retirement
-evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/377) records active
-callers, owners, eligible cleanup, retained regression contracts and concrete conditions
-for deferred removals. It consumes this routing matrix without adding a release or
-owner-cutover prerequisite.
+The [local operator CLI](../SETUP.md#local-profile-administration) covers profile
+setup, Google consent and Picker, and local recovery metadata. Use the
+[local administration inventory](../identity/CONNECTIONS_AND_CLAIMS.md#retained-local-administration-inventory)
+to find each supported entry point. Format-13 source and archive recovery,
+profile-scoped Google grants, existing receipts and PostgreSQL recovery history
+retain their separate procedures.
 
 ## Restricted-alpha support and retirement
 

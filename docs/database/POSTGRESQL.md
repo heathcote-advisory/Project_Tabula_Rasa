@@ -379,9 +379,8 @@ parallel domain state machine, token format, version counter or error translator
 
 ## Mileage, receipt metadata and import adapters
 
-These adapters extend the core implementation from the shared core repositories.
-recurring and mixed-use repositories and asset repository are parallel work; this slice
-does not implement their recurring, mixed-use or asset workflows.
+These adapters share the core repositories' entity and mutation boundaries.
+See the secondary repository section below for recurring, mixed-use and asset persistence.
 
 `PostgresMileageRepository` maps native MileageTrip/MileageTag values to mileage records
 and tag associations. The existing MileageService owns field normalization, active-tag
@@ -506,12 +505,9 @@ normalization or recovery state machine is introduced.
 
 ## Reporting repository
 
-`PostgresLedgerQueryRepository` implements the `LedgerQueryRepository` contract and is
-installed as `services.reporting` by the opt-in composition above. This is the core
-reporting slice of PostgreSQL persistence and application transition and supports the
-browser/API milestone. It does not activate an entity, migrate Sheets data, or satisfy
-the later whole-profile reconciliation, complete export, recovery or production
-activation gates.
+`PostgresLedgerQueryRepository` implements the `LedgerQueryRepository` contract
+and provides `services.reporting` in PostgreSQL composition. The browser and
+HTTP API use it for ledger projections and financial reports.
 
 `read_ledger()` opens its own read-only REPEATABLE READ operation. The entity
 existence check, accounts, categories, entry projections, tags, receipt counts
@@ -657,8 +653,8 @@ together; a failed period rolls back that call's entries, events and asset versi
 Coupled infrastructure operations can join asset mutation and posting in the same outer
 transaction. Loaded asset locks precede fresh history checks, so concurrent
 edits/postings cannot bypass saved-history restrictions or double-post. Descriptive
-edits and valid retirement remain supported; mixed-use depreciation (mixed-use asset
-accounting) remains outside this slice.
+edits and valid retirement remain supported. See [asset workflows](../browser/RECURRING_AND_ASSETS.md)
+for supported depreciation and mixed-use boundaries.
 
 All records and relationships include the selected entity. Source, schedule and asset
 mappings return mutation baseline contract baselines after participating detail writes;
@@ -742,20 +738,17 @@ authorize dual writes, source deletion or a customer release.
 
 ## Initial baseline and Sheets migration
 
-The migration framework consolidates the unused pre-production `0001_canonical`,
+The migration framework consolidated the unused pre-production `0001_canonical`,
 `0002_aggregate_versions`, and `0003_domain_integrity` revisions into `0001_initial`,
-retaining their table definitions, aggregate-version machinery, and domain/history
-guards. The operator confirmed on 2026-10-05 that only disposable development/test
-databases exist and no staging database has been provisioned. Original revisions remain
-in Git history, not the active Alembic chain. `migration_id_mappings.source_updated_at`
-retains original source update provenance independently of database-controlled aggregate
-update instants.
+retaining their table definitions, aggregate-version machinery and domain/history
+guards. `0004_mileage_order` and `0005_bookkeeping_cutover` follow the baseline in the
+deployed forward chain. The original revisions remain in Git history.
+`migration_id_mappings.source_updated_at` retains original Sheets update provenance
+independently of database-controlled aggregate timestamps.
 
-An old disposable database must be explicitly recreated, never stamped to the
-new revision. An unexpected retained database is a stop-and-investigate case;
-preserve its data and old revision chain. This implementation recreates only
-synthetic UUID test databases through the existing test fixture. It does not
-reset an operator database or silently upgrade an old revision identifier.
+Recreate only explicitly disposable databases. Preserve any unexpected retained
+database and investigate its revision chain before proceeding. The automated test
+fixture creates and removes only its own disposable databases.
 
 Repository code alone need not introduce a revision. Any later schema/constraint
 change uses a new forward revision, coordinated to keep one Alembic head.

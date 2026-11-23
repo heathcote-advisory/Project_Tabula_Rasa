@@ -63,10 +63,8 @@ Responses are private, uncached attachments;
 failed reads show safe errors and never manufacture a file. Scope/navigation
 changes abort delivery of a pending browser download.
 
-Standalone report downloads and category-template import are excluded by the owner's
-October 11 correction. Complete recovery export remains complete entity export; customer
-portability remains customer data export under external release and customer lifecycle.
-These CSVs are not alternate live ledgers.
+For full-entity recovery artifacts, see [canonical bookkeeping export](../accounting/EXPORT.md).
+Customer and accountant ZIP delivery is described below.
 
 ## Customer bookkeeping and accountant handoff
 
@@ -242,55 +240,6 @@ business's Google OAuth grant. Missing monitoring configuration does not disable
 mileage. See [optional HTTP quota monitoring](../GOOGLE_MAPS.md#optional-http-quota-monitoring)
 for both runtime composition paths, operator configuration, later controlled
 production verification and what synthetic/image validation cannot establish.
-
-## Integration ownership and verification
-
-Local implementation validation on October 13, 2026: 286 affected Python tests
-passed against disposable PostgreSQL; all five new compiled-browser journeys
-passed; 24 Vitest tests, Python lint, ESLint, TypeScript/Vite build and generated
-OpenAPI/client consistency checks passed. These results cover the implementation
-revision carrying this document. Hosted CI, restricted-key/provider acceptance
-and selected live-profile readiness remain unclaimed.
-
-Reuse: inspected internal `transactions/ledger.py`, `ledger_bulk.py`,
-`data_backup/exports.py`, `ledger_records.py`, `ledger_presentation.py` and
-ReportingService. Extracted only shared CSV preparation and type labels; internal
-and HTTP adapters now call the same owner. ReceiptService, receipt_context,
-DocumentStore, native receipt/source locks and the common browser receipt screen
-own attachment behavior. Maps reuses GoogleRoutesClient, deployment configuration
-and MileageService; the browser adapts transient widget state. No parallel
-accounting, persistence, authorization or automatic retry engine is introduced.
-
-Regression evidence lives in `tests/test_financial_csv.py`,
-`tests/http/test_financial_csv_transport.py`,
-`tests/postgres/test_http_financial_csv.py`,
-`tests/postgres/test_http_mixed_use_receipts.py`,
-`tests/postgres/test_http_mileage_maps.py` and
-`tests/postgres/test_browser_workflow_ports.py`. These use synthetic providers and
-disposable PostgreSQL, including two entities, empty/populated exports, complete
-journals, signs/text safety, stale source refusal, opaque locators, upload/link
-uncertainty, preserved bytes, generated-source ownership, provider/quota failure,
-route confirmation and independent return distance. Native browser journeys
-exercise the compiled SPA and production handlers at desktop/mobile widths.
-
-Run the affected service/provider/native suites, Python lint, browser build, ESLint,
-Vitest and generated-contract drift check before committing. Current-head GitHub **Full
-test suite** remains the authoritative merge gate after publication. For live owner
-cutover, retain a reviewed revision and actual hosted workflow/Maps restriction/
-grant-folder evidence for all selected live profiles. Normal authentication, recovery
-acceptance and operator authorization retain their own gates. Local checks do not
-complete live owner cutover or retire Streamlit.
-
----
-
-## Import, copy and bulk ownership
-
-The reference actions are Data & backup's three importers, Transactions' ordinary
-copy/bulk actions, Mixed-use expenses' source copy and an ordinary Expense's Make
-recurring action. These extend existing bookkeeping, recurring/mixed-use and mileage
-services and PostgreSQL repositories. They introduce no new input format or bookkeeping
-capability.
-
 ## Imports in Data & backup
 
 **Data & backup** (`/data`) has independent uploaders for Tabula Rasa transactions,
@@ -300,6 +249,8 @@ addition to read/write access. Editor access alone does not expose uploaders.
 The existing restricted synthetic development context also permits imports;
 its loopback/hosted gate and prohibition on migrated profiles remain in force.
 Staging a file does not write.
+Choose one file with the native picker or drop it into the labeled upload zone.
+A multi-file drop is refused before preparation.
 Source tables show at most 20 Tabula Rasa CSV rows or 50 QuickBooks rows.
 Changing files/options invalidates their earlier preparation. An explicit import
 action commits only the selected file to the selected business. Files are UTF-8
@@ -419,50 +370,22 @@ retains the draft and requires inspection before retry/cancellation. Completed
 commands close their mutation surface rather than offering another same create.
 Existing receipt references on the converted Expense remain owned by that Expense.
 
-## Initiative and readiness boundary
+## Service ownership and verification
 
-Transaction and mileage imports, copy/bulk actions and recurring conversion use
-the existing domain services and protected command boundaries. The default
-technical-alpha matrix is intentionally bounded. Financial CSVs, source
-receipts, Maps and import/copy workflows retain their own service and validation owners.
-Proposed mileage bulk actions and category-template/report downloads are not migration
-prerequisites. Each selected live release must verify its actual workflow scope and
-configured dependencies through the cutover procedure. These workflows do not authorize
-authority activation, Streamlit retirement, deployment or external admission.
+`application/financial_csv.py` prepares financial CSVs from the selected ledger.
+Receipt services and the selected `DocumentStore` own attachment and recovery.
+`GoogleRoutesClient` computes route distance, and `MileageService` owns saved trips.
+Transaction, mileage, mixed-use and recurring services own import, copy, bulk and
+conversion rules. Their PostgreSQL repositories enforce fresh references, atomic
+writes, provenance and business isolation. Browser forms use the shared protected
+editors and keep drafts scoped to the selected business.
 
-## Reuse and validation
+Run affected service, HTTP and native browser tests using synthetic providers
+and disposable PostgreSQL. Verify exports for empty and populated ledgers,
+receipt-link recovery, Maps failure and manual entry, import replay, stale baselines,
+and independent business scope. Follow [development validation](../DEVELOPMENT.md#required-validation)
+for local commands and CI ownership. Use [release validation](RELEASE_VALIDATION.md)
+for hosted workflow evidence and provider checks.
 
-TransactionImportService, MileageService, TransactionService, MixedUseService and
-RecurringService retain domain decisions; their existing PostgreSQL repositories
-retain fresh checks, atomic writes, provenance and isolation. File preparation is
-shared without importing Streamlit. A pure copy-suffix owner serves internal and
-browser paths; ordinary/mixed-use copies share association filtering through
-TransactionService. Existing fields, protected/create
-editors, confirmations and scoped cache/context owners handle browser forms.
-New code owns bounded transport preparation, allowlisted DTOs and presentation,
-with no parallel persistence, authority, accounting or retry implementation.
-
-Focused tests cover file conversion/rejection, service copy preparation,
-API batches/baselines/duplicates/rollback/lost responses and two-entity isolation,
-plus compiled-browser confirmation/cancellation, protected selections, failures,
-independent copies, conversion and desktop/mobile import behavior. Run these from
-the repository root with a built `web` and explicitly disposable
-`TABULA_RASA_TEST_DATABASE_URL`; see [Development](../DEVELOPMENT.md#required-validation).
-GitHub's current-candidate **Full test suite** remains the authoritative merge gate.
-
-Local validation recorded October 13, 2026: 221 affected Python tests, 44 browser unit
-tests and 27 compiled-browser scenarios passed using a disposable PostgreSQL 18.6
-instance. The browser scenarios cover each new port, desktop/mobile imports, two
-entities, atomic/replay behavior, failure guidance, independent copy/cancellation,
-protected selections and inline-reference conversion after a lost response. Python Ruff,
-browser ESLint, TypeScript/build, API contract generation and `git diff --check` passed.
-Separate reviewer-context passes found and verified remediation for copy completion,
-selection lifetime, bulk outcome preservation, import recovery and full-DTO conversion
-replay. These are local implementation results, not hosted CI, stage acceptance or
-approval for live owner cutover's live execution.
-
-
-The import file selectors support dropping one file or using the styled native
-chooser in the labeled drop zone. A multi-file drop is refused before preparation.
-Existing format/size validation, preparation, confirmation and explicit import
-commands remain unchanged; dropping a file never commits an import.
+Historical implementation results are recorded in the [financial CSV, receipts and Maps PR](https://github.com/heathcote-advisory/Project_Tabula_Rasa/pull/368)
+and the [import, copy and recurring conversion PR](https://github.com/heathcote-advisory/Project_Tabula_Rasa/pull/367).

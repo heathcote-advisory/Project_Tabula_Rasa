@@ -14,36 +14,24 @@ retains the managed database recovery, NAS backup and restore and operational re
 verification drill sets and records unresolved identities; a successful drill or retired
 format never supplies deletion approval.
 
-## Status and production checkpoint
+## Operator setup and acceptance
 
-The read-only verifier and rehearsal procedure are implemented. [managed database
-recovery evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/259) closed on
-2026-10-07 for completed current-stage Neon Free managed-snapshot restore and
-requested-point PITR, including two-entity content, schema/security inventory and
-accounting verification. Production and UAT were distinct branches in one project, with
-the production root as the drill source. Those recorded results establish that
-controlled technical recovery evidence, not ongoing commercial guarantees or a live
-bookkeeping authority switch. Reinspect settings and capacity before each new operation;
-do not infer current protection from an old drill or synthetic tests.
+Before commercial activation, record the approved protection and recovery
+objectives, human acceptance and operator handoff in the [recovery agreement record](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/298).
+The [owner-operated cutover procedure](../accounting/CUTOVER.md#owner-operated-production-procedure)
+defines separate requirements for lasting owner use under the accepted recovery
+limits.
 
-Commercial activation requires an approved protection/objective agreement,
-human evidence acceptance and operator handoff. Keep the accepted decisions in
-the [commercial recovery agreement record](https://github.com/Roklion/Project_Tabula_Rasa/issues/298). The [owner-operated
-procedure](../accounting/CUTOVER.md#owner-operated-production-procedure) supports
-lasting use of the shared production application under explicit current recovery
-limitations without requiring those commercial sign-offs or a provider purchase. [NAS
-backup and restore](NAS_BACKUP.md) owns NAS backup automation and isolated restore
-verification. The standalone [NAS backup tooling and operator runbook](NAS_BACKUP.md)
-cover device setup, health/failure recovery and isolated retained-archive restores.
-Complete the deployment's operational checks before claiming protection. When a logical
-restore needs ownership/ACL suppression, follow the explicit [staged privilege
-recovery](NAS_BACKUP.md#staged-ownership-and-privilege-recovery) procedure: data/schema
-success alone does not establish security parity, and provider-managed
-role/default-grant exceptions need separate reconciliation. NAS protection cannot be
-claimed before it works; if the owner requires it before live writes, complete it before
-that deployment. owner-operated runtime's technical closure is independent. Database
-metadata/dumps do not establish receipt-byte or full-service recovery; platform
-operations retains that responsibility. Commercial evidence gates remain intact.
+Use the [NAS backup runbook](NAS_BACKUP.md) for scheduled logical backups and
+isolated archive restores. For logical restores that suppress ownership or ACLs,
+apply the [staged privilege recovery procedure](NAS_BACKUP.md#staged-ownership-and-privilege-recovery)
+and verify provider-managed role and default-grant exceptions separately.
+Use [receipt-byte recovery](../storage/RECEIPT_RECOVERY.md) to verify documents
+referenced by a restored ledger.
+
+Keep current protection, capacity, schema and two-business verification evidence
+for each rehearsal. The [original managed snapshot and PITR rehearsal](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/259)
+records the historical provider results.
 
 Before provider configuration or a production-derived rehearsal, the operator must
 complete managed database recovery's manual setup checkpoint:
@@ -74,23 +62,17 @@ If any item is missing, stop provider-specific work and request operator setup.
 No schema reset, production overwrite, finalization, source edits, document
 movement or cleanup is authorized by this document.
 
-## Current Free-plan rehearsal boundary
+## Rehearsals on the Free plan
 
-The current goal is to complete a real managed **manual-snapshot restore** and
-separate **requested-point PITR** within Free-plan capabilities. Retain the
-manual snapshot and each isolated target/evidence through sign-off. Free allows
-one manual snapshot; do not delete an existing required snapshot to make room
-without separate approval. Plan both milestones while the requested point is
-still available within the effective history window and its 1 GB cap. Confirm
-capacity before creating targets; record a blocker rather than overwriting UAT
-or production. The six-hour lookback is a recovery-point availability limit,
-**not RPO**, a six-hour data-loss promise or proof that every point remains
-available under the history cap.
+Plan the managed manual-snapshot restore and requested-point PITR separately.
+Confirm the project's effective history window, storage cap, snapshot availability
+and branch capacity before creating isolated targets. Retain required snapshots,
+targets and evidence through sign-off. Use remaining recovery-point availability
+to schedule the drill, and report observed data loss and recovery time separately.
 
-No automated snapshot production, daily frequency, 14-day retention or seven-day
-history evidence is required to execute these current-stage drills. A successful
-drill records what the current plan recovered and how long it took; it does not
-establish ongoing production protection or commercial readiness.
+These bounded rehearsals can use a manual snapshot and the available provider
+history. Ongoing production protection and commercial acceptance require the
+separate agreement below.
 
 ## Future protection and commercial objective agreement
 

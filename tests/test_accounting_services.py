@@ -2,14 +2,12 @@
 
 from copy import deepcopy
 from datetime import date
-from pathlib import Path
-import subprocess
-import sys
 
 import pytest
 
 from tabula_rasa.errors import StorageConflictError, StorageValidationError
 from tests.accounting_service_fakes import Transactions, Journals
+from tests.application_import_probe import assert_application_runs_without_infrastructure
 
 
 def expense(**changes):
@@ -291,15 +289,7 @@ def test_failures_propagate_without_service_retry(kind):
 
 
 def test_services_and_their_fake_workflows_import_without_infrastructure():
-    code = """
-import importlib.abc
-import sys
-class RejectInfrastructure(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        blocked = ('tabula_rasa.storage', 'tabula_rasa.infrastructure', 'tabula_rasa.composition', 'gspread', 'google', 'streamlit', 'pandas')
-        if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise AssertionError('Imported infrastructure: ' + fullname)
-sys.meta_path.insert(0, RejectInfrastructure())
+    assert_application_runs_without_infrastructure("""
 from tests.accounting_service_fakes import Transactions, Journals
 service = Transactions().service()
 record = service.create(transaction_id='stable', txn_date='2026-10-04', kind='Expense', amount='10', account_id='cash', category_id='expense', new_payee_name='Vendor', new_tag_name='Tax')
@@ -310,12 +300,4 @@ lines = [dict(id='debit', target_type='category', target_id='expense', debit='10
 entry = journals.create(entry_id='journal', txn_date='2026-10-04', postings=lines)
 updated = journals.update('journal', expected=entry, description='Revised')
 journals.delete('journal', expected=updated)
-"""
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=Path(__file__).resolve().parents[1],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, result.stderr
+""")
