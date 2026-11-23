@@ -2,9 +2,9 @@
 
 Monthly period locks and linked reversing journals extend existing PostgreSQL
 posting, loaded baselines and atomic audit history. This is an opt-in control;
-adoption requires an explicit operator decision. It introduces no new journal
-engine and does not alter the legacy Streamlit/Sheets behavior. Recovery,
-retention and release approval remain independent requirements.
+adoption requires an explicit operator decision. The controls use the existing
+PostgreSQL journal engine. Recovery, retention and release approval remain
+independent requirements.
 
 ## Implemented minimal policy
 

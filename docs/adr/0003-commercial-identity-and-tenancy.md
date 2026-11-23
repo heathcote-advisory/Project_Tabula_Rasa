@@ -148,15 +148,13 @@ recovery access; reconfirm current Owner authorization if execution is deferred 
 scope or operator changes. platform operations records approval and execution together
 in the recovery audit; no reusable bearer approval credential is implied.
 
-During transition, loopback-only Streamlit Business Profiles administration is a
-separate restricted internal operator interface. Commercial login, tenant roles and the
-business selector never unlock local credential/profile administration. Preserve its
-existing password, administrator reauthentication and loopback restrictions. Keep this
-listener out of public reverse-proxy and ingress routes: a loopback bind does not make a
-publicly relayed request local, and forwarded headers cannot grant administrator access.
-Existing entity claims and local administration coordinates retirement after in-app
-login, business creation and management fully replace its supported functions and the
-replacement is verified; do not retain it as a commercial bypass.
+The transition initially used loopback-only Streamlit Business Profiles
+administration. The [local operator CLI](../SETUP.md#local-profile-administration)
+now owns the retained local credential and profile operations. Commercial login,
+tenant roles and the business selector grant no local operator access. Keep the CLI's
+temporary Google callbacks on loopback and out of public ingress. The
+[local administration inventory](../identity/CONNECTIONS_AND_CLAIMS.md#retained-local-administration-inventory)
+defines which actions remain local and which belong to commercial workflows.
 
 Import requires `bookkeeping:write` AND `bookkeeping:import`; complete export
 requires `bookkeeping:read` AND `bookkeeping:export`. All other rows with a

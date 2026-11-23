@@ -36,11 +36,9 @@ password-protected local operator CLI:
 4. Validate the grant and folders with `google check PROFILE_KEY`. Do not revoke a shared account/application
    grant as part of staging teardown: that can invalidate other profile grants.
 
-The local administrator owns OAuth callbacks and persistence. The API has no
-Google login/Picker/admin route. Local Streamlit configuration and a folder ID
-alone do not configure the API. Only the explicit file below is loaded; no
-`.env.local`, local profile store, Streamlit Secrets or first-profile fallback is
-read by the HTTP runtime.
+The local operator CLI handles Google consent, Picker and local profile
+persistence. The synthetic API binding loads only the explicit server file
+below. The operator provisions that file for the selected synthetic profile.
 
 ## Private server file contract
 

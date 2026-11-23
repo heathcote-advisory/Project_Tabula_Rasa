@@ -4,9 +4,9 @@ Status: Proposed v1 implementation contract; subject to maintainer review.
 
 ## Context and scope
 
-The commercial datastore represents accounting concepts, while the current
-Streamlit/Sheets application remains functional. The persistence-neutral services and
-ports completed in [application service boundaries](../ARCHITECTURE.md) are the adapter
+The commercial datastore represents accounting concepts. At the time of this
+decision, Streamlit and Sheets still served bookkeeping. The persistence-neutral
+services and ports completed in [application service boundaries](../ARCHITECTURE.md) are the adapter
 boundary. This ADR specifies tables, projections, integrity rules, and migration units;
 it neither installs a database nor changes production code or current UX. Executable
 migrations belong to database runtime and repository implementations to reference

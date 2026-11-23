@@ -4,8 +4,9 @@ Named authentication uses hosted OIDC, server-owned PostgreSQL sessions and
 application-owned memberships. [Provider setup](PROVIDER_SETUP.md) and
 [ADR 0003](../adr/0003-commercial-identity-and-tenancy.md) define configuration
 and security contracts. [Authorization](AUTHORIZATION.md) owns action policy;
-[business onboarding](WORKSPACES.md) owns switching and onboarding. The Streamlit
-administrator remains a separate loopback-only operator surface.
+[business onboarding](WORKSPACES.md) owns switching and onboarding. The
+[local operator CLI](../SETUP.md#local-profile-administration) uses the application
+password and opens loopback browser callbacks for Google consent and Picker.
 Provider-hosted acceptance and live migration require their own approved procedures.
 
 ## Explicit deployment configuration
