@@ -36,9 +36,11 @@ allows an authenticated user to select every configured profile.
 
 ## OAuth and Picker flow
 
-The local Account settings flow binds a signed, expiring OAuth state to one
+The local operator command binds a signed, expiring OAuth state to one
 existing profile and one configured redirect URI. The authorization code is
-one-time input and is not persisted.
+one-time input and is not persisted. The listener is loopback-only and exists only
+for that Google consent or Picker interaction. The OAuth callback checks the
+exact state created for the running command.
 
 ```mermaid
 sequenceDiagram
@@ -52,7 +54,7 @@ sequenceDiagram
     App-->>Admin: Redirect with shared client and drive.file scope
     Admin->>Google: Authenticate and approve
     Google-->>App: One-time code and signed state
-    App->>App: Verify state, profile, URI, and age
+    App->>App: Match the current command’s unexpired state
     App->>Google: Exchange code with client secret
     Google-->>App: Access and refresh tokens
     App->>Google: Confirm authorized account
@@ -77,7 +79,7 @@ sequenceDiagram
     App-->>Picker: Profile A access token, shared key and project number
     Picker->>Drive: Show folders available to profile A
     Admin->>Picker: Choose storage root
-    Picker-->>App: Folder ID and name
+    Picker-->>App: Folder ID
     App->>Drive: Validate folder and direct parents
     Drive-->>App: Confirmed metadata
     App->>Store: Save root and managed children for profile A
@@ -152,32 +154,26 @@ Never commit or display this file, its values, OAuth tokens, or private credenti
 
 ## Connect a profile
 
-Connection and folder changes are performed through the loopback-only local
-profile administrator:
+From the repository root, substitute the intended profile key:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run_local_profile_admin.ps1
+```text
+python -m scripts.local_profile_admin google connect PROFILE_KEY
+python -m scripts.local_profile_admin google pick-root PROFILE_KEY
+python -m scripts.local_profile_admin google provision-folders PROFILE_KEY
+python -m scripts.local_profile_admin google check PROFILE_KEY
 ```
 
-1. Sign in and open Account settings.
-2. Re-enter the application password.
-3. Select the intended profile and open its Google setup tab.
-4. Select Connect Google.
-5. Sign in with the human account that should own that profile's Drive files.
-6. Select the existing ledger spreadsheet in Picker and Validate ledger. Then
-   select a storage root or create an app-managed root.
-7. Select Provision storage folders. The app creates or reuses the Receipts
-   and Ledger Backups children.
-8. Repeat for each profile.
+In the consent tab, confirm the intended human Google account. For a new storage
+root, use `google create-root PROFILE_KEY` in place of `google pick-root`.
+The managed children are Receipts and Ledger Backups. Sheets selection and
+initialization are in [Setup](SETUP.md).
 
-Streamlit Cloud Secrets export is retired. Local connection, reconnection,
-folder selection and disconnection affect local configuration only. Commercial
-grants require the separately approved staging/activation procedure. Local
-disconnection removes only this
-profile's local grant and folder settings, disabling Sheets and Drive. It does
-not delete files or revoke Google's shared account/application grant, which
-could invalidate other profiles using the same account. To revoke the whole
-application, use Google Account permissions and reconnect every affected profile.
+Use `google connect` again to reconnect, then check the ledger and configured
+folders. `google disconnect PROFILE_KEY` removes the profile's local grant and
+folder settings. It preserves remote files and Google consent because revocation
+could affect other profiles. Disable that profile's Synology metadata before
+disconnecting or replacing its root. Commercial grants use separate approved
+[staging and activation](identity/CONNECTIONS_AND_CLAIMS.md).
 
 ## Testing and production publishing
 
@@ -215,7 +211,7 @@ application branding.
 
 ### Grant revoked or refresh fails
 
-Reconnect that profile in local Account settings. Both Sheets and Drive depend
+Run `google connect PROFILE_KEY` with the local operator command. Both Sheets and Drive depend
 on this connection. Validate its ledger and configured folders. Restage commercial grants separately.
 
 ### Drive-owning account changes
@@ -297,7 +293,7 @@ change its accepted document scope.
 | --- | --- |
 | OAuth state, code exchange, refresh, and Drive operations | `tabula_rasa/google_drive/` (`oauth.py`, `client.py`, `folders.py`, `receipts.py`, and `backups.py`) |
 | Callback and per-profile administration | tabula_rasa/google_drive_admin.py |
-| Browser Picker | tabula_rasa/google_drive_picker.py |
+| Loopback consent and Picker | tabula_rasa/operator_google_browser.py and tabula_rasa/google_drive_picker.py |
 | Local credential persistence | tabula_rasa/local_profile_store.py |
 
 ## Official references
@@ -322,14 +318,4 @@ Existing deployments follow [the OAuth migration runbook](OAUTH_MIGRATION.md).
 
 ### Initial ledger provision
 
-In Account settings > Google setup, a connected profile with no ledger can use
-Create ledger spreadsheet instead of selecting an existing file. The app creates
-`Business name Ledger` in that Google account's My Drive, saves its ID, and
-initializes the existing required worksheets and default accounts/categories.
-This does not require a separate Picker grant because the app creates the file.
-The action is hidden once a ledger is configured and never replaces an existing
-ledger. Drive receipt/backup folders are still configured in the same setup tab.
-
-If creation or initialization is uncertain, no file is deleted or blindly
-recreated. Inspect Drive and select the created file through Picker; if its ID
-was saved, use Validate ledger to finish supported blank-workbook initialization.
+See [initial workbook creation](SETUP.md#create-an-initial-workbook).

@@ -4,5 +4,4 @@ target-version = "py311"
 # These executable entry points add the repository root to sys.path before
 # importing project modules so they also work when invoked by file path.
 "scripts/*.py" = ["E402"]
-"tabula_rasa/app.py" = ["E402"]
 "tests/_app_*_scenario.py" = ["E402"]

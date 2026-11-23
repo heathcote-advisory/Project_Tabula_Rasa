@@ -20,7 +20,7 @@ grants. Keep staging resources Restricted and separate from private/live profile
 Record actual account/grant/folder custody privately, without posting identifiers.
 
 Follow [Google Drive setup](../GOOGLE_DRIVE.md#connect-a-profile) in the existing
-loopback-only, password-reauthenticated local profile administrator:
+password-protected local operator CLI:
 
 1. Create a dedicated synthetic profile (example key `stage-receipts`). Do not
    connect or modify an existing private business profile for this purpose.
@@ -31,9 +31,9 @@ loopback-only, password-reauthenticated local profile administrator:
 3. Create a new app-managed staging storage root and provision its Receipts and
    Ledger Backups children. The byte binding uses only Receipts; validating the
    existing complete managed-folder configuration does not enable cloud backups.
-   The Google setup tab can provision Drive storage without selecting a ledger.
+   The `google provision-folders` command can provision Drive storage without selecting a ledger.
    Do not create/select a private workbook solely for this API binding.
-4. Validate the grant/folders locally. Do not revoke a shared account/application
+4. Validate the grant and folders with `google check PROFILE_KEY`. Do not revoke a shared account/application
    grant as part of staging teardown: that can invalidate other profile grants.
 
 The local administrator owns OAuth callbacks and persistence. The API has no

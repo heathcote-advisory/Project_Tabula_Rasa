@@ -154,21 +154,10 @@ execution; synthetic alpha performs no authority activation.
 
 ## Streamlit retirement criterion
 
-**Current source boundary:** Streamlit bookkeeping pages, startup/page recurring
-generation and obsolete preparation converters are retired. Retained local operator
-administration still requires the flag, loopback bind, application password and
-reauthentication. Format-13 migration/archive recovery, current PostgreSQL recovery,
-Google grants/folders and forward schema history remain supported. This source change
-establishes no merge/deployment or commercial release acceptance.
-
-
-The commercial image already installs the API/PostgreSQL dependencies without
-Streamlit; CI verifies HTTP import/schema construction in that image. Retiring
-commercial dependence requires every workflow in the selected release/owner
-matrix to have a supported browser/API/service path, tested failures/isolation,
-configured durable dependencies and documented routing. Unknown required gaps
-must stop that release, while explicitly excluded long-tail slices may continue
-independently. No hidden session-state or page-load scheduling may remain.
+**Current source boundary:** The local operator CLI covers profile setup,
+Google consent and Picker, and local recovery metadata. Format-13 backup,
+validation, migration and restore remain separate entry points. Commercial
+release acceptance uses the workflow matrix above.
 
 For hosted Streamlit retirement, the deployment owner verifies the exact app
 and its recovery dependencies before the approved shutdown. Record the app's
@@ -185,11 +174,7 @@ using the authorized test scope for each environment. Record sanitized provider
 readback and connection results for the OAuth branding handoff.
 
 Before disabling an entity's old writers, consume the supported migration,
-acceptance/export, authentication and recovery boundaries for its release stage. Before
-repository-wide removal of Streamlit, separately inventory all remaining internal
-users/workflows, migrate or explicitly retire each, preserve source and recovery
-artifacts, and update operator/user documentation and tests. technical-alpha validation
-does not authorize package removal, source deletion or a big-bang cutover. The
+acceptance/export, authentication and recovery boundaries for its release stage. Preserve source and recovery artifacts under their own custody and retention procedures. The
 [capability retirement
 evidence](https://github.com/Roklion/Project_Tabula_Rasa/issues/377) records active
 callers, owners, eligible cleanup, retained regression contracts and concrete conditions

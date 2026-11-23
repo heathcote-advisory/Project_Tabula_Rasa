@@ -13,7 +13,6 @@ from tabula_rasa.storage import (
     StorageValidationError,
     StorageWorkbookAccessError,
 )
-from tabula_rasa.business_profiles import load_business_profiles
 
 
 def masked_spreadsheet_id(spreadsheet_id: object) -> str:
@@ -40,11 +39,3 @@ def initialize_candidate_storage(
             "could not be initialized"
         ) from error
     return candidate_storage
-
-
-def configured_profiles_or_empty(effective_secrets: Mapping[str, Any]) -> list[Any]:
-    """Treat a clean install without hosted profiles as having no profiles."""
-    configured = effective_secrets.get("business_profiles")
-    if configured is None or (isinstance(configured, Mapping) and not configured):
-        return []
-    return load_business_profiles(effective_secrets)

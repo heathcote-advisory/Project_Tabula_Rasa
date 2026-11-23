@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-import hashlib
-import json
 from typing import Any, Literal
 
 ReadinessStatus = Literal["incomplete", "ready-local"]
@@ -13,17 +11,11 @@ ReadinessStatus = Literal["incomplete", "ready-local"]
 
 @dataclass(frozen=True)
 class ProfileReadiness:
-    """Safe status information suitable for rendering in the admin UI."""
+    """Safe status information suitable for operator reports."""
 
     status: ReadinessStatus
     missing_steps: tuple[str, ...] = ()
     validation_errors: tuple[str, ...] = ()
-
-
-def profile_settings_fingerprint(settings: Mapping[str, Any]) -> str:
-    """Return a non-secret cache key for the current persisted settings."""
-    encoded = json.dumps(dict(settings), sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def profile_configuration_readiness(

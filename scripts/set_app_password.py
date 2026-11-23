@@ -1,4 +1,4 @@
-"""Prompt for an app password and store only its hash in Streamlit Secrets."""
+"""Prompt for an app password and store only its hash in protected local operator configuration."""
 
 from __future__ import annotations
 
