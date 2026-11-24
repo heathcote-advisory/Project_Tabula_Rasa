@@ -122,10 +122,11 @@ def test_all_unsafe_operations_keep_origin_and_csrf_before_effects(database):
 def test_current_role_matrix_across_every_entity_action(database, role, caplog, monkeypatch):
     monkeypatch.setenv('TABULA_RASA_TELEMETRY_SCOPE_KEY', 'synthetic-security-acceptance-key-32-chars')
     permitted = {
-        'owner': {'read', 'write', 'import', 'export', 'connections_manage', 'period_close', 'period_unlock', 'entry_correct'},
-        'admin': {'read', 'write', 'import', 'export', 'period_close', 'entry_correct'},
-        'accountant': {'read', 'write', 'import', 'export', 'entry_correct'},
-        'editor': {'read', 'write'}, 'read_only': {'read'},
+        'owner': {'read', 'write', 'asset_depreciate', 'import', 'export', 'connections_manage',
+                  'period_close', 'period_unlock', 'entry_correct'},
+        'admin': {'read', 'write', 'asset_depreciate', 'import', 'export', 'period_close', 'entry_correct'},
+        'accountant': {'read', 'write', 'asset_depreciate', 'import', 'export', 'entry_correct'},
+        'editor': {'read', 'write', 'asset_depreciate'}, 'read_only': {'read'},
     }
     with named_client(database) as (client, _, repo, identities, factory, stores, headers):
         alice, bob, org, _ = identities
