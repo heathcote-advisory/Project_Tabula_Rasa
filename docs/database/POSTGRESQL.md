@@ -855,3 +855,27 @@ sequence or ownership grant is needed. Apply through the maintained maintenance
 rollout and retain evidence with identity/control-plane database recovery,
 separately from customer financial exports. Reviewed bundle publication and
 deployed synthetic validation follow [customer legal readiness](../legal/READINESS.md).
+
+## Billing storage
+
+Forward revision `0027_billing_storage` creates empty billing tables. A billing
+customer uses the existing organization ID. Subscriptions refer to an internal
+plan key and immutable entitlement version. Membership and role authority stays
+with the identity control plane.
+
+Provider references are scoped to a configured provider account and environment.
+Composite foreign keys keep provider subscriptions and receipt-linked history
+within the owning organization. A verified, resolved event has one durable
+receipt per provider scope and event ID. History records the resulting plan
+version and lifecycle state in subscription order, with an optional reference to
+the receipt that caused the change. Billing storage holds no provider payloads
+or payment credentials.
+
+Apply the revision through the maintained maintenance rollout. Row-level
+security defaults to denying runtime access, and this revision requires no
+runtime grants, seeds, or backfill. Billing tables belong in full PostgreSQL
+recovery and are outside the bookkeeping export and audit recovery inventories.
+An approved commercial contract must define plan versions, lifecycle
+transitions, lapse and cancellation rights, and provider reconciliation before a
+billing writer or access gate is enabled. Deploying the schema leaves beta
+admission and bookkeeping access intact.

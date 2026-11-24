@@ -135,6 +135,18 @@ def test_control_plane_revision_preserves_the_existing_v1_portable_inventory(rev
     Draft202012Validator(json_schema(format_version=1)).validate(artifact)
 
 
+@pytest.mark.parametrize("revision", ["0026_customer_policies", SUPPORTED_DATABASE_REVISION])
+def test_billing_revision_preserves_the_v2_portable_inventory(revision):
+    from jsonschema import Draft202012Validator
+    from tabula_rasa.bookkeeping_export.schema import json_schema
+
+    artifact = build_artifact(empty_snapshot(revision))
+    assert artifact["manifest"]["format_version"] == 2
+    assert domains_for_revision(revision) is DOMAINS
+    assert parse_artifact(canonical_json(artifact), entity_id="alpha") == artifact
+    Draft202012Validator(json_schema()).validate(artifact)
+
+
 @pytest.mark.parametrize("revision", ["0003_migration_provenance", "unreviewed-revision"])
 def test_supported_database_revision_is_shared_by_export_offline_validation_and_schema(revision):
     from jsonschema import Draft202012Validator, ValidationError
