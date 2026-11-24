@@ -368,7 +368,7 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
             check_closed(origin)
         try:
             if automatic:
-                smoke(origin, candidate["release"], previous_release=previous["release"], maintenance=True)
+                smoke(origin, candidate["release"], previous_release=previous["release"], maintenance=True, emit=emit)
             else:
                 smoke(private_origin, candidate["release"])
         except NamedSmokeError as error:

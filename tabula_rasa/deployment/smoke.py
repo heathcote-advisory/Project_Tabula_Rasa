@@ -1,6 +1,9 @@
 """Mode-specific deployment probes; named login acceptance is a separate rehearsal."""
 
 import time
+from types import SimpleNamespace
+
+GATEWAY_STATUSES = {502, 503, 504}
 
 
 class NamedSmokeError(ValueError):
@@ -23,7 +26,7 @@ def access_mode(environ, *, require_alpha_credentials=True):
 
 def _named_version_ready(request, release, previous_release, maintenance):
     version = request.get('/version', timeout=5000)
-    if maintenance and version.status in {502, 503, 504}:
+    if maintenance and version.status in GATEWAY_STATUSES:
         return False
     if maintenance and version.status != 200:
         raise NamedSmokeError(f'Version endpoint returned an unexpected status (HTTP {version.status}).')
@@ -38,24 +41,14 @@ def _named_version_ready(request, release, previous_release, maintenance):
     if not maintenance:
         return True
     status = request.get('/health/ready', timeout=5000).status
-    if status not in {200, 502, 503, 504}:
+    if status not in {200, *GATEWAY_STATUSES}:
         raise NamedSmokeError(f'Readiness failed (HTTP {status}).')
     return status == 200
 
 
-def named_probe(context, release, *, previous_release=None, maintenance=False, sleep=time.sleep):
-    """Anonymous HTTP boundary, including forged legacy credentials/selectors."""
-    if maintenance and previous_release is None:
-        raise NamedSmokeError('Maintenance smoke requires the verified prior release.')
-    if not maintenance and context.request.get('/health/ready').status != 200:
-        raise NamedSmokeError('Readiness failed.')
-    checks = 21 if previous_release is not None else 1
-    for attempt in range(checks):
-        if _named_version_ready(context.request, release, previous_release, maintenance):
-            break
-        if attempt == checks - 1:
-            raise NamedSmokeError('Release handover did not converge.')
-        sleep(3)
+def _named_http_ready(request, release, previous_release, maintenance):
+    if not _named_version_ready(request, release, previous_release, maintenance):
+        return False
     for headers in ({}, {'Authorization': 'Basic c3ludGhldGljOnN5bnRoZXRpYw=='},
                     {'Cookie': 'tabula_entity=alpha-synthetic; tabula_dev_session=synthetic',
                      'X-Forwarded-For': '127.0.0.1'}):
@@ -64,16 +57,63 @@ def named_probe(context, release, *, previous_release=None, maintenance=False, s
                      '/api/v1/entities/alpha-synthetic/transactions',
                      '/api/v1/entities/alpha-synthetic/documents',
                      '/api/v1/entities/alpha-synthetic/exports/transactions.csv'):
-            response = context.request.get(path, headers=headers)
+            response = request.get(path, headers=headers)
+            if maintenance and response.status in GATEWAY_STATUSES:
+                return False
             if (response.status != 401 or response.headers.get('www-authenticate', '').lower().startswith('basic')
                     or response.headers.get('cache-control') != 'no-store'):
                 raise NamedSmokeError('Named deployment access restriction failed.')
     for path in ('/api/v1/unknown', '/assets/missing.js'):
-        if context.request.get(path, headers={'Accept': 'text/html'}).status != 404:
+        status = request.get(path, headers={'Accept': 'text/html'}).status
+        if maintenance and status in GATEWAY_STATUSES:
+            return False
+        if status != 404:
             raise NamedSmokeError('Routing failure.')
+    return True
 
 
-def named_smoke(origin, release, *, previous_release=None, maintenance=False):
+def named_probe(context, release, *, previous_release=None, maintenance=False, sleep=time.sleep,
+                monotonic=time.monotonic, verify_shell=None, emit=lambda _: None):
+    """Verify the whole public boundary within one maintenance handover budget."""
+    if maintenance and previous_release is None:
+        raise NamedSmokeError('Maintenance smoke requires the verified prior release.')
+    if not maintenance and context.request.get('/health/ready').status != 200:
+        raise NamedSmokeError('Readiness failed.')
+    started = monotonic()
+    deadline = started + 300
+    checks = 101 if maintenance else 21 if previous_release is not None else 1
+
+    def timeout():
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise NamedSmokeError('Release handover did not converge within five minutes.')
+        return max(1, min(5000, int(remaining * 1000)))
+
+    def report(path, status):
+        if maintenance:
+            emit({'status': 'maintenance_public_probe', 'path': path, 'http_status': status,
+                  'attempt': attempt + 1, 'elapsed_seconds': round(monotonic() - started, 3)})
+
+    def get(path, **kwargs):
+        if maintenance:
+            kwargs['timeout'] = timeout()
+        response = context.request.get(path, **kwargs)
+        if maintenance:
+            report(path, response.status)
+        return response
+
+    request = SimpleNamespace(get=get)
+    for attempt in range(checks):
+        if _named_http_ready(request, release, previous_release, maintenance):
+            if verify_shell is None or verify_shell(timeout if maintenance else None, report):
+                return
+        if attempt == checks - 1 or maintenance and monotonic() >= deadline:
+            raise NamedSmokeError('Release handover did not converge within five minutes.' if maintenance
+                                  else 'Release handover did not converge.')
+        sleep(max(0, min(3, deadline - monotonic())) if maintenance else 3)
+
+
+def named_smoke(origin, release, *, previous_release=None, maintenance=False, emit=lambda _: None):
     """No provider credentials, login transactions, session storage or private reads.
 
     Readiness checks PostgreSQL. This verifies the public sign-in shell and
@@ -85,18 +125,42 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False):
         browser = playwright.chromium.launch()
         try:
             with browser.new_context(base_url=origin) as context:
+                page = context.new_page()
+                browser_gateway = []
+                page.on('response', lambda response: browser_gateway.append(
+                    ('/assets/' if response.url.startswith(origin + '/assets/') else '/browser-resource', response.status))
+                    if response.url.startswith(origin + '/') and response.request.method in {'GET', 'HEAD'}
+                    and response.status in GATEWAY_STATUSES else None)
+
+                def verify_shell(timeout, report):
+                    browser_gateway.clear()
+                    try:
+                        response = page.goto('/accounts', **({'timeout': timeout()} if timeout else {}))
+                        if response is not None:
+                            report('/accounts', response.status)
+                        if maintenance and response is not None and response.status in GATEWAY_STATUSES:
+                            return False
+                        if maintenance and (response is None or response.status != 200):
+                            raise NamedSmokeError('Public sign-in shell check failed.')
+                        expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
+                            'href', '/api/v1/auth/login', **({'timeout': timeout()} if timeout else {}))
+                        expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(
+                            0, **({'timeout': timeout()} if timeout else {}))
+                        for path, status in browser_gateway:
+                            report(path, status)
+                        return not (maintenance and browser_gateway)
+                    except (AssertionError, Error):
+                        if maintenance and browser_gateway:
+                            for path, status in browser_gateway:
+                                report(path, status)
+                            return False
+                        raise NamedSmokeError('Public sign-in shell check failed.') from None
+
                 try:
-                    named_probe(context, release, previous_release=previous_release, maintenance=maintenance)
+                    named_probe(context, release, previous_release=previous_release, maintenance=maintenance,
+                                verify_shell=verify_shell, emit=emit)
                 except Error:
                     raise NamedSmokeError('Public HTTP probe request failed.') from None
-                try:
-                    page = context.new_page()
-                    page.goto('/accounts')
-                    expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
-                        'href', '/api/v1/auth/login')
-                    expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(0)
-                except (AssertionError, Error):
-                    raise NamedSmokeError('Public sign-in shell check failed.') from None
         finally:
             browser.close()
 

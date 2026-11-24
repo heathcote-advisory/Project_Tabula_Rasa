@@ -3,11 +3,12 @@
 import json
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from http.client import HTTPConnection, HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
+from threading import Lock, Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -68,6 +69,11 @@ class Rehearsal(Staging):
         self.app = self.network + "-app"
         self.app_port = None
         self.version_unavailable_after_restart = False
+        self.gateway_lock = Lock()
+        self.handover_gateways = []
+        self.shell_response_status = None
+        self.shell_session_gateway = False
+        self.probe_events = []
         hostname = self.network + ".neon.tech"
         owner_password, runtime_password = uuid4().hex, uuid4().hex
         self.owner_url = f"postgresql://owner:{owner_password}@{hostname}/drill?sslmode=require"
@@ -195,11 +201,23 @@ COMMIT;
                 if (public and lab.maintenance) or lab.app_port is None:
                     self.send_error(503)
                     return
-                if (public and lab.version_unavailable_after_restart
-                        and lab.schema == lab.expected_schema and self.path == "/version"):
-                    status = lab.version_unavailable_after_restart
-                    lab.version_unavailable_after_restart = False
-                    self.send_error(status)
+                fault = None
+                if public and lab.schema == lab.expected_schema:
+                    with lab.gateway_lock:
+                        if lab.version_unavailable_after_restart and self.path == '/version':
+                            fault = lab.version_unavailable_after_restart
+                            lab.version_unavailable_after_restart = False
+                        elif lab.handover_gateways:
+                            prefix, status = lab.handover_gateways[0]
+                            if self.path.startswith(prefix) and self.path != '/assets/missing.js':
+                                lab.handover_gateways.pop(0)
+                                fault = status
+                        if (fault is None and lab.shell_session_gateway and self.path == '/api/v1/session'
+                                and self.headers.get('Sec-Fetch-Dest') == 'empty'):
+                            lab.shell_session_gateway = False
+                            fault = 502
+                if fault is not None:
+                    self.send_error(fault)
                     return
                 upstream = HTTPConnection("127.0.0.1", lab.app_port, timeout=5)
                 try:
@@ -213,7 +231,9 @@ COMMIT;
                     return
                 finally:
                     upstream.close()
-                self.send_response(response.status)
+                status = (lab.shell_response_status if self.path == '/accounts' and lab.schema == lab.expected_schema
+                          and lab.shell_response_status is not None else response.status)
+                self.send_response(status)
                 for header in ("Content-Type", "Cache-Control", "WWW-Authenticate"):
                     if value := response.getheader(header):
                         self.send_header(header, value)
@@ -284,7 +304,8 @@ COMMIT;
             verify=lambda revision, _: subprocess.run(
                 ["git", "merge-base", "--is-ancestor", revision, "HEAD"], check=True,
             ),
-            now=lambda: NOW, emit=lambda event: self.phases.append(event["status"]), **options,
+            now=lambda: NOW, emit=lambda event: (self.phases.append(event["status"]), self.probe_events.append(event)),
+            **options,
         )
 
 
@@ -332,13 +353,35 @@ def test_schema_window_reopens_after_real_private_smoke(lab, handover_status):
         lab.rehearse(lab.environ, immediate=True)
     assert not lab.actions and lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
     lab.version_unavailable_after_restart = handover_status
+    lab.handover_gateways = [('/api/openapi.json', 502), ('/api/v1/unknown', 503),
+                            ('/accounts', 504), ('/assets/', 502)]
     result = lab.rehearse({**lab.environ, "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE}, immediate=True)
     assert result["status"] == "smoke_passed" and result["image"] == lab.image
     assert not lab.version_unavailable_after_restart
+    assert not lab.handover_gateways
     assert lab.schema == head_revision()
     assert (lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")) == expected
     assert lab.sql("SET ROLE runtime; SELECT drive_recovery_binding IS NULL FROM external_connections;") == "t"
     assert lab.phases.index("schema_verified") < lab.phases.index("post_restart_smoke_passed")
+
+
+def test_concurrent_public_requests_consume_one_gateway_fault(lab):
+    lab.details['plan'] = 'starter'
+    lab.rehearse({**lab.environ, 'WINDOW_VERIFIED_SUSPEND_SERVICE_ID': SERVICE}, immediate=True)
+    with lab.gateway_lock:
+        lab.handover_gateways = [('/assets/', 502)]
+
+    def request(asset):
+        try:
+            with urlopen(lab.public + '/assets/' + asset, timeout=5) as response:
+                return response.status
+        except HTTPError as error:
+            return error.code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = list(executor.map(request, ['concurrent-one.js', 'concurrent-two.js']))
+    assert sorted(statuses) == [404, 502]
+    assert not lab.handover_gateways
 
 
 def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):
@@ -359,6 +402,28 @@ def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):
     lab.smoke_app(PRIVATE, prior)
     lab.maintenance = False
     schema_window.public_reopened(lab.public, prior)
+
+
+def test_maintenance_rejects_non_success_shell_even_with_real_application_html(lab):
+    lab.details['plan'] = 'starter'
+    lab.shell_response_status = 403
+    with pytest.raises(release.ReleaseError, match='Public sign-in shell check failed'):
+        lab.rehearse({**lab.environ, 'WINDOW_VERIFIED_SUSPEND_SERVICE_ID': SERVICE}, immediate=True)
+    assert lab.schema == head_revision()
+    assert lab.suspended and lab.app_port is None
+    assert lab.phases[-1] == 'maintenance_failed'
+    assert 'post_restart_smoke_passed' not in lab.phases
+
+
+def test_maintenance_retries_gateway_from_the_browser_session_read(lab):
+    lab.details['plan'] = 'starter'
+    lab.shell_session_gateway = True
+    result = lab.rehearse({**lab.environ, 'WINDOW_VERIFIED_SUSPEND_SERVICE_ID': SERVICE}, immediate=True)
+    assert result['status'] == 'smoke_passed'
+    assert not lab.shell_session_gateway
+    assert any(event.get('path') == '/browser-resource' and event.get('http_status') == 502
+               for event in lab.probe_events)
+    assert max(event.get('attempt', 0) for event in lab.probe_events) >= 2
 
 
 def test_private_ingress_reports_lost_upstream(lab):

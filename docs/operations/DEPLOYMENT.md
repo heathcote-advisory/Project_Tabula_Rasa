@@ -28,11 +28,22 @@ Preflight checks and protected private-origin maintenance smoke remain strict.
 After automatic full-downtime schema maintenance, the shared public smoke also
 receives the verified prior revision. It checks version before readiness because
 the old application can correctly return readiness 503 against the new schema.
-Within the same 21-probe budget, it waits on a version response of 502, 503 or 504,
-the known prior version, or readiness 502, 503 or 504 after observing the candidate. It requires
-the exact candidate and readiness 200 before running access and sign-in checks.
-Unknown versions, other unsuccessful probe statuses, transport failures, failed access
-checks and budget exhaustion fail closed. That complete public smoke is the
+Maintenance smoke uses one five-minute deadline for the complete public boundary,
+including the sign-in page and its same-origin browser reads/assets. Explicit HTTP
+probes and browser waits have at most five seconds, capped by the remaining
+deadline. It waits three seconds between attempts,
+with at most 101 attempts. The known prior version and HTTP 502, 503 or 504 from
+version, readiness, denied APIs, routing probes, the sign-in page or its same-origin
+browser reads/assets keep the handover pending. Each retry starts again with version/readiness
+and verifies the complete HTTP and browser boundary; an earlier successful probe
+does not qualify a later gateway error. Success requires the exact candidate,
+readiness 200, all access/routing expectations and the sign-in shell.
+Unknown versions, malformed version JSON, other unsuccessful statuses, transport
+failures, incorrect authorization/cache/challenge results and shell failures
+without an observed gateway response fail immediately. Budget exhaustion fails
+closed. The deployment summary records fixed probe paths, numeric HTTP statuses,
+attempt numbers and elapsed seconds, without response bodies, headers or secrets.
+That complete public smoke is the
 final public verification for automatic maintenance; protected private-origin
 maintenance additionally verifies public ingress after reopening it. Smoke
 failures report safe phase diagnostics and HTTP status codes without response details, and failure
@@ -695,6 +706,35 @@ the pinned compatible old image serving, then dispatch with the tested main
 candidate commit and its immutable image digest. Review the application
 restart and post-restart smoke result in the rehearsal artifact. Repeat from
 a fresh disposable source for another forward trial.
+
+To repeat a migration without adding application revisions, retain a dedicated
+source-template branch at the prior schema and image. Build it from an empty
+database with synthetic fixtures and separate migration/runtime roles; use the
+scoped worker-login installer when exercising the production worker-fence path.
+Create a fresh child of that source template for each trial. Bind only the
+dedicated rehearsal service to the child, configure the pinned prior image and
+verify its readiness/version/access boundary before running the forward trial.
+Never downgrade an advanced trial or point a rehearsal at a retained live branch.
+Keep the template unchanged so another child can repeat the same migration.
+
+Use the same Render region, compute size, image runtime, health path and public
+ingress settings as the affected service when diagnosing hosted handover. Prove
+suspend/drain and pinned-image resume on that rehearsal service before enabling
+the maintenance trial. A service on Free can have different lifecycle and billing
+limits; do not treat it as proof of a paid service's behavior. The existing hosted
+workflow exercises the staging maintenance path. A direct production-path rehearsal
+must additionally use a dedicated disposable worker login, verified installed-worker
+schema evidence, the canonical fence installer and actual worker drain/restore
+checks; it must not connect the NAS worker to the rehearsal database.
+
+Retain the selected image/manifest, tooling revision, disposable branch/service
+bindings, checkpoint, public probe timeline and final schema/worker state for each
+trial in the owning discussion or workflow artifacts. Compare the public probe
+timeline with application logs. If needed, run bounded public status-only probes
+from a one-off job on the rehearsal service to distinguish a local-network problem
+from a hosting-path problem. Rehearsal results establish repeatable diagnostics;
+they do not change the historical outcome of a failed production run or substitute
+for a required unattended live-production acceptance check.
 
 **Simulated commercial schema window** runs pinned images with disposable
 PostgreSQL, local public/private routes and simulated provider controls.
