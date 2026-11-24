@@ -197,8 +197,9 @@ COMMIT;
                     return
                 if (public and lab.version_unavailable_after_restart
                         and lab.schema == lab.expected_schema and self.path == "/version"):
+                    status = lab.version_unavailable_after_restart
                     lab.version_unavailable_after_restart = False
-                    self.send_error(503)
+                    self.send_error(status)
                     return
                 upstream = HTTPConnection("127.0.0.1", lab.app_port, timeout=5)
                 try:
@@ -315,7 +316,8 @@ def lab(release_images):
         yield Rehearsal(stack, *release_images)
 
 
-def test_schema_window_reopens_after_real_private_smoke(lab):
+@pytest.mark.parametrize('handover_status', [502, 503, 504])
+def test_schema_window_reopens_after_real_private_smoke(lab, handover_status):
     prior = lab.metadata[lab.prior_image]["release"]
     with pytest.raises(release.ReleaseError, match="binding has changed"):
         lab.rehearse({**lab.environ, "RENDER_SERVICE_ID": "srv-wrong"})
@@ -329,7 +331,7 @@ def test_schema_window_reopens_after_real_private_smoke(lab):
     with pytest.raises(release.ReleaseError, match="Verify suspension"):
         lab.rehearse(lab.environ, immediate=True)
     assert not lab.actions and lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
-    lab.version_unavailable_after_restart = True
+    lab.version_unavailable_after_restart = handover_status
     result = lab.rehearse({**lab.environ, "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE}, immediate=True)
     assert result["status"] == "smoke_passed" and result["image"] == lab.image
     assert not lab.version_unavailable_after_restart
