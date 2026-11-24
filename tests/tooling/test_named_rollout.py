@@ -170,14 +170,15 @@ def test_handover_does_not_retry_a_failed_access_boundary():
     assert request.get.call_count == 4
 
 
-def test_maintenance_handover_waits_for_prior_and_readiness_before_access():
-    unavailable = SimpleNamespace(status=503, json=Mock(side_effect=AssertionError('Not a JSON response')))
+@pytest.mark.parametrize('version_status,readiness_status', [(502, 504), (503, 503), (504, 502)])
+def test_maintenance_handover_waits_for_prior_and_readiness_before_access(version_status, readiness_status):
+    unavailable = SimpleNamespace(status=version_status, json=Mock(side_effect=AssertionError('Not a JSON response')))
     available = [
         SimpleNamespace(status=200, json=Mock(return_value={'release': revision}))
         for revision in ['d' * 40, 'c' * 40, 'c' * 40]
     ]
     versions = iter([unavailable, *available])
-    readiness = iter([503, 200])
+    readiness = iter([readiness_status, 200])
     request = Mock()
 
     def get(path, **_):
@@ -232,6 +233,10 @@ def test_maintenance_handover_still_fails_closed(defect):
                           previous_release=None if defect == 'no_prior' else 'd' * 40,
                           maintenance=True, sleep=sleep)
     assert 'private response detail' not in str(failure.value)
+    if defect == 'version_status':
+        assert str(failure.value) == 'Version endpoint returned an unexpected status (HTTP 403).'
+    if defect == 'unexpected_status':
+        assert str(failure.value) == 'Readiness failed (HTTP 403).'
     assert sleep.call_count == (20 if defect in {'never_ready', 'version_unavailable'} else 0)
     if defect == 'never_ready':
         assert request.get.call_count == 42
@@ -241,9 +246,40 @@ def test_maintenance_handover_still_fails_closed(defect):
         assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
 
 
-def test_ordinary_handover_keeps_readiness_strict():
+@pytest.mark.parametrize('path', ['/version', '/health/ready'])
+@pytest.mark.parametrize('status', [502, 504])
+def test_maintenance_gateway_failure_exhausts_budget_without_access_checks(path, status):
     request, sleep = Mock(), Mock()
-    request.get.return_value.status = 503
+    request.get.side_effect = lambda observed, **_: (
+        SimpleNamespace(status=status) if observed == path
+        else SimpleNamespace(status=200, json=lambda: {'release': 'c' * 40}))
+    with pytest.raises(smoke.NamedSmokeError, match='handover did not converge'):
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release='d' * 40, maintenance=True, sleep=sleep)
+    assert sleep.call_count == 20
+    assert request.get.call_count == (21 if path == '/version' else 42)
+    assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
+
+
+@pytest.mark.parametrize('path', ['/version', '/health/ready'])
+@pytest.mark.parametrize('status', [401, 403, 404, 500])
+def test_maintenance_other_failures_stop_immediately_with_safe_status(path, status):
+    request, sleep = Mock(), Mock()
+    request.get.side_effect = lambda observed, **_: (
+        SimpleNamespace(status=status, json=Mock(side_effect=ValueError('private response detail')))
+        if observed == path else SimpleNamespace(status=200, json=lambda: {'release': 'c' * 40}))
+    with pytest.raises(smoke.NamedSmokeError, match=f'HTTP {status}') as failure:
+        smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
+                          previous_release='d' * 40, maintenance=True, sleep=sleep)
+    assert 'private response detail' not in str(failure.value)
+    sleep.assert_not_called()
+    assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
+
+
+@pytest.mark.parametrize('status', [502, 503, 504])
+def test_ordinary_handover_keeps_readiness_strict(status):
+    request, sleep = Mock(), Mock()
+    request.get.return_value.status = status
     with pytest.raises(ValueError, match='Readiness failed'):
         smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
                           previous_release='d' * 40, sleep=sleep)

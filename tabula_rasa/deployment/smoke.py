@@ -4,7 +4,7 @@ import time
 
 
 class NamedSmokeError(ValueError):
-    """Fixed diagnostic safe for release logs."""
+    """Safe phase/status diagnostic without remote response details."""
 
 
 def access_mode(environ, *, require_alpha_credentials=True):
@@ -23,10 +23,10 @@ def access_mode(environ, *, require_alpha_credentials=True):
 
 def _named_version_ready(request, release, previous_release, maintenance):
     version = request.get('/version', timeout=5000)
-    if maintenance and version.status == 503:
+    if maintenance and version.status in {502, 503, 504}:
         return False
     if maintenance and version.status != 200:
-        raise NamedSmokeError('Version endpoint returned an unexpected status.')
+        raise NamedSmokeError(f'Version endpoint returned an unexpected status (HTTP {version.status}).')
     try:
         observed = version.json()
     except ValueError:
@@ -38,8 +38,8 @@ def _named_version_ready(request, release, previous_release, maintenance):
     if not maintenance:
         return True
     status = request.get('/health/ready', timeout=5000).status
-    if status not in {200, 503}:
-        raise NamedSmokeError('Readiness failed.')
+    if status not in {200, 502, 503, 504}:
+        raise NamedSmokeError(f'Readiness failed (HTTP {status}).')
     return status == 200
 
 
