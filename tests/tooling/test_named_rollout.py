@@ -171,13 +171,18 @@ def test_handover_does_not_retry_a_failed_access_boundary():
 
 
 def test_maintenance_handover_waits_for_prior_and_readiness_before_access():
-    versions = iter(['d' * 40, 'c' * 40, 'c' * 40])
+    unavailable = SimpleNamespace(status=503, json=Mock(side_effect=AssertionError('Not a JSON response')))
+    available = [
+        SimpleNamespace(status=200, json=Mock(return_value={'release': revision}))
+        for revision in ['d' * 40, 'c' * 40, 'c' * 40]
+    ]
+    versions = iter([unavailable, *available])
     readiness = iter([503, 200])
     request = Mock()
 
     def get(path, **_):
         if path == '/version':
-            return SimpleNamespace(json=lambda: {'release': next(versions)})
+            return next(versions)
         if path == '/health/ready':
             return SimpleNamespace(status=next(readiness))
         if path in ('/api/v1/unknown', '/assets/missing.js'):
@@ -188,19 +193,29 @@ def test_maintenance_handover_waits_for_prior_and_readiness_before_access():
     sleep = Mock()
     smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
                       previous_release='d' * 40, maintenance=True, sleep=sleep)
-    assert sleep.call_args_list == [call(3), call(3)]
-    assert [c.args[0] for c in request.get.call_args_list[:6]] == [
-        '/version', '/version', '/health/ready', '/version', '/health/ready', '/api/v1/session',
+    unavailable.json.assert_not_called()
+    assert sleep.call_args_list == [call(3), call(3), call(3)]
+    assert [c.args[0] for c in request.get.call_args_list[:7]] == [
+        '/version', '/version', '/version', '/health/ready', '/version', '/health/ready', '/api/v1/session',
     ]
 
 
-@pytest.mark.parametrize('defect', ['no_prior', 'unknown_release', 'never_ready', 'unexpected_status', 'access'])
+@pytest.mark.parametrize('defect', [
+    'no_prior', 'unknown_release', 'never_ready', 'unexpected_status', 'access',
+    'version_unavailable', 'version_status', 'version_json',
+])
 def test_maintenance_handover_still_fails_closed(defect):
     request = Mock()
 
     def get(path, **_):
         if path == '/version':
-            return SimpleNamespace(json=lambda: {'release': ('e' if defect == 'unknown_release' else 'c') * 40})
+            if defect == 'version_unavailable':
+                return SimpleNamespace(status=503)
+            if defect == 'version_status':
+                return SimpleNamespace(status=403)
+            if defect == 'version_json':
+                return SimpleNamespace(status=200, json=Mock(side_effect=ValueError('private response detail')))
+            return SimpleNamespace(status=200, json=lambda: {'release': ('e' if defect == 'unknown_release' else 'c') * 40})
         if path == '/health/ready':
             return SimpleNamespace(status=503 if defect == 'never_ready' else 403 if defect == 'unexpected_status' else 200)
         return SimpleNamespace(status=403, headers={'cache-control': 'no-store'})
@@ -209,14 +224,19 @@ def test_maintenance_handover_still_fails_closed(defect):
     sleep = Mock()
     expected = {'no_prior': 'verified prior', 'unknown_release': 'identity mismatch',
                 'never_ready': 'handover did not converge', 'unexpected_status': 'Readiness failed',
-                'access': 'access restriction'}[defect]
-    with pytest.raises(ValueError, match=expected):
+                'access': 'access restriction', 'version_unavailable': 'handover did not converge',
+                'version_status': 'Version endpoint returned an unexpected status',
+                'version_json': 'Version response was not valid JSON'}[defect]
+    with pytest.raises(smoke.NamedSmokeError, match=expected) as failure:
         smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
                           previous_release=None if defect == 'no_prior' else 'd' * 40,
                           maintenance=True, sleep=sleep)
-    assert sleep.call_count == (20 if defect == 'never_ready' else 0)
+    assert 'private response detail' not in str(failure.value)
+    assert sleep.call_count == (20 if defect in {'never_ready', 'version_unavailable'} else 0)
     if defect == 'never_ready':
         assert request.get.call_count == 42
+    if defect == 'version_unavailable':
+        assert request.get.call_count == 21
     if defect != 'access':
         assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
 

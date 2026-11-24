@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import production, release, schema_window, worker_compatibility
 from .release_checkpoint import verify_checkpoint
-from .smoke import named_smoke
+from .smoke import NamedSmokeError, named_smoke
 
 
 def production_cutoff(environ, now):
@@ -230,6 +230,8 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
                 raise release.ReleaseError("Render did not create a new deployment for the requested restart.")
             try:
                 smoke(origin, candidate["release"], previous_release=previous["release"])
+            except NamedSmokeError as error:
+                raise release.ReleaseError(f"Post-deployment named-user smoke failed. {error}") from None
             except release.ReleaseError:
                 raise
             except Exception:

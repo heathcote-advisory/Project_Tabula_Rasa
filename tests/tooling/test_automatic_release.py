@@ -223,11 +223,25 @@ def test_immediate_staging_uses_verified_full_downtime_on_free(staging_release):
     stage.reopened.assert_not_called()
 
 
-def test_failed_full_downtime_smoke_suspends_candidate(staging_release):
+@pytest.mark.parametrize("diagnostic", [False, True])
+def test_failed_full_downtime_smoke_suspends_candidate(staging_release, diagnostic):
+    from tabula_rasa.deployment.smoke import NamedSmokeError
+
     stage, invoke = staging_release
-    stage.failure = "smoke"
-    with pytest.raises(release.ReleaseError, match="Post-maintenance named-user smoke failed.*Maintenance stopped"):
+    original_smoke = stage.smoke
+
+    def fail_candidate(origin, revision, **kwargs):
+        original_smoke(origin, revision, **kwargs)
+        if revision == CANDIDATE["release"]:
+            if diagnostic:
+                raise NamedSmokeError("Public sign-in shell check failed.")
+            raise RuntimeError("private response detail")
+
+    stage.smoke = fail_candidate
+    with pytest.raises(release.ReleaseError, match="Post-maintenance named-user smoke failed.*Maintenance stopped") as error:
         invoke()
+    assert ("Public sign-in shell check failed." in str(error.value)) == diagnostic
+    assert "private response detail" not in str(error.value)
     assert stage.suspended and stage.actions[-1] == "suspend"
 
 
