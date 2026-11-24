@@ -10,7 +10,10 @@ from sqlalchemy import text
 from tabula_rasa.application.identity import IdentityError
 from tabula_rasa.application.workspaces import WorkspaceService
 from tabula_rasa.infrastructure.postgres.beta import PostgresBeta
+from tabula_rasa.infrastructure.postgres.composition import create_postgres_services
 from tabula_rasa.infrastructure.postgres.workspaces import PostgresWorkspaceRepository
+from tests.postgres._support import category, entity
+from tests.postgres.secondary_support import asset
 from tests.postgres.test_identity import verified
 from tests.postgres.test_identity_http import client_for
 
@@ -89,6 +92,86 @@ def cohort(database):
         request,
         admit,
     )
+
+
+def test_depreciation_commands_follow_the_selected_business(database, cohort):
+    client, auth, _, person, _, _, _, command, configure, _, _, admit = cohort
+    configure()
+    raw, owner = person("owner")
+    admission, _, beta_business = admit(owner, "Beta business")
+    beta_entity = beta_business["entity_id"]
+    internal_entity = "internal"
+    expense_category = "synthetic-depreciation-expense"
+    repo = auth.sessions.identity
+    internal_org = repo.create_organization(owner.user_id, "Internal business")
+    with database.transaction() as connection:
+        entity(connection, internal_entity)
+        for scope in (beta_entity, internal_entity):
+            category(connection, scope, expense_category, kind="Expense")
+    repo.bind_entity(internal_org, internal_entity)
+
+    account_ids = {}
+    for scope in (beta_entity, internal_entity):
+        services = create_postgres_services(database, scope)
+        account_ids[scope] = services.accounts.create("Synthetic depreciation account", "Other", classification="Asset")["id"]
+
+    client.cookies.set(auth.session_cookie, raw)
+    headers = {"Origin": auth.settings.public_origin, "X-CSRF-Token": owner.csrf_token}
+
+    def select(scope):
+        response = client.post("/api/v1/session/entity", headers=headers, json={"entity_id": scope})
+        assert response.status_code == 200
+        assert response.json()["entity"]["role"] == "owner"
+        assert "bookkeeping:write" in response.json()["capabilities"]
+        return response.json()["capabilities"]
+
+    def create_asset(scope):
+        path = f"/api/v1/entities/{scope}/assets"
+        body = asset(account_ids[scope], asset_id="test-asset")
+        body["depreciation_expense_account_id"] = expense_category
+        body["useful_life_quarters"] = str(body["useful_life_quarters"])
+        response = client.post(path, headers=headers, json=body)
+        assert response.status_code == 201
+        return path + "/test-asset"
+
+    def commands(path):
+        return (
+            ("PUT", path + "/overrides/1", {"amount": "10.00", "reason": "Synthetic", "as_of_date": "2026-06-30"}),
+            ("DELETE", path + "/overrides/1", {}),
+            ("POST", path + "/post", {"through_date": "2026-06-30"}),
+        )
+
+    with client:
+        client.app.state.runtime.service_factory = lambda context: create_postgres_services(database, context.entity_id)
+        assert "asset:depreciate" not in select(beta_entity)
+        beta_path = create_asset(beta_entity)
+        beta_detail = client.get(beta_path).json()
+        assert beta_detail["schedule"] and not beta_detail["history"]
+        for method, path, data in commands(beta_path):
+            response = client.request(method, path, headers=headers,
+                json={"baseline": beta_detail["asset"]["baseline"], **data})
+            assert response.status_code == 403 and response.json()["error"]["code"] == "forbidden"
+        assert client.get(beta_path).json() == beta_detail
+        changes = {key: value for key, value in beta_detail["asset"].items()
+                   if key not in {"id", "baseline", "depreciation_method"}}
+        edited = client.patch(beta_path, headers=headers, json={
+            "baseline": beta_detail["asset"]["baseline"], "changes": {**changes, "notes": "Register edit"},
+        })
+        assert edited.status_code == 200 and edited.json()["notes"] == "Register edit"
+        beta_detail = client.get(beta_path).json()
+
+        assert "asset:depreciate" in select(internal_entity)
+        internal_path = create_asset(internal_entity)
+        for method, path, data in commands(internal_path):
+            baseline = client.get(internal_path).json()["asset"]["baseline"]
+            response = client.request(method, path, headers=headers, json={"baseline": baseline, **data})
+            assert response.status_code == 200, response.text
+        assert client.get(internal_path).json()["history"]
+        assert client.get(beta_path).status_code == 403
+
+        command("close", admission_id=admission)
+        assert "asset:depreciate" not in select(beta_entity)
+        assert client.get(beta_path).json() == beta_detail
 
 
 def test_self_service_requires_personal_current_policy_acknowledgement(database, cohort, monkeypatch):

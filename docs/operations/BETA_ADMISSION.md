@@ -240,8 +240,9 @@ commercial authority activation is authorized by implementation completion.
 My Businesses and first-use setup show invitation-only/noncharging status and
 private pending/approved/active/paused information. Offers explain expiry and
 explicit retry/reapproval. Capacity denials reveal no other customer's identifiers.
-Notices exclude tax filing, payroll, banking feeds, FX and unverified depreciation;
-state the customer-owned Drive receipt prerequisite; and prohibit unnecessary
+Notices exclude tax filing, payroll, banking feeds, FX, depreciation posting and
+period overrides for beta-enrolled businesses. They state the customer-owned
+Drive receipt prerequisite and prohibit unnecessary
 secrets, identity, full-card and medical data without claiming content screening.
 Best-effort ordinary support targets a first response within two business days
 and weekly triage, with no fix-time or 24/7 SLA. Independent DB/receipt RPO of

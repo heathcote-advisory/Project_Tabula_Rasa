@@ -84,7 +84,7 @@ export function AssetsPage() {
 
 export function NewAsset() {
   const session = useEntity(); const navigate = useNavigate();
-  return <><PageHeader title="Add asset" description="Record the asset and its depreciation terms. Posting remains an explicit action after saving." />
+  return <><PageHeader title="Add asset" description="Record the asset and its depreciation terms." />
     {session.capabilities.includes('bookkeeping:write') ? <CreateEditor title="Save asset" initial={initial}
       fields={form => <AssetFields form={form} creating />} create={(values, id) => {
         const fields: Omit<Draft, 'status' | 'retired_date'> & Partial<Pick<Draft, 'status' | 'retired_date'>> = { ...values };
@@ -95,11 +95,12 @@ export function NewAsset() {
 
 function AssetEditor({ detail }: { detail: Schemas['AssetDetail'] }) {
   const session = useEntity(); const navigate = useNavigate();
+  const canDepreciate = session.capabilities.includes('asset:depreciate');
   const [through, setThrough] = useState(localDate); const [sequence, setSequence] = useState('1');
   const [amount, setAmount] = useState(''); const [reason, setReason] = useState('');
-  const commands: EditorCommand[] = [{ label: 'Post due depreciation', description: 'Post pending quarters through ' + through + '. Posted accounting facts and terms become immutable.',
-    run: async (id, baseline) => { const result = await api.postDepreciation(session, id, { baseline, through_date: through }); return 'Posted ' + result.posted_count + ' depreciation period(s).'; } }];
-  if (!detail.posting_accounts_locked) commands.push(
+  const commands: EditorCommand[] = canDepreciate ? [{ label: 'Post due depreciation', description: 'Post pending quarters through ' + through + '. Posted accounting facts and terms become immutable.',
+    run: async (id, baseline) => { const result = await api.postDepreciation(session, id, { baseline, through_date: through }); return 'Posted ' + result.posted_count + ' depreciation period(s).'; } }] : [];
+  if (canDepreciate && !detail.posting_accounts_locked) commands.push(
     { label: 'Save period override', description: 'Save an amount override with its reason for quarter ' + sequence + '.',
       run: async (id, baseline) => { await api.overrideDepreciation(session, id, Number(sequence), { baseline, amount, reason, as_of_date: localDate() }); return 'Period override saved.'; } },
     { label: 'Remove period override', description: 'Remove the saved override for quarter ' + sequence + '.',
@@ -112,7 +113,7 @@ function AssetEditor({ detail }: { detail: Schemas['AssetDetail'] }) {
     save={async (id, baseline, changes) => loaded(await api.updateAsset(session, id, { baseline, changes }))}
     remove={detail.can_delete ? async (id, baseline) => { await api.deleteAsset(session, id, baseline); navigate('/assets'); } : undefined}
     loadLatest={async id => loaded((await api.asset(session, id)).asset)} onClose={() => navigate('/assets')} commands={commands}
-    commandFields={<div className="commandSection">
+    commandFields={canDepreciate && <div className="commandSection">
       <FormSection title="Post depreciation" description="Only the confirmed command posts due periods. Viewing this schedule never posts.">
         <Field id="asset-through" label="Post depreciation through"><input id="asset-through" type="date" value={through} onChange={event => setThrough(event.target.value)} /></Field>
       </FormSection>
@@ -136,7 +137,7 @@ function AssetDetailQuery({ recordId }: { recordId: string }) {
   if (query.initializing) return <><PageHeader title="Asset detail" /><LoadingState /></>;
   if (!query.initialized || !query.data) return <><PageHeader title="Asset detail" /><ErrorNotice error={query.error} operation="read" onReview={() => void query.refetch()} /></>;
   const data = query.data;
-  return <><PageHeader title="Asset detail" description="Manage depreciation and retirement from the asset that owns their history."
+  return <><PageHeader title="Asset detail" description="View the depreciation schedule and asset history."
     actions={<Link className="button action-secondary" to="/assets">Back to asset register</Link>} />
     <section className="surface">
       <SectionHeader title={data.asset.name} />

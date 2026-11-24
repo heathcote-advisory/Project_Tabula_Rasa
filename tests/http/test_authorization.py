@@ -73,7 +73,7 @@ def test_every_entity_route_denies_before_binding(route, denial):
 
 
 @pytest.mark.parametrize('route', [r for r in ROUTES if ROUTE_POLICIES[r.operation_id].action in {
-    'write', 'import', 'period_close', 'period_unlock', 'entry_correct'}],
+    'write', 'asset_depreciate', 'import', 'period_close', 'period_unlock', 'entry_correct'}],
                          ids=lambda r: r.operation_id)
 def test_every_mutation_denies_read_only_before_binding(route):
     runtime = FakeRuntime()
