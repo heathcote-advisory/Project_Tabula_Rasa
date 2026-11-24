@@ -3,11 +3,12 @@
 import json
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from http.client import HTTPConnection, HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
+from threading import Lock, Thread
 from time import monotonic, sleep
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -68,6 +69,7 @@ class Rehearsal(Staging):
         self.app = self.network + "-app"
         self.app_port = None
         self.version_unavailable_after_restart = False
+        self.gateway_lock = Lock()
         self.handover_gateways = []
         self.shell_response_status = None
         self.shell_session_gateway = False
@@ -199,22 +201,23 @@ COMMIT;
                 if (public and lab.maintenance) or lab.app_port is None:
                     self.send_error(503)
                     return
-                if (public and lab.version_unavailable_after_restart
-                        and lab.schema == lab.expected_schema and self.path == "/version"):
-                    status = lab.version_unavailable_after_restart
-                    lab.version_unavailable_after_restart = False
-                    self.send_error(status)
-                    return
-                if public and lab.schema == lab.expected_schema and lab.handover_gateways:
-                    prefix, status = lab.handover_gateways[0]
-                    if self.path.startswith(prefix) and self.path != '/assets/missing.js':
-                        lab.handover_gateways.pop(0)
-                        self.send_error(status)
-                        return
-                if (public and lab.schema == lab.expected_schema and lab.shell_session_gateway
-                        and self.path == '/api/v1/session' and self.headers.get('Sec-Fetch-Dest') == 'empty'):
-                    lab.shell_session_gateway = False
-                    self.send_error(502)
+                fault = None
+                if public and lab.schema == lab.expected_schema:
+                    with lab.gateway_lock:
+                        if lab.version_unavailable_after_restart and self.path == '/version':
+                            fault = lab.version_unavailable_after_restart
+                            lab.version_unavailable_after_restart = False
+                        elif lab.handover_gateways:
+                            prefix, status = lab.handover_gateways[0]
+                            if self.path.startswith(prefix) and self.path != '/assets/missing.js':
+                                lab.handover_gateways.pop(0)
+                                fault = status
+                        if (fault is None and lab.shell_session_gateway and self.path == '/api/v1/session'
+                                and self.headers.get('Sec-Fetch-Dest') == 'empty'):
+                            lab.shell_session_gateway = False
+                            fault = 502
+                if fault is not None:
+                    self.send_error(fault)
                     return
                 upstream = HTTPConnection("127.0.0.1", lab.app_port, timeout=5)
                 try:
@@ -360,6 +363,25 @@ def test_schema_window_reopens_after_real_private_smoke(lab, handover_status):
     assert (lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")) == expected
     assert lab.sql("SET ROLE runtime; SELECT drive_recovery_binding IS NULL FROM external_connections;") == "t"
     assert lab.phases.index("schema_verified") < lab.phases.index("post_restart_smoke_passed")
+
+
+def test_concurrent_public_requests_consume_one_gateway_fault(lab):
+    lab.details['plan'] = 'starter'
+    lab.rehearse({**lab.environ, 'WINDOW_VERIFIED_SUSPEND_SERVICE_ID': SERVICE}, immediate=True)
+    with lab.gateway_lock:
+        lab.handover_gateways = [('/assets/', 502)]
+
+    def request(asset):
+        try:
+            with urlopen(lab.public + '/assets/' + asset, timeout=5) as response:
+                return response.status
+        except HTTPError as error:
+            return error.code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = list(executor.map(request, ['concurrent-one.js', 'concurrent-two.js']))
+    assert sorted(statuses) == [404, 502]
+    assert not lab.handover_gateways
 
 
 def test_failed_migration_keeps_ingress_closed_until_compatible_recovery(lab):
