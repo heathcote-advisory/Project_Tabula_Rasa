@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/commercial-schema-rehearsal.yml
       - tabula_rasa/deployment/schema_window.py
+      - tabula_rasa/deployment/smoke.py
       - tabula_rasa/deployment/schema_migration.py
       - tabula_rasa/deployment/automatic_release.py
       - tabula_rasa/deployment/release_checkpoint.py
