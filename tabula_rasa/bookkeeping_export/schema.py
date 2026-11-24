@@ -29,12 +29,16 @@ FORMAT_VERSION = 2
 # 0023 permits audited metadata edits only; canonical v1 fields are unchanged.
 # 0025 changes enrollment and first-time Drive control-plane state only.
 # 0026 adds personal legal acknowledgement evidence only; canonical v2 is unchanged.
-SUPPORTED_DATABASE_REVISION = "0026_customer_policies"
+# 0027 adds dormant billing storage, outside the bookkeeping inventory.
+SUPPORTED_DATABASE_REVISION = "0027_billing_storage"
+V2_DATABASE_REVISIONS = ('0024_mileage_vehicles', '0025_enrollment_drive_setup',
+                        '0026_customer_policies', SUPPORTED_DATABASE_REVISION)
 SUPPORTED_DATABASE_REVISIONS = ("0004_mileage_order", "0005_bookkeeping_cutover",
                                 "0006_identity_control_plane", "0007_identity_sessions", "0008_owner_lock_scope",
                                 "0009_external_connections", "0010_workspace_lifecycle",
                                 "0010_onboarding_routes", "0011_control_plane_join", "0012_operations", "0013_accounting_controls",
-                                '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding', '0023_business_currency', '0024_mileage_vehicles', '0025_enrollment_drive_setup', SUPPORTED_DATABASE_REVISION)
+                                '0014_document_locations', '0015_support_controls', '0016_business_tenancy', '0017_customer_exports', '0018_drive_oauth', '0019_beta_admission', '0020_book_currency', '0021_customer_lifecycle', '0022_drive_recovery_binding', '0023_business_currency',
+                                *V2_DATABASE_REVISIONS)
 ROOT = "id:text created_at:instant updated_at:instant incarnation_id:text version:integer"
 
 
@@ -118,7 +122,7 @@ DOMAINS['mileage_records'] = Domain({**old_mileage.fields, 'vehicle_id': 'text?'
 
 
 def domains_for_revision(revision):
-    return DOMAINS if revision in {'0024_mileage_vehicles', '0025_enrollment_drive_setup', SUPPORTED_DATABASE_REVISION} else V1_DOMAINS
+    return DOMAINS if revision in V2_DATABASE_REVISIONS else V1_DOMAINS
 
 
 SCALES = {"money": 2, "percentage": 5, "miles": 1}

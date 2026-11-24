@@ -106,7 +106,7 @@ def test_forward_upgrade_preserves_sessions_invitations_defaults_and_receipt_rep
     assert [item.entity_id for item in sessions.identity.allowed_entities(recipient.user_id)] == [business['entity_id']]
     assert other['organization_id'] != business['organization_id']
     with database.transaction(read_only=True) as connection:
-        assert current_revision(connection) == '0026_customer_policies'
+        assert current_revision(connection) == '0027_billing_storage'
 
 
 def test_upgrade_preserves_two_claimed_ledgers_provenance_documents_and_provider_bindings(empty_database, monkeypatch):

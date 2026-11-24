@@ -143,13 +143,13 @@ def test_bound_multi_revision_rollout_uses_the_same_contract(empty_database, tmp
     from tabula_rasa.deployment import schema_migration
     from tabula_rasa.infrastructure.postgres import migrations
 
-    source, target = "0021_customer_lifecycle", "0027_future"
+    source, target = "0021_customer_lifecycle", "0028_future"
     root = tmp_path / "migrations"
     copytree(migrations.MIGRATION_ROOT, root)
-    (root / "versions/0027_future.py").write_text(
+    (root / "versions/0028_future.py").write_text(
         """from alembic import op
-revision = "0027_future"
-down_revision = "0026_customer_policies"
+revision = "0028_future"
+down_revision = "0027_billing_storage"
 rollout = {
     "mode": "maintenance",
     "data": "Adds a nullable note without backfill.",
@@ -163,9 +163,10 @@ def upgrade():
     monkeypatch.setattr(migrations, "MIGRATION_ROOT", root)
     monkeypatch.setattr(schema_migration, "open_bound_neon_database", lambda _: empty_database)
     assert [step.revision for step in schema_migration.rollout_path(source, target)] == [
-        "0022_drive_recovery_binding", "0023_business_currency", "0024_mileage_vehicles", "0025_enrollment_drive_setup", "0026_customer_policies", target,
+        "0022_drive_recovery_binding", "0023_business_currency", "0024_mileage_vehicles", "0025_enrollment_drive_setup", "0026_customer_policies",
+        "0027_billing_storage", target,
     ]
-    assert [step.revision for step in schema_migration.rollout_path("0026_customer_policies", target)] == [target]
+    assert [step.revision for step in schema_migration.rollout_path("0027_billing_storage", target)] == [target]
     runtime = "window_" + uuid4().hex
     with empty_database.engine.begin() as connection:
         command.upgrade(migrations.migration_config(connection), source)
