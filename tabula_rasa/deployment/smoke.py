@@ -126,12 +126,14 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False, em
         try:
             with browser.new_context(base_url=origin) as context:
                 page = context.new_page()
-                asset_gateway = []
-                page.on('response', lambda response: asset_gateway.append(response.status)
-                        if response.url.startswith(origin + '/assets/') and response.status in GATEWAY_STATUSES else None)
+                browser_gateway = []
+                page.on('response', lambda response: browser_gateway.append(
+                    ('/assets/' if response.url.startswith(origin + '/assets/') else '/browser-resource', response.status))
+                    if response.url.startswith(origin + '/') and response.request.method in {'GET', 'HEAD'}
+                    and response.status in GATEWAY_STATUSES else None)
 
                 def verify_shell(timeout, report):
-                    asset_gateway.clear()
+                    browser_gateway.clear()
                     try:
                         response = page.goto('/accounts', **({'timeout': timeout()} if timeout else {}))
                         if response is not None:
@@ -144,13 +146,13 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False, em
                             'href', '/api/v1/auth/login', **({'timeout': timeout()} if timeout else {}))
                         expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(
                             0, **({'timeout': timeout()} if timeout else {}))
-                        for status in asset_gateway:
-                            report('/assets/', status)
-                        return not (maintenance and asset_gateway)
+                        for path, status in browser_gateway:
+                            report(path, status)
+                        return not (maintenance and browser_gateway)
                     except (AssertionError, Error):
-                        if maintenance and asset_gateway:
-                            for status in asset_gateway:
-                                report('/assets/', status)
+                        if maintenance and browser_gateway:
+                            for path, status in browser_gateway:
+                                report(path, status)
                             return False
                         raise NamedSmokeError('Public sign-in shell check failed.') from None
 

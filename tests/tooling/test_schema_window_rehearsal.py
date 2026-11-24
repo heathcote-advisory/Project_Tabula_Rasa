@@ -70,6 +70,8 @@ class Rehearsal(Staging):
         self.version_unavailable_after_restart = False
         self.handover_gateways = []
         self.shell_response_status = None
+        self.shell_session_gateway = False
+        self.probe_events = []
         hostname = self.network + ".neon.tech"
         owner_password, runtime_password = uuid4().hex, uuid4().hex
         self.owner_url = f"postgresql://owner:{owner_password}@{hostname}/drill?sslmode=require"
@@ -209,6 +211,11 @@ COMMIT;
                         lab.handover_gateways.pop(0)
                         self.send_error(status)
                         return
+                if (public and lab.schema == lab.expected_schema and lab.shell_session_gateway
+                        and self.path == '/api/v1/session' and self.headers.get('Sec-Fetch-Dest') == 'empty'):
+                    lab.shell_session_gateway = False
+                    self.send_error(502)
+                    return
                 upstream = HTTPConnection("127.0.0.1", lab.app_port, timeout=5)
                 try:
                     headers = dict(self.headers)
@@ -294,7 +301,8 @@ COMMIT;
             verify=lambda revision, _: subprocess.run(
                 ["git", "merge-base", "--is-ancestor", revision, "HEAD"], check=True,
             ),
-            now=lambda: NOW, emit=lambda event: self.phases.append(event["status"]), **options,
+            now=lambda: NOW, emit=lambda event: (self.phases.append(event["status"]), self.probe_events.append(event)),
+            **options,
         )
 
 
@@ -383,6 +391,17 @@ def test_maintenance_rejects_non_success_shell_even_with_real_application_html(l
     assert lab.suspended and lab.app_port is None
     assert lab.phases[-1] == 'maintenance_failed'
     assert 'post_restart_smoke_passed' not in lab.phases
+
+
+def test_maintenance_retries_gateway_from_the_browser_session_read(lab):
+    lab.details['plan'] = 'starter'
+    lab.shell_session_gateway = True
+    result = lab.rehearse({**lab.environ, 'WINDOW_VERIFIED_SUSPEND_SERVICE_ID': SERVICE}, immediate=True)
+    assert result['status'] == 'smoke_passed'
+    assert not lab.shell_session_gateway
+    assert any(event.get('path') == '/browser-resource' and event.get('http_status') == 502
+               for event in lab.probe_events)
+    assert max(event.get('attempt', 0) for event in lab.probe_events) >= 2
 
 
 def test_private_ingress_reports_lost_upstream(lab):
