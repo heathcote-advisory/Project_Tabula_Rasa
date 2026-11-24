@@ -213,7 +213,7 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
         check_production_prior, production_target, render_setting, staging_evidence,
         verify_render_database, verify_render_origin,
     )
-    from .smoke import named_smoke
+    from .smoke import NamedSmokeError, named_smoke
 
     automatic = plan is not None
     protected = not automatic
@@ -371,6 +371,8 @@ def run(environ, *, read=release.api, metadata=release.image_metadata, verify=re
                 smoke(origin, candidate["release"], previous_release=previous["release"], maintenance=True)
             else:
                 smoke(private_origin, candidate["release"])
+        except NamedSmokeError as error:
+            raise release.ReleaseError(f"Post-maintenance named-user smoke failed. {error}") from None
         except release.ReleaseError:
             raise
         except Exception:

@@ -3,6 +3,10 @@
 import time
 
 
+class NamedSmokeError(ValueError):
+    """Fixed diagnostic safe for release logs."""
+
+
 def access_mode(environ, *, require_alpha_credentials=True):
     mode = environ.get('TABULA_RASA_ACCESS_MODE')
     if mode not in {'restricted_alpha', 'named_user'}:
@@ -17,27 +21,40 @@ def access_mode(environ, *, require_alpha_credentials=True):
     return mode
 
 
+def _named_version_ready(request, release, previous_release, maintenance):
+    version = request.get('/version', timeout=5000)
+    if maintenance and version.status == 503:
+        return False
+    if maintenance and version.status != 200:
+        raise NamedSmokeError('Version endpoint returned an unexpected status.')
+    try:
+        observed = version.json()
+    except ValueError:
+        raise NamedSmokeError('Version response was not valid JSON.') from None
+    if observed != {'release': release}:
+        if previous_release is None or observed != {'release': previous_release}:
+            raise NamedSmokeError('Release identity mismatch.')
+        return False
+    if not maintenance:
+        return True
+    status = request.get('/health/ready', timeout=5000).status
+    if status not in {200, 503}:
+        raise NamedSmokeError('Readiness failed.')
+    return status == 200
+
+
 def named_probe(context, release, *, previous_release=None, maintenance=False, sleep=time.sleep):
     """Anonymous HTTP boundary, including forged legacy credentials/selectors."""
     if maintenance and previous_release is None:
-        raise ValueError('Maintenance smoke requires the verified prior release.')
+        raise NamedSmokeError('Maintenance smoke requires the verified prior release.')
     if not maintenance and context.request.get('/health/ready').status != 200:
-        raise ValueError('Readiness failed.')
+        raise NamedSmokeError('Readiness failed.')
     checks = 21 if previous_release is not None else 1
     for attempt in range(checks):
-        observed = context.request.get('/version', timeout=5000).json()
-        if observed == {'release': release}:
-            if not maintenance:
-                break
-            status = context.request.get('/health/ready', timeout=5000).status
-            if status == 200:
-                break
-            if status != 503:
-                raise ValueError('Readiness failed.')
-        elif previous_release is None or observed != {'release': previous_release}:
-            raise ValueError('Release identity mismatch.')
+        if _named_version_ready(context.request, release, previous_release, maintenance):
+            break
         if attempt == checks - 1:
-            raise ValueError('Release handover did not converge.')
+            raise NamedSmokeError('Release handover did not converge.')
         sleep(3)
     for headers in ({}, {'Authorization': 'Basic c3ludGhldGljOnN5bnRoZXRpYw=='},
                     {'Cookie': 'tabula_entity=alpha-synthetic; tabula_dev_session=synthetic',
@@ -50,10 +67,10 @@ def named_probe(context, release, *, previous_release=None, maintenance=False, s
             response = context.request.get(path, headers=headers)
             if (response.status != 401 or response.headers.get('www-authenticate', '').lower().startswith('basic')
                     or response.headers.get('cache-control') != 'no-store'):
-                raise ValueError('Named deployment access restriction failed.')
+                raise NamedSmokeError('Named deployment access restriction failed.')
     for path in ('/api/v1/unknown', '/assets/missing.js'):
         if context.request.get(path, headers={'Accept': 'text/html'}).status != 404:
-            raise ValueError('Routing failure.')
+            raise NamedSmokeError('Routing failure.')
 
 
 def named_smoke(origin, release, *, previous_release=None, maintenance=False):
@@ -62,18 +79,24 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False):
     Readiness checks PostgreSQL. This verifies the public sign-in shell and
     denied private API boundary, not successful provider login/membership.
     """
-    from playwright.sync_api import expect, sync_playwright
+    from playwright.sync_api import Error, expect, sync_playwright
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         try:
             with browser.new_context(base_url=origin) as context:
-                named_probe(context, release, previous_release=previous_release, maintenance=maintenance)
-                page = context.new_page()
-                page.goto('/accounts')
-                expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
-                    'href', '/api/v1/auth/login')
-                expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(0)
+                try:
+                    named_probe(context, release, previous_release=previous_release, maintenance=maintenance)
+                except Error:
+                    raise NamedSmokeError('Public HTTP probe request failed.') from None
+                try:
+                    page = context.new_page()
+                    page.goto('/accounts')
+                    expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
+                        'href', '/api/v1/auth/login')
+                    expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(0)
+                except (AssertionError, Error):
+                    raise NamedSmokeError('Public sign-in shell check failed.') from None
         finally:
             browser.close()
 

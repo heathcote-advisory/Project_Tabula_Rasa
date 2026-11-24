@@ -28,14 +28,14 @@ Preflight checks and protected private-origin maintenance smoke remain strict.
 After automatic full-downtime schema maintenance, the shared public smoke also
 receives the verified prior revision. It checks version before readiness because
 the old application can correctly return readiness 503 against the new schema.
-Within the same 21-probe budget, it waits only for the known prior version or
-readiness 503 after observing the candidate; it requires the exact candidate and
-readiness 200 before running the unchanged access-boundary and sign-in checks.
-Unknown versions, other readiness statuses, transport failures, failed access
+Within the same 21-probe budget, it waits on a version response of 503, the
+known prior version, or readiness 503 after observing the candidate. It requires
+the exact candidate and readiness 200 before running access and sign-in checks.
+Unknown versions, other unsuccessful probe statuses, transport failures, failed access
 checks and budget exhaustion fail closed. That complete public smoke is the
 final public verification for automatic maintenance; protected private-origin
-maintenance additionally verifies public ingress after reopening it. Unexpected
-post-maintenance smoke errors have a fixed safe phase diagnostic, and failure
+maintenance additionally verifies public ingress after reopening it. Smoke
+failures report fixed diagnostics without response details, and failure
 keeps the worker fenced and contains the application rather than retrying or
 downgrading the committed schema.
 This never retries a deployment or migration and does not replace the successful

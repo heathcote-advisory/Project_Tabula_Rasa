@@ -67,6 +67,7 @@ class Rehearsal(Staging):
         self.database = self.network + "-db"
         self.app = self.network + "-app"
         self.app_port = None
+        self.version_unavailable_after_restart = False
         hostname = self.network + ".neon.tech"
         owner_password, runtime_password = uuid4().hex, uuid4().hex
         self.owner_url = f"postgresql://owner:{owner_password}@{hostname}/drill?sslmode=require"
@@ -192,6 +193,11 @@ COMMIT;
         class Proxy(BaseHTTPRequestHandler):
             def do_GET(self):
                 if (public and lab.maintenance) or lab.app_port is None:
+                    self.send_error(503)
+                    return
+                if (public and lab.version_unavailable_after_restart
+                        and lab.schema == lab.expected_schema and self.path == "/version"):
+                    lab.version_unavailable_after_restart = False
                     self.send_error(503)
                     return
                 upstream = HTTPConnection("127.0.0.1", lab.app_port, timeout=5)
@@ -323,8 +329,10 @@ def test_schema_window_reopens_after_real_private_smoke(lab):
     with pytest.raises(release.ReleaseError, match="Verify suspension"):
         lab.rehearse(lab.environ, immediate=True)
     assert not lab.actions and lab.sql("SELECT version_num FROM alembic_version;") == "0021_customer_lifecycle"
+    lab.version_unavailable_after_restart = True
     result = lab.rehearse({**lab.environ, "WINDOW_VERIFIED_SUSPEND_SERVICE_ID": SERVICE}, immediate=True)
     assert result["status"] == "smoke_passed" and result["image"] == lab.image
+    assert not lab.version_unavailable_after_restart
     assert lab.schema == head_revision()
     assert (lab.sql(rows), lab.sql(receipts), lab.sql(custody, database="custody")) == expected
     assert lab.sql("SET ROLE runtime; SELECT drive_recovery_binding IS NULL FROM external_connections;") == "t"
