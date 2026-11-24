@@ -90,6 +90,12 @@ come from the service's canonical enumeration. Terms include acquisition/start
 dates, cost, salvage, whole-quarter life, posting accounts and optional managed
 references and acquisition linkage. Only straight-line depreciation is supported.
 
+Beta-enrolled businesses can maintain their asset register and view depreciation
+schedules and saved history. Posting depreciation and saving or removing period
+overrides are unavailable for those businesses in the browser and API. The
+restriction follows the selected business across users and remains in effect
+when its beta admission is suspended or closed.
+
 The server-calculated schedule displays amounts, cumulative depreciation, book
 value, override reasons, Posted/Pending and durable ledger entry IDs. Viewing the
 schedule never posts. **Post due depreciation** requires a cutoff and explicit

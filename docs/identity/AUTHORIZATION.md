@@ -49,6 +49,7 @@ one-execution recovery approval.
 | --- | --- | --- |
 | `read` | None | Owner, Admin, Editor, Accountant, Read-only |
 | `write` | `bookkeeping:write` | Owner, Admin, Editor, Accountant |
+| `asset_depreciate` | `bookkeeping:write`, `asset:depreciate` | Owner, Admin, Editor, Accountant in businesses outside the beta program |
 | `period_close` | `bookkeeping:write`, `period:close` | Owner, Admin |
 | `period_unlock` | `bookkeeping:write`, `period:unlock` | Owner |
 | `entry_correct` | `bookkeeping:write`, `bookkeeping:correct` | Owner, Admin, Accountant |

@@ -28,7 +28,7 @@ class IdentityStorageUnavailable(IdentityError):
 
 
 READ = frozenset({'bookkeeping:read'})
-WRITE = READ | {'bookkeeping:write'}
+WRITE = READ | {'bookkeeping:write', 'asset:depreciate'}
 HANDOFF = WRITE | {'bookkeeping:import', 'bookkeeping:export'}
 ADMIN = HANDOFF | {'members:manage', 'period:close', 'bookkeeping:correct'}
 ROLE_CAPABILITIES = {
@@ -63,6 +63,7 @@ class EntityAccess:
     closure_expires_at: datetime | None = None
     lifecycle_version: int = 0
     settings_version: int = 1
+    beta_enrolled: bool = False
 
 
 def access_capabilities(access):
@@ -70,8 +71,10 @@ def access_capabilities(access):
     if access.closure_expires_at is not None:
         # Freeze bookkeeping while preserving membership/ownership recovery and
         # security administration under their existing independent rules.
-        return granted - {'bookkeeping:write', 'bookkeeping:import', 'bookkeeping:correct',
+        return granted - {'bookkeeping:write', 'bookkeeping:import', 'bookkeeping:correct', 'asset:depreciate',
                           'period:close', 'period:unlock'}
+    if access.beta_enrolled:
+        return granted - {'asset:depreciate'}
     return granted
 
 

@@ -368,6 +368,7 @@ def test_nonowner_runtime_can_append_scoped_history_but_cannot_provision_or_muta
         connection.exec_driver_sql(f'GRANT SELECT ON identity_users,identity_bindings,organizations,memberships, '
             f'organization_entities,identity_environments,identity_sessions,business_entities,accounts, '
             f'external_connections,migration_runs,jobs,customer_lifecycle_requests TO "{role}"')
+        connection.exec_driver_sql(f'GRANT SELECT (organization_id) ON beta_admissions TO "{role}"')
         connection.exec_driver_sql(f'GRANT UPDATE ON identity_sessions,identity_environments,organizations TO "{role}"')
     try:
         with audit_context(database, AuditContext('operator', operator.id, 'support', 'alpha')):

@@ -730,7 +730,10 @@ existing workflows and stricter history rules.
 Assets provides a register, create/detail/edit, retirement and guarded deletion.
 Server-calculated quarterly schedules show override reasons, Posted/Pending and
 ledger IDs. Protected override/removal and Post due depreciation require
-confirmation. Terms/history locks and deletion availability come from the
+confirmation for eligible businesses. Beta-enrolled businesses retain the asset
+register, schedule and saved history. The asset editor hides posting and period
+override commands for those businesses, and the API refuses those commands.
+Terms/history locks and deletion availability come from the
 service, including immutable posted provenance. Responsive tables scroll inside
 labeled regions and forms retain the existing dirty-navigation/conflict contract.
 Completed explicit commands require returning to the list for a fresh editor.

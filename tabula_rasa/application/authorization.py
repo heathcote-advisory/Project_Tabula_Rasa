@@ -16,6 +16,7 @@ RECOVERY = READ | {'recovery:authorize', 'platform:operate', 'recovery:approved'
 ACTION_CAPABILITIES = MappingProxyType({
     'read': READ,
     'write': WRITE,
+    'asset_depreciate': WRITE | {'asset:depreciate'},
     'period_close': WRITE | {'period:close'},
     'period_unlock': WRITE | {'period:unlock'},
     'entry_correct': WRITE | {'bookkeeping:correct'},
