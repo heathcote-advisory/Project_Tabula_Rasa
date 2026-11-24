@@ -187,6 +187,8 @@ class Staging:
             assert not kwargs
             self.actions.append("smoke_old")
         else:
+            if self.full_downtime:
+                assert callable(kwargs.pop('emit'))
             assert kwargs == ({"previous_release": PRIOR["release"], "maintenance": True}
                               if self.full_downtime else {})
             assert revision == CANDIDATE["release"] and (self.maintenance or self.full_downtime)
