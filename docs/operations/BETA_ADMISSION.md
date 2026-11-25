@@ -244,8 +244,10 @@ Notices exclude bank feeds, invoicing, payroll, inventory, tax preparation and
 filing, jurisdiction-specific tax compliance, property-management and rental-tax
 automation, foreign exchange, and consolidated reporting across businesses.
 They also exclude category template imports, standalone report downloads,
-compliance or audit exports, and full QuickBooks feature parity. The accountant
-handoff is a bookkeeping archive. Beta-enrolled businesses can view depreciation
+compliance or audit exports, and full QuickBooks feature parity. Bookkeeping
+reports are available on screen. Data & backup offers transaction and journal
+posting CSVs and an accountant handoff archive subject to access permissions.
+Beta-enrolled businesses can view depreciation
 schedules and history, with posting and period overrides unavailable. Notices
 state the customer-owned Drive receipt prerequisite and prohibit unnecessary
 secrets, identity, full-card and medical data without claiming content screening.

@@ -43,7 +43,8 @@ it('discloses beta feature exclusions and the accountant handoff during first-us
   await user.click(screen.getByText('Beta scope and service limits'));
   expect(exclusions).toBeVisible();
   expect(exclusions).toHaveTextContent('category template imports, standalone report downloads and compliance or audit exports');
-  expect(exclusions).toHaveTextContent('The accountant handoff is a bookkeeping archive.');
+  expect(screen.getByText(/Bookkeeping reports are available on screen/)).toHaveTextContent(
+    'transaction and journal posting CSVs and an accountant handoff archive for eligible roles');
   expect(screen.getByText(/Depreciation posting and period overrides are unavailable/)).toBeVisible();
 });
 
