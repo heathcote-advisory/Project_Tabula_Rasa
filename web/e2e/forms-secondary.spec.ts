@@ -243,7 +243,7 @@ test('identity availability surfaces share controls without exposing private rou
         await summary.focus();
         await page.keyboard.press('Enter');
         await expect(exclusions).toBeVisible();
-        const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+        const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
         expect(horizontalOverflow).toBe(false);
       }
     }

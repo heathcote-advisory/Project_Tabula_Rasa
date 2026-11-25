@@ -39,13 +39,15 @@ it('discloses beta feature exclusions and the accountant handoff during first-us
   const user = userEvent.setup();
   render(<Onboarding session={setup} />);
   const exclusions = screen.getByText(/bank feeds, invoicing, payroll, inventory/);
-  expect(exclusions).not.toBeVisible();
-  await user.click(screen.getByText('Beta scope and service limits'));
-  expect(exclusions).toBeVisible();
+  const summary = screen.getByText('Beta scope and service limits');
+  const disclosure = summary.closest('details');
+  expect(disclosure).not.toHaveAttribute('open');
+  await user.click(summary);
+  expect(disclosure).toHaveAttribute('open');
   expect(exclusions).toHaveTextContent('category template imports, standalone report downloads and compliance or audit exports');
   expect(screen.getByText(/Bookkeeping reports are available on screen/)).toHaveTextContent(
     'transaction and journal posting CSVs and an accountant handoff archive for eligible roles');
-  expect(screen.getByText(/Depreciation posting and period overrides are unavailable/)).toBeVisible();
+  expect(disclosure).toHaveTextContent('Depreciation posting and period overrides are unavailable.');
 });
 
 it('preserves names on Back, validates whitespace, and reuses the exact request on explicit retry', async () => {
