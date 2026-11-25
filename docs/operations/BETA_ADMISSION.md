@@ -240,9 +240,14 @@ commercial authority activation is authorized by implementation completion.
 My Businesses and first-use setup show invitation-only/noncharging status and
 private pending/approved/active/paused information. Offers explain expiry and
 explicit retry/reapproval. Capacity denials reveal no other customer's identifiers.
-Notices exclude tax filing, payroll, banking feeds, FX, depreciation posting and
-period overrides for beta-enrolled businesses. They state the customer-owned
-Drive receipt prerequisite and prohibit unnecessary
+Notices exclude bank feeds, invoicing, payroll, inventory, tax preparation and
+filing, jurisdiction-specific tax compliance, property-management and rental-tax
+automation, foreign exchange, and consolidated reporting across businesses.
+They also exclude category template imports, standalone report downloads,
+compliance or audit exports, and full QuickBooks feature parity. The accountant
+handoff is a bookkeeping archive. Beta-enrolled businesses can view depreciation
+schedules and history, with posting and period overrides unavailable. Notices
+state the customer-owned Drive receipt prerequisite and prohibit unnecessary
 secrets, identity, full-card and medical data without claiming content screening.
 Best-effort ordinary support targets a first response within two business days
 and weekly triage, with no fix-time or 24/7 SLA. Independent DB/receipt RPO of
