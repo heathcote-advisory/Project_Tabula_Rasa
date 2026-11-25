@@ -289,10 +289,12 @@ class PostgresBeta:
             ):
                 raise IdentityError("reauthentication_required")
             program = lock_program(connection)
+            # PostgreSQL row locks require UPDATE privilege. The runtime can read
+            # grants but only a database administrator can change them.
             if not connection.scalar(
                 text("""SELECT g.user_id FROM beta_operator_grants g
                 JOIN identity_users u ON u.id=g.user_id AND u.state='active'
-                WHERE g.user_id=:user AND g.environment=:env AND g.expires_at>clock_timestamp() FOR SHARE OF g,u"""),
+                WHERE g.user_id=:user AND g.environment=:env AND g.expires_at>clock_timestamp() FOR SHARE OF u"""),
                 {"user": session.user_id, "env": sessions.environment},
             ):
                 raise IdentityError("forbidden")

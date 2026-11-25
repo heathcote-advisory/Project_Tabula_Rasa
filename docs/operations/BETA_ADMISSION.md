@@ -113,8 +113,10 @@ Use the existing named session, exact Origin, synchronizer CSRF token and recent
 sign-in (five minutes). A regular Owner/Admin/Read-only role grants no program
 control. A production administrator must separately provision a short-lived
 `beta_operator_grants` row for the exact persisted operator user ID and session
-environment, with expiry and a private authorization reference. Revoke by deleting
-the grant or expiring it; the server revalidates it on every command. Provisioning
+environment, with expiry and a private authorization reference. The application
+runtime only needs read access to the grant table. Revoke a grant by deleting or
+expiring it through administrator access. The server validates the grant when
+authorizing each command. An already authorized command can finish. Provisioning
 is not a tenant API capability and must use existing approved administrator custody
 and change records. Never publish credentials, session cookies, private identities,
 business names, approval documents or response inventories.
