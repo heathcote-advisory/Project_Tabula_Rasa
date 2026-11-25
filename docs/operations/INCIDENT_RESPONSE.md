@@ -14,14 +14,15 @@ separately authorized administrator and human incident handoff.
 ## Ownership, severity and alert intake
 
 The primary incident commander is the authorized deployment operator named in
-the business's private handoff for that environment. An alternate takes command
-after explicitly accepting handoff. Before enabling a stage or transferring
-custody, verify the named operators, notification destinations, availability
-window and independent access to the relevant providers and secret store. The
-[custody procedure](SECRETS.md#provider-account-custody-and-transfer) covers
-provider access. No staffed 24-hour on-call or response SLA is claimed. If the
-primary does not acknowledge within the stage's agreed window,
-escalate to the alternate through the approved private channel. If no authorized
+the business's private handoff for that environment. The owner is the sole operator
+for the [initial beta](BETA_ADMISSION.md#customer-notices). Owner unavailability can
+delay acknowledgement, containment and recovery. Before enabling a stage or
+transferring custody, verify the authorized operators, notification destinations,
+availability window and independent access to the relevant providers and secret
+store under the [custody procedure](SECRETS.md#provider-account-custody-and-transfer).
+Where the stage has an alternate, escalate to that operator through the approved
+private channel if the primary misses the agreed acknowledgement window. The
+alternate takes command after explicitly accepting handoff. If no authorized
 operator is available, keep the affected service restricted and record that gap.
 
 | Severity | Trigger | Initial decision / responsible operator |
@@ -31,8 +32,9 @@ operator is available, keep the affected service restricted and record that gap.
 | SEV3 | Isolated degraded operation with a safe supported workaround and no suspected integrity/privacy impact | Operator records scope, owner and next review; escalate if impact expands or the workaround fails. |
 
 Severity is impact, not an automatic timer or permission to reset data. The
-commander can hold several specialist roles; the alternate must have independent
-access and be able to execute the procedure without the original implementer.
+commander can hold several specialist roles. When a stage requires an alternate,
+verify that operator has independent access and can execute the procedure without
+the original implementer.
 
 Intake comes from [operational observability
 alerts](OBSERVABILITY.md#metrics-alerts-and-first-triage), Render/GitHub failed

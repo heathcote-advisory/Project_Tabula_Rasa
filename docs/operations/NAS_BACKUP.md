@@ -97,8 +97,9 @@ operator artifact, never an ordinary tenant/profile download.
    secrets, and `environment/source_sha256` archive/status/lock namespaces.
 6. Generate an age identity on the authorized recovery operator's protected
    system. Place only the public recipient in `recipients.txt` on the NAS.
-   Keep the private identity in approved off-NAS custody accessible to the
-   alternate operator, and prove decryption before scheduling. The backup task
+   Keep the private identity in approved off-NAS custody. Verify access for the
+   [stage's authorized recovery operators](INCIDENT_RESPONSE.md#ownership-severity-and-alert-intake)
+   and prove decryption before scheduling. The backup task
    needs no decryption key. Record the recipient-file digest and custody/access
    evidence privately. Changing recipients affects future generations only;
    keep every identity required by retained generations. Each capture encrypts
@@ -694,8 +695,8 @@ container name deliberately fails instead of replacing an earlier drill.
    time, actual backup age/point gap, included/excluded controlled commits and
    limitations. Retain private reports, source/target inventory and the tested
    archive in restricted operator records. SQL execution duration alone is not
-   declaration-to-verified database RTO. Have the alternate operator repeat the
-   documented procedure with their approved access and key custody.
+   declaration-to-verified database RTO. When the stage requires an alternate,
+   have that operator repeat the procedure with their approved access and key custody.
 
 ### Staged ownership and privilege recovery
 
@@ -765,8 +766,8 @@ target. Verify DSM/ARM64/client/TLS versions, private destination/database bindi
 separate key custody, Windows-independent schedule/health alerts,
 failed/interrupted/missed-run recovery, no-prune capacity, actual compute/transfer and
 backup-age gaps, and retained-archive restore with entity/accounting/content checks.
-Record alternate-operator execution and observed limitations in that issue; keep managed
-database recovery and operational readiness verification recovery evidence linked there.
+Record operator access, execution and observed limitations in that issue. Link
+the managed database recovery and operational readiness evidence there.
 
 These are repeatable verification requirements, not a second stale checklist of
 which operator steps have completed. A code merge or one manual backup does not
@@ -778,7 +779,7 @@ not the completion state of a particular installation or drill.
 
 - [ ] Direct ARM64 execution, exact DSM/package/image versions, compatible TLS
   PostgreSQL clients and resource capacity are proven on DS220j.
-- [ ] Private destination/database inventory, owners, alternate operator,
+- [ ] Private destination/database inventory, owners, stage-specific recovery operators,
   secret/ACL/encryption/remount checks and both key-custody plans are recorded.
 - [ ] Production/UAT bindings are independently checked; all intended databases
   have distinct protected configuration and complete coverage.
@@ -791,8 +792,8 @@ not the completion state of a particular installation or drill.
 - [ ] Provider usage scope/period/reporting delay, capacity headroom and actual
   backup ages/point gaps are recorded; per-run attribution limits are explicit.
 - [ ] A retained NAS archive decrypts/restores into isolation and passes complete
-  inventory, entity isolation, accounting integrity/content and alternate-operator
-  checks. Ownership/grant exceptions, effective-role checks and database/full-service
+  inventory, entity isolation, accounting integrity/content and stage-specific
+  operator access checks. Ownership/grant exceptions, effective-role checks and database/full-service
   RTO distinctions are recorded alongside backup age and recovery limitations.
 
 ## Developer validation

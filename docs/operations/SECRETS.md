@@ -75,11 +75,15 @@ and gaps in the [platform ownership record](https://github.com/heathcote-advisor
 
 ## Break-glass access
 
-Arrange an independently controlled provider/secret-store administrator with MFA
-and protected offline recovery factors before launch. Access must survive primary
-operator absence or OIDC outage. Record who can authorize use, how the alternate
-retrieves access, exact scope/time limit, and where access events are retained.
-Test access without exposing factors or touching live ledger data.
+For the [initial beta](BETA_ADMISSION.md#customer-notices), verify that the sole
+operator can recover provider and secret-store access using protected offline
+factors or a tested supported recovery route independent of application OIDC.
+For stages that require alternate custody, arrange an independently controlled
+administrator with MFA and protected offline recovery factors before launch.
+Verify that the alternate can retrieve access during primary operator absence or
+OIDC outage. Record who can authorize use, retrieval steps, scope, time limit and
+where access events are retained. Test access without exposing factors or
+touching live ledger data.
 
 When invoked, declare the incident and authorization privately, restrict ingress,
 use the least privilege temporary role, record fixed actions/times, and have the

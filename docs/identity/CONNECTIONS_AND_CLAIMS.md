@@ -111,8 +111,9 @@ or paid upgrade is implied. Each environment needs its own database, role and ke
    same-account reconnect and exact-byte receipt access on the selected deployed revision.
    Local database tests are implementation evidence, not a hosted persistence drill.
 
-Credential ciphertext needs its own independent backup/restore and alternate-operator
-custody. Keep the key separately recoverable, preserve opaque references and coordinate
+Back up credential ciphertext independently and verify access under the stage's
+[incident and recovery custody procedure](../operations/INCIDENT_RESPONSE.md#ownership-severity-and-alert-intake).
+Keep the key separately recoverable, preserve opaque references and coordinate
 its recovery point with bookkeeping connection metadata and independent receipt bytes.
 A ledger-only restore, customer export or customer-owned Drive cannot reconstruct grants.
 Include this credential database in the operations recovery/access inventory and legal
