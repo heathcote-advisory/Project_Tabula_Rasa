@@ -236,6 +236,16 @@ test('identity availability surfaces share controls without exposing private rou
       else await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
       if (mode === 'unavailable') await expect(page.getByRole('alert')).toContainText('The requested data could not be loaded.');
       await capture(page, 'identity-' + mode);
+      if (mode === 'needs-setup') {
+        const summary = page.getByText('Beta scope and service limits', { exact: true });
+        const exclusions = page.getByText(/The beta excludes bank feeds/);
+        await expect(exclusions).toBeHidden();
+        await summary.focus();
+        await page.keyboard.press('Enter');
+        await expect(exclusions).toBeVisible();
+        const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+        expect(horizontalOverflow).toBe(false);
+      }
     }
   }
 });

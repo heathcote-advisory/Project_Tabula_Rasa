@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { api, ApiError, type SessionState } from '../../api/client';
 import { session } from '../../test/fixtures';
@@ -31,6 +32,22 @@ it('separates fresh books, invitations and operator migration without automatic 
   render(<Onboarding session={setup} />);
   expect(screen.getByLabelText('Invitation credential')).toBeVisible();
   expect(screen.queryByLabelText('Business name')).not.toBeInTheDocument();
+});
+
+it('discloses beta feature exclusions and the accountant handoff during first-use setup', async () => {
+  vi.spyOn(api, 'betaStatus').mockRejectedValue(new ApiError('unavailable'));
+  const user = userEvent.setup();
+  render(<Onboarding session={setup} />);
+  const exclusions = screen.getByText(/bank feeds, invoicing, payroll, inventory/);
+  const summary = screen.getByText('Beta scope and service limits');
+  const disclosure = summary.closest('details');
+  expect(disclosure).not.toHaveAttribute('open');
+  await user.click(summary);
+  expect(disclosure).toHaveAttribute('open');
+  expect(exclusions).toHaveTextContent('category template imports, standalone report downloads and compliance or audit exports');
+  expect(screen.getByText(/Bookkeeping reports are available on screen/)).toHaveTextContent(
+    'transaction and journal posting CSVs and an accountant handoff archive for eligible roles');
+  expect(disclosure).toHaveTextContent('Depreciation posting and period overrides are unavailable.');
 });
 
 it('preserves names on Back, validates whitespace, and reuses the exact request on explicit retry', async () => {
