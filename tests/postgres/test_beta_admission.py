@@ -495,6 +495,65 @@ def test_expanded_requires_authorization_and_ten_twenty_unique_caps(database, co
         configure()  # Cannot downgrade to caps below existing allocations.
 
 
+def test_operator_works_with_read_only_grant_table(database, cohort):
+    _, auth, _, person, raw, operator, beta, command, _, _, request, _ = cohort
+    applicant_raw, applicant = person("applicant")
+    admission, _ = request(
+        applicant, "Synthetic CAD request", country="CA", currency="CAD"
+    )
+    role = "beta_runtime_test_" + uuid4().hex
+    with database.engine.begin() as connection:
+        connection.exec_driver_sql(f'CREATE ROLE "{role}" NOLOGIN')
+        connection.exec_driver_sql(f'GRANT USAGE ON SCHEMA public TO "{role}"')
+        connection.exec_driver_sql(
+            f'GRANT SELECT ON ALL TABLES IN SCHEMA public TO "{role}"'
+        )
+        connection.exec_driver_sql(
+            "GRANT UPDATE ON identity_environments,identity_sessions,identity_users,"
+            f'beta_program,beta_admissions TO "{role}"'
+        )
+        connection.exec_driver_sql(
+            f'GRANT INSERT,UPDATE ON beta_named_users TO "{role}"'
+        )
+        connection.exec_driver_sql(f'GRANT INSERT ON beta_events TO "{role}"')
+    try:
+        with database.transaction() as connection:
+            connection.exec_driver_sql(f'SET LOCAL ROLE "{role}"')
+            assert not connection.scalar(
+                text("SELECT has_any_column_privilege('beta_operator_grants','UPDATE')")
+            )
+            approved = command("approve", admission_id=admission)
+            assert (
+                next(a for a in approved["admissions"] if a["id"] == admission)["state"]
+                == "approved"
+            )
+            assert (
+                approved["program"]["creation_paused"]
+                and approved["program"]["invitations_paused"]
+            )
+
+        with pytest.raises(IdentityError, match="forbidden"):
+            with database.transaction() as connection:
+                connection.exec_driver_sql(f'SET LOCAL ROLE "{role}"')
+                beta.operate(auth.sessions, applicant_raw, {"operation": "inspect"})
+
+        with database.transaction() as connection:
+            connection.execute(
+                text(
+                    "UPDATE beta_operator_grants SET expires_at=clock_timestamp() WHERE user_id=:user"
+                ),
+                {"user": operator.user_id},
+            )
+        with pytest.raises(IdentityError, match="forbidden"):
+            with database.transaction() as connection:
+                connection.exec_driver_sql(f'SET LOCAL ROLE "{role}"')
+                beta.operate(auth.sessions, raw, {"operation": "inspect"})
+    finally:
+        with database.engine.begin() as connection:
+            connection.exec_driver_sql(f'DROP OWNED BY "{role}"')
+            connection.exec_driver_sql(f'DROP ROLE "{role}"')
+
+
 def test_operator_http_csrf_expiry_selectors_and_private_status(
     database, cohort, caplog
 ):
