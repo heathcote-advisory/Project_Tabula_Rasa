@@ -24,7 +24,8 @@ export function BetaNotice() {
     <p>Bookkeeping reports are available on screen. Data & backup offers transaction and journal posting CSVs and an accountant handoff archive for eligible roles.</p>
     <p>Beta businesses can view depreciation schedules and history. Depreciation posting and period overrides are unavailable.</p>
     <p>Beta receipts require customer-owned Google Drive. Ordinary bookkeeping and receipts may be used only after a separately approved release. Do not submit passwords, tokens, government IDs, full payment-card credentials, medical information or other unnecessary sensitive data.</p>
-    <p>Support is best-effort with a target first response within two business days and weekly defect triage; no fix-time or 24/7 SLA. Independent database and receipt recovery targets of 24 hours and full-service recovery within 48 hours remain unverified. Your operator must provide the reviewed policies and contact channel before enrollment.</p>
+    <p>For the initial beta, independent backups of the database and receipt files are scheduled for Wednesday and Sunday. Recovery points are normally 72 to 96 hours apart. A missed backup can leave a longer gap. The full-service recovery target is 48 hours. Recovery for the admitted cohort still needs verification.</p>
+    <p>One operator handles recovery and incidents. Response and recovery may take longer when the operator is unavailable. Support is best-effort with a target first response within two business days and weekly defect triage. There is no guaranteed repair time or 24/7 support. Your operator must provide the reviewed policies and contact channel before enrollment.</p>
     </details>
   </section>;
 }

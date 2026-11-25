@@ -253,9 +253,14 @@ Beta-enrolled businesses can view depreciation
 schedules and history, with posting and period overrides unavailable. Notices
 state the customer-owned Drive receipt prerequisite and prohibit unnecessary
 secrets, identity, full-card and medical data without claiming content screening.
-Best-effort ordinary support targets a first response within two business days
-and weekly triage, with no fix-time or 24/7 SLA. Independent DB/receipt RPO of
-24 hours and full-service RTO of 48 hours are unverified targets, not guarantees.
+For the initial beta, independent database and receipt-byte backups are scheduled
+for Wednesday and Sunday. Scheduled recovery points are normally 72–96 hours
+apart, with daylight-saving variation and longer gaps after a missed capture.
+The full-service recovery target is 48 hours. Verify recovery for the admitted
+cohort before enrollment. The owner is the sole operator and recovery custodian,
+so their unavailability can delay incident response and recovery. Best-effort
+ordinary support targets a first response within two business days and weekly
+triage, with no guaranteed repair time or 24/7 support.
 Reviewed customer policies, acceptance mechanism, retention/closure and a real
 contact channel must be supplied by their release owners; no mailbox or unreviewed
 legal promise is invented by the UI.

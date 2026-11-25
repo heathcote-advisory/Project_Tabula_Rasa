@@ -89,7 +89,7 @@ unchanged by this runner.
 Before activation, the responsible operator must retain a private decision
 covering the exact current production source set, database identity, NAS mount,
 public age recipients, separately recoverable decrypt identity, retention,
-primary/alternate operator, cadence, resource/cost budget and alert recipient.
+authorized recovery operators for the stage, cadence, resource/cost budget and alert recipient.
 Receipt backup applies only to explicitly enrolled businesses with configured
 Drive receipt storage. Businesses without that setup do not require enrollment
 or a new Drive connection, even if historical receipt metadata exists. Selecting
@@ -300,8 +300,9 @@ approved interval. This reuses the payload-free, redirect-refusing Better Stack
 sender. Test failure, missed-run/NAS-offline and recovery recipient delivery;
 an exit code or configured URL alone is not delivery evidence. The primary
 operator inspects protected task/config/grant/capacity state, preserves partial
-copies, repairs the cause and performs one controlled retry; the alternate
-operator must have the same handoff and independent key access.
+copies, repairs the cause and performs one controlled retry. When the stage
+requires an alternate, verify the same handoff and independent key access for
+that operator.
 
 For an approved recovery rehearsal, verify the exact ciphertext generation,
 decrypt with the separately held identity into an isolated encrypted directory,
@@ -395,8 +396,8 @@ not required. Live verification and the recovery destination require valid grant
 ## Isolated Drive and PostgreSQL restore
 
 1. Obtain exact recovery-target/access/cost approval. Select the retained byte
-   generation and corresponding DB point. Confirm the authorized primary and
-   alternate recovery operators in the private handoff using the [operator handoff
+   generation and corresponding DB point. Confirm the stage's authorized recovery
+   operators and their working access using the [operator handoff
    procedure](../operations/INCIDENT_RESPONSE.md#ownership-severity-and-alert-intake).
    Preserve the original grants, folders, exports and archives. Source deletion
    requires separate approval.
@@ -447,7 +448,7 @@ No automatic expiry/pruning of archive generations, Drive originals, provider ve
 or grant envelopes is introduced. Coordinate external release and customer lifecycle and
 audit retention policy policy and exact target approval before irreversible cleanup.
 Document actual loss/time bounds, remaining capacity/retention/access risks,
-secret/encryption-key custody and the alternate operator's ability to execute the
+secret/encryption-key custody and the authorized operators' ability to execute the
 runbook. Publish only sanitized status/counts, version/release and private evidence
 hashes.
 

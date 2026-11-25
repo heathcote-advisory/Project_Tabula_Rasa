@@ -161,14 +161,13 @@ This folder chooser is optional for free beta.
 Use Google's [web-server OAuth contract](https://developers.google.com/identity/protocols/oauth2/web-server)
 to verify redirect/offline behavior. Mocks do not satisfy hosted acceptance.
 
-Independent daily-or-better database and receipt-byte protection, failure/staleness alerts,
-coordinated restoration and alternate-operator custody belong to
-[operations readiness](https://github.com/Roklion/Project_Tabula_Rasa/issues/342). Targets
-remain independent DB/byte RPO ≤24h and full-service RTO ≤48h. Customer Drive alone is not
-independent backup. Existing [archive/recovery formats](../storage/RECEIPT_RECOVERY.md) remain
-unchanged; verification recognizes the new schema. Recovery commands still need an approved
-private connection envelope; the customer UI does not export grants. Schedule/custody
-integration and actual coordinated restore remain release blockers.
+Apply the [initial-beta backup schedule and custody limits](../operations/BETA_ADMISSION.md#customer-notices).
+Verify independent database and receipt-byte protection, failure and staleness alerts,
+working owner recovery access, and coordinated restoration for the selected cohort
+against the 48-hour full-service recovery target. Use the independent
+[receipt archive and restore procedure](../storage/RECEIPT_RECOVERY.md) to protect
+bytes from customer Drive. Recovery commands require an approved private connection
+envelope held in operator custody.
 [Customer exports](https://github.com/Roklion/Project_Tabula_Rasa/issues/345),
 [retention](https://github.com/Roklion/Project_Tabula_Rasa/issues/346) and
 [legal/privacy](https://github.com/heathcote-advisory/Project_Tabula_Rasa/issues/522) must cover account
