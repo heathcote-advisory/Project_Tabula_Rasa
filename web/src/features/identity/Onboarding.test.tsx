@@ -34,7 +34,7 @@ it('separates fresh books, invitations and operator migration without automatic 
   expect(screen.queryByLabelText('Business name')).not.toBeInTheDocument();
 });
 
-it('discloses beta feature exclusions and the accountant handoff during first-use setup', async () => {
+it('discloses beta features and recovery limits during first-use setup', async () => {
   vi.spyOn(api, 'betaStatus').mockRejectedValue(new ApiError('unavailable'));
   const user = userEvent.setup();
   render(<Onboarding session={setup} />);
@@ -48,6 +48,9 @@ it('discloses beta feature exclusions and the accountant handoff during first-us
   expect(screen.getByText(/Bookkeeping reports are available on screen/)).toHaveTextContent(
     'transaction and journal posting CSVs and an accountant handoff archive for eligible roles');
   expect(disclosure).toHaveTextContent('Depreciation posting and period overrides are unavailable.');
+  expect(disclosure).toHaveTextContent('Recovery points are normally 72 to 96 hours apart. A missed backup can leave a longer gap.');
+  expect(disclosure).toHaveTextContent('The full-service recovery target is 48 hours. Recovery for the admitted cohort still needs verification.');
+  expect(disclosure).toHaveTextContent('Response and recovery may take longer when the operator is unavailable.');
 });
 
 it('preserves names on Back, validates whitespace, and reuses the exact request on explicit retry', async () => {

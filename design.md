@@ -1091,7 +1091,8 @@ Enrollment freezes do not remove existing business selection, membership-derived
 access, customer export or closure rights. Notices state noncharging/invitation-only
 scope, customer-owned Drive for beta receipts, the product exclusions in the
 [customer notice](docs/operations/BETA_ADMISSION.md#customer-notices),
-sensitive-data boundaries, best-effort support and unverified recovery targets.
+sensitive-data boundaries, best-effort support, the scheduled backup interval,
+the unverified full-service recovery target and the limits of sole-operator coverage.
 Reviewed policy publication, deployed acknowledgement evidence and contact/retention
 verification remain separate release requirements; the acknowledgement mechanism
 and private contact are specified in Customer policies and private help below.
