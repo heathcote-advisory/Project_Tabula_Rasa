@@ -15,6 +15,28 @@ def private_json(path, value):
     path.chmod(0o600)
 
 
+def test_schema_check_reuses_export_registry_without_config_or_provider_access(monkeypatch, capsys):
+    from tabula_rasa.bookkeeping_export.schema import SUPPORTED_DATABASE_REVISION
+
+    def forbidden(*args, **kwargs):
+        pytest.fail('Schema checks must not open storage, a database or a notification destination.')
+
+    monkeypatch.setattr(runner, 'load_config', forbidden)
+    monkeypatch.setattr(runner, 'open_database', forbidden)
+    monkeypatch.setattr(runner, 'signal', forbidden)
+    schemas = ['0026_customer_policies', SUPPORTED_DATABASE_REVISION]
+    arguments = ['schema-check', '--schema', schemas[0], '--schema', schemas[1]]
+    assert runner.main(arguments) == 0
+    assert json.loads(capsys.readouterr().out) == {'status': 'supported', 'schemas': schemas}
+
+    assert runner.main([*arguments, '--schema', 'unsupported']) == 1
+    assert json.loads(capsys.readouterr().out) == {'status': 'failed', 'code': 'unsupported_database_schema'}
+
+    with pytest.raises(SystemExit) as error:
+        runner.main([*arguments, '--notify'])
+    assert error.value.code == 2
+
+
 def test_disk_scratch_is_refused_before_any_private_bytes_are_written(tmp_path, monkeypatch):
     monkeypatch.setattr(runner.Path, 'read_text', lambda *args, **kwargs: '1 0 0:1 / / rw - ext4 /dev/fake rw\n')
     config = {'temporary_directory': tmp_path, 'max_capture_bytes': 1024}

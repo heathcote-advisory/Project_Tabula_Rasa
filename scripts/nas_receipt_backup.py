@@ -328,13 +328,27 @@ def capture_failure(error):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['inventory', 'run', 'scheduled', 'status', 'verify', '_capture'])
+    parser.add_argument('action', choices=['inventory', 'run', 'scheduled', 'status', 'verify', 'schema-check', '_capture'])
     parser.add_argument('--config', type=Path)
     parser.add_argument('--database-sha256')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--generation')
+    parser.add_argument('--schema', action='append', help='Expected database revision for schema-check. Repeat for each revision.')
     parser.add_argument('--notify', action='store_true')
     args = parser.parse_args(argv)
+    if args.action == 'schema-check':
+        if not args.schema or args.notify or any(value is not None for value in (
+                args.config, args.database_sha256, args.output, args.generation)):
+            parser.error('schema-check requires --schema and accepts no backup or notification options.')
+        from tabula_rasa.bookkeeping_export.schema import SUPPORTED_DATABASE_REVISIONS
+
+        if not set(args.schema) <= set(SUPPORTED_DATABASE_REVISIONS):
+            print(json.dumps({'status': 'failed', 'code': 'unsupported_database_schema'}))
+            return 1
+        print(json.dumps({'status': 'supported', 'schemas': args.schema}))
+        return 0
+    if args.schema is not None:
+        parser.error('--schema is only supported by schema-check.')
     with private_files():
         try:
             if args.notify and args.action == 'verify':

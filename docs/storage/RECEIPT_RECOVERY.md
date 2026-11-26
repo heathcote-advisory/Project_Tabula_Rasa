@@ -206,6 +206,30 @@ the capture dependencies, proves real tmpfs acceptance/disk rejection, encrypts
 and decrypts synthetic bytes and checks safe missing-health behavior. This is
 package validation, not actual production capture or scheduled-run evidence.
 
+#### Qualify the installed receipt runtime
+
+Before a production database schema change, resolve the exact image ID used by
+DSM's active receipt capture wrapper. On that NAS, check both the current database
+revision and the proposed revision using the installed package:
+
+```sh
+docker run --rm --pull=never --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges "$receipt_image_id" schema-check \
+  --schema "$current_revision" --schema "$candidate_revision"
+```
+
+The command checks the package's canonical bookkeeping export schema registry
+without loading configuration, opening a database connection or contacting Drive.
+Record the installed image ID, the revisions and the exit status in the private
+release record. If either revision is unsupported or the command is unavailable,
+hold the schema rollout. Build, validate and install a receipt package that
+supports both revisions, then rerun the check against the installed image.
+After the schema change, verify a fresh encrypted capture and the scheduled
+health status. The schema check covers revision recognition. The capture
+verifies the actual source binding, canonical columns and receipt data.
+
+#### Run the approved capture wrapper
+
 For the approved production wrapper, use a separate read-only protected config
 mount, writable archive mount, private bounded tmpfs at `temporary_directory`,
 no exposed ports, `--read-only --cap-drop ALL --security-opt no-new-privileges`,
