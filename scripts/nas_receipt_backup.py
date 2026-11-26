@@ -184,9 +184,12 @@ def capture(config, partial):
     from tabula_rasa.infrastructure.postgres.documents import PostgresReceiptRepository
     from tabula_rasa.infrastructure.postgres.identity import database_identity
 
-    def phase(name):
-        # Retain only a fixed boundary label, including if the child is killed.
-        nas.write_json(partial / 'capture-phase.json', {'phase': name})
+    def phase(name, business_position=None):
+        # Retain a fixed boundary and an optional enrollment position.
+        record = {'phase': name}
+        if business_position is not None:
+            record['business_position'] = business_position
+        nas.write_json(partial / 'capture-phase.json', record)
 
     phase('memory_workspace')
     work = memory_workspace(config, partial, create=True)
@@ -206,7 +209,7 @@ def capture(config, partial):
             payload = selector(row)
             archive = plain / str(index)
             # Bound the supported inventory before downloading source bytes.
-            phase('receipt_inventory')
+            phase('receipt_inventory', index + 1)
             repository = PostgresReceiptRepository(database, row['entity_id'], store_kind='google_drive',
                                                    store_scope_key=row['scope_key'])
             documents = repository.retained_documents()
@@ -216,17 +219,17 @@ def capture(config, partial):
                 raise ValueError('Approved capture budget exceeded.')
             options = dict(operation='backup', environment='production', archive_path=archive,
                            progress=lambda _: time.sleep(config['delay_seconds']))
-            phase('backup_plan')
+            phase('backup_plan', index + 1)
             plan = execute(database, secrets, payload, **options)
             # The dry-run plan includes the whole canonical point. Do not let
             # a changed point bypass the earlier workload budget.
-            phase('inventory_recheck')
+            phase('inventory_recheck', index + 1)
             if repository.retained_documents() != documents:
                 raise ValueError('Receipt inventory changed.')
-            phase('receipt_capture')
+            phase('receipt_capture', index + 1)
             execute(database, secrets, payload, **options, apply=True,
                     expected_plan=plan['plan_sha256'], approval_sha256=config['approval_sha256'])
-            phase('offline_verification')
+            phase('offline_verification', index + 1)
             execute(database, secrets, payload, operation='verify-archive', environment='production', archive_path=archive)
             retained = DocumentArchive(archive, row['entity_id'])
             if retained.scope_key != row['scope_key']:
@@ -323,6 +326,17 @@ def capture_failure(error):
     result = {'kind': kinds.get(type(error).__name__, 'unclassified')}
     if type(error).__name__ == 'ExportError' and getattr(error, 'code', None) == 'unsupported_database_schema':
         result['code'] = 'unsupported_database_schema'
+    if result['kind'] == 'document_access':
+        # The document adapter wraps provider exceptions. Preserve their fixed
+        # category and retry flag without retaining messages or receipt details.
+        cause = error.__cause__
+        cause_kind = kinds.get(type(cause).__name__, '')
+        if cause_kind.startswith('drive_'):
+            result['cause'] = cause_kind
+            if cause_kind == 'drive_access':
+                result['retryable'] = cause.retryable is True
+        elif type(cause).__name__ == 'ReceiptManifestError':
+            result['cause'] = 'receipt_metadata'
     return result
 
 

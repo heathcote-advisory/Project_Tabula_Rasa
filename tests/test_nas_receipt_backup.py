@@ -37,6 +37,24 @@ def test_schema_check_reuses_export_registry_without_config_or_provider_access(m
     assert error.value.code == 2
 
 
+def test_wrapped_drive_failure_retains_only_fixed_diagnostics():
+    from tabula_rasa.application.documents import DocumentError
+    from tabula_rasa.google_drive import GoogleDriveAccessError, GoogleDriveAuthorizationError
+    from tabula_rasa.receipt_manifest import ReceiptManifestError
+
+    error = DocumentError('private receipt details')
+    error.__cause__ = GoogleDriveAccessError('private provider details', retryable=True)
+    assert runner.capture_failure(error) == {
+        'kind': 'document_access', 'cause': 'drive_access', 'retryable': True,
+    }
+    error.__cause__ = GoogleDriveAuthorizationError('private provider details')
+    assert runner.capture_failure(error) == {'kind': 'document_access', 'cause': 'drive_authorization'}
+    error.__cause__ = ReceiptManifestError('private metadata details')
+    assert runner.capture_failure(error) == {'kind': 'document_access', 'cause': 'receipt_metadata'}
+    error.__cause__ = RuntimeError('private unexpected details')
+    assert runner.capture_failure(error) == {'kind': 'document_access'}
+
+
 def test_disk_scratch_is_refused_before_any_private_bytes_are_written(tmp_path, monkeypatch):
     monkeypatch.setattr(runner.Path, 'read_text', lambda *args, **kwargs: '1 0 0:1 / / rw - ext4 /dev/fake rw\n')
     config = {'temporary_directory': tmp_path, 'max_capture_bytes': 1024}
@@ -290,14 +308,14 @@ def test_capture_retains_only_safe_phase_across_profiles(configured, monkeypatch
         with pytest.raises(RuntimeError):
             runner.capture(config, partial)
         assert not (partial / 'inventory.json').exists()
-        expected = 'receipt_capture'
+        expected = {'phase': 'receipt_capture', 'business_position': 2}
     else:
         runner.capture(config, partial)
         assert len(calls) == 6
-        expected = 'inventory_persistence'
+        expected = {'phase': 'inventory_persistence'}
     assert disposed == [True]
     phase = (partial / 'capture-phase.json').read_text()
-    assert json.loads(phase) == {'phase': expected}
+    assert json.loads(phase) == expected
     assert all(row['entity_id'] not in phase and row['scope_key'] not in phase for row in rows.values())
     assert 'private-provider' not in phase
 

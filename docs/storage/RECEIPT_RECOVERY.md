@@ -281,11 +281,15 @@ The bundle is encrypted to `receipts.tar.age`, fsynced and checksummed/read back
 before a complete generation and durable last-success pointer are published.
 Only this invocation's transient tmpfs workspace is removed after encryption/readback.
 Failed/incomplete ciphertext remains quarantined on the restricted destination.
-The private incomplete generation retains `capture-phase.json` with only the last
-started capture boundary, including when the child is killed. It contains no
-business identifiers, provider messages or credentials; a phase is not proof of completion.
+The private incomplete generation retains `capture-phase.json` with the last
+started capture boundary, including when the child is killed. Per-business
+boundaries record the business's one-based position in the private enrollment.
+The file omits business identifiers, provider messages and credentials. A phase
+records progress up to that boundary.
 A normally caught child failure also writes `capture-failure.json` with a fixed
-error category. `capture-process.json` records only child exit status or timeout and consumed CPU seconds;
+error category. A wrapped Drive failure records the fixed provider category and,
+for access failures, the provider client's retryability flag. These fields omit
+provider messages and receipt details. `capture-process.json` records only child exit status or timeout and consumed CPU seconds;
 a negative exit status identifies signal termination. Missing child failure
 metadata may indicate abrupt process termination.
 Temporary plaintext remains only in tmpfs until inspected or the container ends; a failed run never publishes it to persistent storage. No source file,
