@@ -562,7 +562,11 @@ from the actual operator terminal while the current release is serving traffic.
 
 The approved plan must name the staging-verified digest, the new schema grants,
 all application and worker writers, and the way ingress stays restricted during
-the image switch. Drain the writers, verify a fresh recovery point, and confirm
+the image switch. Where independent receipt capture is enabled, verify the
+[installed receipt runtime against both schemas](../storage/RECEIPT_RECOVERY.md#qualify-the-installed-receipt-runtime)
+before making the candidate eligible for either manual or scheduled production
+promotion. The installed recurring worker's evidence covers its own runtime.
+Drain the writers, verify a fresh recovery point, and confirm
 the current revision again before running the locked forward upgrade. Afterward,
 check the committed revision, effective runtime and worker grants, and continued
 separation of the promotion role before serving traffic on the new image.
