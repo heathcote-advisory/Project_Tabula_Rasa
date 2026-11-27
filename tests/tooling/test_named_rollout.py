@@ -324,7 +324,8 @@ def test_rolling_browser_smoke_retries_only_observed_shell_gateways(
             return SimpleNamespace(status=200)
         attempted = True
         if fault == 'session':
-            page.on.call_args.args[1](SimpleNamespace(
+            response_listener = next(call.args[1] for call in page.on.call_args_list if call.args[0] == 'response')
+            response_listener(SimpleNamespace(
                 url=origin + '/api/v1/session', status=status, request=SimpleNamespace(method='GET'),
             ))
             return SimpleNamespace(status=200)
