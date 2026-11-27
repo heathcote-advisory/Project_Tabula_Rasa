@@ -426,6 +426,19 @@ def test_maintenance_retries_gateway_from_the_browser_session_read(lab):
     assert max(event.get('attempt', 0) for event in lab.probe_events) >= 2
 
 
+def test_rolling_smoke_rechecks_public_boundary_after_shell_and_session_gateways(lab):
+    lab.expected_schema = lab.schema
+    lab.handover_gateways = [('/accounts', 503)]
+    lab.shell_session_gateway = True
+    installed = lab.metadata[lab.prior_image]['release']
+    named_smoke(lab.public, installed, previous_release=installed, emit=lab.probe_events.append)
+    assert not lab.handover_gateways and not lab.shell_session_gateway
+    probes = {(event['path'], event['http_status'], event['attempt']) for event in lab.probe_events}
+    assert ('/accounts', 503, 1) in probes
+    assert ('/browser-resource', 502, 2) in probes
+    assert ('/accounts', 200, 3) in probes
+
+
 def test_private_ingress_reports_lost_upstream(lab):
     docker("stop", lab.app)
     with pytest.raises(HTTPError) as failure:

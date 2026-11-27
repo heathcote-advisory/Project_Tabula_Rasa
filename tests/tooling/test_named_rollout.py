@@ -1,8 +1,9 @@
 """Named-user promotion boundaries; all provider configuration is synthetic."""
 
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, call
+from unittest.mock import MagicMock, Mock, call
 
 from fastapi.testclient import TestClient
 import pytest
@@ -295,6 +296,58 @@ def healthy_response(path):
     if path in ('/api/v1/unknown', '/assets/missing.js'):
         return SimpleNamespace(status=404)
     return SimpleNamespace(status=401, headers={'cache-control': 'no-store'})
+
+
+@pytest.mark.parametrize('rolling,fault,status,retries', [
+    (True, 'page', 502, True),
+    (True, 'session', 503, True),
+    (True, 'page', 403, False),
+    (False, 'page', 502, False),
+])
+def test_rolling_browser_smoke_retries_only_observed_shell_gateways(
+    monkeypatch, rolling, fault, status, retries,
+):
+    from playwright import sync_api
+
+    origin = 'https://example.test'
+    browser_api = MagicMock()
+    browser = browser_api.__enter__.return_value.chromium.launch.return_value
+    context = browser.new_context.return_value.__enter__.return_value
+    context.request.get.side_effect = lambda path, **_: healthy_response(path)
+    page = context.new_page.return_value
+    attempted = False
+
+    def navigate(path, **_):
+        nonlocal attempted
+        assert path == '/accounts'
+        if attempted:
+            return SimpleNamespace(status=200)
+        attempted = True
+        if fault == 'session':
+            page.on.call_args.args[1](SimpleNamespace(
+                url=origin + '/api/v1/session', status=status, request=SimpleNamespace(method='GET'),
+            ))
+            return SimpleNamespace(status=200)
+        return SimpleNamespace(status=status)
+
+    page.goto.side_effect = navigate
+    sleep, emit = Mock(), Mock()
+    monkeypatch.setattr(sync_api, 'sync_playwright', lambda: browser_api)
+    monkeypatch.setattr(sync_api, 'expect', Mock())
+    monkeypatch.setattr(smoke, 'named_probe', partial(smoke.named_probe, sleep=sleep))
+    options = {'previous_release': 'd' * 40} if rolling else {}
+    if retries:
+        smoke.named_smoke(origin, 'c' * 40, emit=emit, **options)
+        sleep.assert_called_once_with(3)
+        assert page.goto.call_count == 2
+        assert sum(c.args[0] == '/version' for c in context.request.get.call_args_list) == 2
+        assert any(c.args[0]['status'] == 'rolling_public_shell_probe' and c.args[0]['http_status'] == status
+                   for c in emit.call_args_list)
+    else:
+        with pytest.raises(smoke.NamedSmokeError, match=f'HTTP {status}'):
+            smoke.named_smoke(origin, 'c' * 40, emit=emit, **options)
+        sleep.assert_not_called()
+        assert page.goto.call_count == 1
 
 
 @pytest.mark.parametrize('path,status', [('/api/openapi.json', 502), ('/api/v1/session', 503),

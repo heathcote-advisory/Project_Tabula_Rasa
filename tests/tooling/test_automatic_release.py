@@ -178,9 +178,11 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
     if outcome == "unexpected_smoke_error":
         smoke.side_effect = [None, RuntimeError("sensitive fixture diagnostic")]
 
+    emitter = Mock()
+
     def invoke():
         return automatic_release.run(environ, read=Mock(), verify=Mock(), database=Mock(),
-                                     smoke=smoke, now=lambda: NOW)
+                                     smoke=smoke, now=lambda: NOW, emit=emitter)
 
     if outcome in {"staging_changed", "failed_smoke", "unexpected_smoke_error"}:
         with pytest.raises(release.ReleaseError) as error:
@@ -203,7 +205,7 @@ def test_scheduled_production_rechecks_staging_and_records_actual_outcome(monkey
         assert deploy.call_args.args[2] == IMAGE and evidence.call_count == 2
         assert smoke.call_args_list == [call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], PRIOR["release"]),
                                         call(ENV["TABULA_RASA_PUBLIC_ORIGIN"], candidate["release"],
-                                             previous_release=PRIOR["release"])]
+                                             previous_release=PRIOR["release"], emit=emitter)]
         status.assert_called_once_with("success")
 
 
