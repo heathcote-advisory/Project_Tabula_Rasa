@@ -47,6 +47,13 @@ def test_wrapped_drive_failure_retains_only_fixed_diagnostics():
     assert runner.capture_failure(error) == {
         'kind': 'document_access', 'cause': 'drive_access', 'retryable': True,
     }
+    error.__cause__ = GoogleDriveAccessError('private provider details', retryable=False)
+    assert runner.capture_failure(error) == {
+        'kind': 'document_access', 'cause': 'drive_access', 'retryable': False,
+    }
+    unlabeled_access_error = type('GoogleDriveAccessError', (RuntimeError,), {})
+    error.__cause__ = unlabeled_access_error('private provider details')
+    assert runner.capture_failure(error) == {'kind': 'document_access', 'cause': 'drive_access'}
     error.__cause__ = GoogleDriveAuthorizationError('private provider details')
     assert runner.capture_failure(error) == {'kind': 'document_access', 'cause': 'drive_authorization'}
     error.__cause__ = ReceiptManifestError('private metadata details')

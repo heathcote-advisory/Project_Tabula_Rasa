@@ -288,8 +288,9 @@ The file omits business identifiers, provider messages and credentials. A phase
 records progress up to that boundary.
 A normally caught child failure also writes `capture-failure.json` with a fixed
 error category. A wrapped Drive failure records the fixed provider category and,
-for access failures, the provider client's retryability flag. These fields omit
-provider messages and receipt details. `capture-process.json` records only child exit status or timeout and consumed CPU seconds;
+for access failures, the provider client's retryability flag when available.
+These fields omit provider messages and receipt details. `capture-process.json`
+records only child exit status or timeout and consumed CPU seconds;
 a negative exit status identifies signal termination. Missing child failure
 metadata may indicate abrupt process termination.
 Temporary plaintext remains only in tmpfs until inspected or the container ends; a failed run never publishes it to persistent storage. No source file,

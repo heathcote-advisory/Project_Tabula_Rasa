@@ -333,8 +333,9 @@ def capture_failure(error):
         cause_kind = kinds.get(type(cause).__name__, '')
         if cause_kind.startswith('drive_'):
             result['cause'] = cause_kind
-            if cause_kind == 'drive_access':
-                result['retryable'] = cause.retryable is True
+            retryable = getattr(cause, 'retryable', None)
+            if cause_kind == 'drive_access' and isinstance(retryable, bool):
+                result['retryable'] = retryable
         elif type(cause).__name__ == 'ReceiptManifestError':
             result['cause'] = 'receipt_metadata'
     return result
