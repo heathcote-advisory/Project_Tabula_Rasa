@@ -101,11 +101,9 @@ jobs can support bounded reconciliation when provider state is uncertain.
 Revision `0028_billing_account_links` stores the shared payer identity, one
 active link per organization, and server-recorded membership timestamps.
 Role changes preserve the join date. The dormant implementation uses the new
-activation timestamp when someone rejoins. Existing active members with
-unknown dates keep their access, and the billing repository reports the
-business's seat calculation as unavailable pending a reliable ordering.
-Invitation creation and user registration precede membership and cannot
-establish when someone joined a business. The provider-independent policy
+activation timestamp when someone rejoins. Existing memberships receive the
+same migration timestamp. Within each role-priority group, stable user IDs
+break a tie between members with that timestamp. The provider-independent policy
 uses the selected business's roster and its account's link order. Runtime
 authorization continues to use the existing policy until a billing enrollment
 path and these rollout rules are approved.

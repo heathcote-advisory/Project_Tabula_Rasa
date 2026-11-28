@@ -18,7 +18,12 @@ ALTER TABLE billing_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing_account_links ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON billing_accounts, billing_account_links FROM PUBLIC;
 
-ALTER TABLE memberships ADD COLUMN joined_at timestamptz;
+-- PostgreSQL stores the stable default for existing rows without firing an
+-- UPDATE or advancing their authorization versions.
+ALTER TABLE memberships ADD COLUMN joined_at timestamptz DEFAULT statement_timestamp();
+ALTER TABLE memberships ALTER COLUMN joined_at DROP DEFAULT;
+ALTER TABLE memberships ADD CONSTRAINT active_membership_has_join_time
+    CHECK (state <> 'active' OR joined_at IS NOT NULL);
 
 CREATE FUNCTION record_membership_join() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

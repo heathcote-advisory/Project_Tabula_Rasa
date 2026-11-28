@@ -887,13 +887,12 @@ current payer account. A payer account can cover several such organizations.
 The migration creates no accounts or links. The two new tables have
 default-deny row-level security and require no runtime grants.
 
-The migration adds nullable `memberships.joined_at`. A database trigger
+The migration assigns the same server migration timestamp to all existing
+memberships and preserves their authorization versions. A database trigger
 records the time an active membership is created or an inactive membership
-rejoins. Role edits preserve the timestamp. Preexisting active memberships
-retain an unknown date. The internal billing projection uses one read
-snapshot, evaluates link order within the payer account, and reads only the
-selected organization's active roster. An incomplete roster returns an
-explicit unavailable result for billing enforcement. Normal authorization
-and beta admission do not use the projection. See the
+rejoins. Role edits preserve the timestamp. The internal billing projection
+uses one read snapshot, evaluates link order within the payer account, and reads
+only the selected organization's active roster. Normal authorization and beta
+admission do not use the projection. See the
 [commercial billing ADR](../adr/0005-commercial-billing.md) for the target
 contract and the pending decisions for activation.

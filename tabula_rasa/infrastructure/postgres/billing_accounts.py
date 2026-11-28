@@ -5,10 +5,6 @@ from sqlalchemy import text
 from tabula_rasa.application.billing_policy import BillingMember, FreeBusinessLimits, LinkedBusiness, free_plan_limits
 
 
-class MembershipOrderUnavailable(ValueError):
-    """The business has active memberships with an unrecorded join time."""
-
-
 class PostgresBillingAccounts:
     """Read dormant billing data using an authorized internal connection.
 
@@ -36,9 +32,6 @@ class PostgresBillingAccounts:
                 JOIN identity_users u ON u.id = m.user_id AND u.state = 'active'
                 WHERE m.organization_id = :organization_id AND m.state = 'active'
             """), {"organization_id": organization_id}).mappings().all()
-            if any(row["joined_at"] is None for row in members):
-                raise MembershipOrderUnavailable("Active membership join times are incomplete.")
-
             return free_plan_limits(
                 links, organization_id=organization_id, active_members=tuple(BillingMember(**row) for row in members),
             )

@@ -10,7 +10,7 @@ branch_labels = None
 depends_on = None
 rollout = {
     "mode": "maintenance",
-    "data": "Adds dormant billing accounts and links. Existing memberships keep unknown join dates.",
+    "data": "Adds dormant billing accounts and links. Existing memberships receive the migration timestamp.",
     "recovery": "forward_only",
     "grants": (),
 }
