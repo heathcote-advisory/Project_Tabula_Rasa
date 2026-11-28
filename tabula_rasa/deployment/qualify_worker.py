@@ -25,8 +25,12 @@ def run(environ, *, emit=lambda _: None):
     head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
     if head != candidate["release"]:
         raise release.ReleaseError("Qualification fixtures must come from the exact candidate commit.")
-    base = environ.get("NAS_WORKER_BASE_SCHEMA", "")
-    schemas = [base, *[step.revision for step in schema_migration.rollout_path(base, candidate["schema"])]]
+    source = environ.get("PRODUCTION_SCHEMA")
+    if not source:
+        raise release.ReleaseError("A verified production schema is required. Check the production schema inspection.")
+    target = candidate["schema"]
+    schema_migration.rollout_path(source, target)
+    schemas = [source] if source == target else [source, target]
     docker("pull", "--platform", "linux/arm64", worker["image"])
     metadata = json.loads(docker("image", "inspect", worker["image"]).stdout)[0]
     compatibility.verify_image(metadata, worker)

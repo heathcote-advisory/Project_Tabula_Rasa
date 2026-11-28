@@ -135,14 +135,18 @@ def test_probe_scripts_never_fall_back_to_workstation_settings(monkeypatch, tmp_
 
 
 @pytest.mark.parametrize("failure", [None, "setup", "probe"])
-def test_disposable_runner_isolates_images_and_cleans_up_on_failure(monkeypatch, failure):
+@pytest.mark.parametrize("source", ["source", "target"])
+def test_disposable_runner_isolates_images_and_cleans_up_on_failure(monkeypatch, failure, source):
     environ = {**ENV, "IMAGE": CANDIDATE["image"], "GITHUB_REPOSITORY": "example/repo",
-               "NAS_WORKER_BASE_SCHEMA": "source", "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "2"}
+               "PRODUCTION_SCHEMA": source, "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "2"}
     monkeypatch.setattr(release, "image_metadata", lambda *_: {k: v for k, v in CANDIDATE.items() if k != "image"})
     monkeypatch.setattr(qualify_worker.subprocess, "run", Mock(return_value=SimpleNamespace(stdout=CANDIDATE["release"])))
-    monkeypatch.setattr(qualify_worker.schema_migration, "rollout_path", lambda *_: [SimpleNamespace(revision="target")])
+    path = [] if source == "target" else [SimpleNamespace(revision=s) for s in ("intermediate", "target")]
+    rollout_path = Mock(return_value=path)
+    monkeypatch.setattr(qualify_worker.schema_migration, "rollout_path", rollout_path)
     monkeypatch.setattr(compatibility, "verify_image", Mock())
-    schemas = iter(["source", "target"])
+    expected_results = [row for row in proof()["results"] if row["schema"] in {source, "target"}]
+    schemas = iter(row["schema"] for row in expected_results)
     calls = []
 
     def docker(*args, **kwargs):
@@ -163,7 +167,11 @@ def test_disposable_runner_isolates_images_and_cleans_up_on_failure(monkeypatch,
         with pytest.raises(release.ReleaseError):
             qualify_worker.run(environ)
     else:
-        assert qualify_worker.run(environ)["results"] == proof()["results"]
+        assert qualify_worker.run(environ)["results"] == expected_results
+        assert [call[-1] for call in calls if "/fixtures/tests/tooling/worker_compatibility_prepare.py" in call] == [
+            row["schema"] for row in expected_results
+        ]
+    rollout_path.assert_called_once_with(source, "target")
     assert calls[-1][:2] == ("network", "rm")
     assert any(call[:3] == ("network", "create", "--internal") for call in calls)
     for call in calls:
@@ -173,3 +181,16 @@ def test_disposable_runner_isolates_images_and_cleans_up_on_failure(monkeypatch,
                 assert "--read-only" in call and "no-new-privileges" in call
                 assert "--cap-drop" in call and "ALL" in call
                 assert all("production" not in item for item in call)
+
+
+@pytest.mark.parametrize("source", ["", "unsupported"])
+def test_qualification_stops_before_docker_without_a_supported_source(monkeypatch, source):
+    environ = {**ENV, "IMAGE": CANDIDATE["image"], "GITHUB_REPOSITORY": "example/repo", "PRODUCTION_SCHEMA": source}
+    monkeypatch.setattr(release, "image_metadata", lambda *_: CANDIDATE)
+    monkeypatch.setattr(qualify_worker.subprocess, "run", Mock(return_value=SimpleNamespace(stdout=CANDIDATE["release"])))
+    docker = Mock()
+    monkeypatch.setattr(qualify_worker, "docker", docker)
+    error = qualify_worker.schema_migration.ContractError if source else release.ReleaseError
+    with pytest.raises(error):
+        qualify_worker.run(environ)
+    docker.assert_not_called()

@@ -769,11 +769,15 @@ print the full config or environment values. Record the installed/export
 identity and audit decision in the protected operational record. Give the
 workflow's package-read token access to that exact registry artifact.
 
-Set staging's `NAS_WORKER_BASE_SCHEMA` to the earliest supported production
-schema. Automatic staging qualification uses the candidate's reviewed linear
-Alembic path to test that schema and every revision through the candidate
-head. It uses candidate-image migrations and synthetic fixtures with the
-unchanged ARM64 worker, emulated on the CI runner. Each revision gets a new
+Before automatic staging promotion, the release workflow reads the bound
+production database's current revision using production's read-only
+`SCHEMA_ATTENTION_DATABASE_URL`. Only the revision is passed to staging.
+With a worker pin configured, a missing or unreadable production revision
+blocks staging qualification. The candidate must declare a reviewed linear
+Alembic path from the observed production revision to its target. Qualification
+runs the installed ARM64 worker on those two revisions, or once when they
+match. It uses candidate-image migrations and synthetic fixtures with the
+worker emulated on the CI runner. Each tested revision gets a new
 disposable PostgreSQL instance on an internal Docker network with no host
 ports, production credentials or external network access. Probes check recurring
 generation, repeated enqueue/execution, cross-business claim rejection and
@@ -786,8 +790,10 @@ The staging `release.json` retains the probe results, candidate digest/schema,
 installed-worker pin/fingerprints and qualifying run/attempt alongside existing
 restart/readiness/sign-in-shell/access-boundary smoke. Production checks that
 proof on selection and revalidation, requiring both its current schema and
-the candidate schema before migration. Missing proof, failed checks, a different
-worker pin or a stale attempt blocks promotion. There is no manual schema-list
+the candidate schema before migration. If production moved to a revision
+outside the proof, obtain fresh automatic staging qualification before
+promotion. Missing proof, failed checks, a different worker pin or a stale
+attempt blocks promotion. There is no manual schema-list
 fallback. With no staging worker pin, staging can still deploy and retain
 application smoke, but that evidence cannot qualify a production worker.
 
