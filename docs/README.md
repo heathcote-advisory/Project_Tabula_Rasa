@@ -79,6 +79,7 @@ supports profile administration. Sheets tools support source migration, archive 
 - [Web runtime ADR](adr/0002-commercial-web-runtime.md).
 - [Identity and tenancy ADR](adr/0003-commercial-identity-and-tenancy.md).
 - [Receipt storage ADR](adr/0004-managed-receipt-storage.md).
+- [Commercial billing ADR](adr/0005-commercial-billing.md).
 
 ## Documentation ownership
 
