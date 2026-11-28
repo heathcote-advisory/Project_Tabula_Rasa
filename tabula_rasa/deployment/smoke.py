@@ -90,8 +90,9 @@ def named_probe(context, release, *, previous_release=None, maintenance=False, s
         return max(1, min(5000, int(remaining * 1000)))
 
     def report(path, status):
-        if maintenance:
-            emit({'status': 'maintenance_public_probe', 'path': path, 'http_status': status,
+        if previous_release is not None:
+            phase = 'maintenance_public_probe' if maintenance else 'rolling_public_shell_probe'
+            emit({'status': phase, 'path': path, 'http_status': status,
                   'attempt': attempt + 1, 'elapsed_seconds': round(monotonic() - started, 3)})
 
     def get(path, **kwargs):
@@ -120,6 +121,7 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False, em
     denied private API boundary, not successful provider login/membership.
     """
     from playwright.sync_api import Error, expect, sync_playwright
+    handover = previous_release is not None
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
@@ -138,23 +140,27 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False, em
                         response = page.goto('/accounts', **({'timeout': timeout()} if timeout else {}))
                         if response is not None:
                             report('/accounts', response.status)
-                        if maintenance and response is not None and response.status in GATEWAY_STATUSES:
+                        if handover and response is not None and response.status in GATEWAY_STATUSES:
                             return False
-                        if maintenance and (response is None or response.status != 200):
-                            raise NamedSmokeError('Public sign-in shell check failed.')
+                        if response is None:
+                            raise NamedSmokeError('Public sign-in shell check failed with no HTTP response.')
+                        if response.status != 200:
+                            raise NamedSmokeError(f'Public sign-in shell check failed (HTTP {response.status}).')
                         expect(page.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
                             'href', '/api/v1/auth/login', **({'timeout': timeout()} if timeout else {}))
                         expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(
                             0, **({'timeout': timeout()} if timeout else {}))
-                        for path, status in browser_gateway:
-                            report(path, status)
-                        return not (maintenance and browser_gateway)
                     except (AssertionError, Error):
-                        if maintenance and browser_gateway:
-                            for path, status in browser_gateway:
-                                report(path, status)
+                        if not browser_gateway:
+                            raise NamedSmokeError('Public sign-in shell check failed.') from None
+                    for path, status in browser_gateway:
+                        report(path, status)
+                    if browser_gateway:
+                        if handover:
                             return False
-                        raise NamedSmokeError('Public sign-in shell check failed.') from None
+                        raise NamedSmokeError(
+                            f'Public sign-in shell resource check failed (HTTP {browser_gateway[0][1]}).')
+                    return True
 
                 try:
                     named_probe(context, release, previous_release=previous_release, maintenance=maintenance,

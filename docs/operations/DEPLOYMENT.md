@@ -24,6 +24,10 @@ prior revision may be retried: at most 21 version probes, each with a five-secon
 request timeout, separated by three seconds. The expected candidate must be
 observed before access-boundary checks can pass. An unrelated/malformed revision,
 failed readiness or access check, or exhausted handover budget stops qualification.
+An observed HTTP 502, 503 or 504 from the sign-in page or one of its same-origin
+browser requests keeps the rolling handover pending within those same 21 attempts.
+Each retry rechecks the candidate and access boundary before opening the page again.
+The release summary records the shell path or resource class and numeric HTTP status.
 Preflight checks and protected private-origin maintenance smoke remain strict.
 After automatic full-downtime schema maintenance, the shared public smoke also
 receives the verified prior revision. It checks version before readiness because
