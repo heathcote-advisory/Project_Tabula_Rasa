@@ -9,6 +9,8 @@ on:
         type: string
       automatic:
         type: boolean
+      production_schema:
+        type: string
       rollback_from:
         required: false
         type: string
@@ -86,7 +88,7 @@ jobs:
       - name: Qualify installed NAS worker on candidate schemas
         if: inputs.automatic && inputs.environment == 'staging' && vars.NAS_WORKER_IMAGE != ''
         env:
-          NAS_WORKER_BASE_SCHEMA: ${{ vars.NAS_WORKER_BASE_SCHEMA }}
+          PRODUCTION_SCHEMA: ${{ inputs.production_schema }}
         run: python -m tabula_rasa.deployment.qualify_worker
       - name: Promote through the verified automatic release path
         if: inputs.automatic

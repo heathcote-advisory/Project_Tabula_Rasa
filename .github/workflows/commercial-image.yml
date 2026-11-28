@@ -73,9 +73,22 @@ jobs:
       environment: development
       image: ${{ needs.build.outputs.image }}
     secrets: inherit
-  staging:
+  production-schema:
     needs: build
     if: vars.COMMERCIAL_DEPLOY_ENABLED == 'true' && vars.COMMERCIAL_AUTO_STAGING_ENABLED == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/commercial-schema-inspect.yml
+    with:
+      environment: production
+      schema: ${{ needs.build.outputs.schema }}
+    secrets:
+      SCHEMA_ATTENTION_DATABASE_URL: ${{ secrets.SCHEMA_ATTENTION_DATABASE_URL }}
+  staging:
+    needs: [build, production-schema]
+    if: >-
+      !cancelled() && needs.build.result == 'success' &&
+      vars.COMMERCIAL_DEPLOY_ENABLED == 'true' && vars.COMMERCIAL_AUTO_STAGING_ENABLED == 'true'
     permissions:
       contents: read
       actions: read
@@ -84,6 +97,7 @@ jobs:
     with:
       environment: staging
       automatic: true
+      production_schema: ${{ needs.production-schema.result == 'success' && needs.production-schema.outputs.current || '' }}
       image: ${{ needs.build.outputs.image }}
     secrets: inherit
   schema-attention:

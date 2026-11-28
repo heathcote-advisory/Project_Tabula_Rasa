@@ -425,7 +425,7 @@ def test_workflow_credential_separation_serialization_and_main_only_image_build(
     assert build["outputs"]["image"] == "${{ steps.release.outputs.repository }}@${{ steps.build.outputs.digest }}"
     for environment in ("development", "staging"):
         caller = image["jobs"][environment]
-        assert caller["needs"] == "build"
+        assert caller["needs"] == ("build" if environment == "development" else ["build", "production-schema"])
         assert caller["uses"] == "./.github/workflows/commercial-promote.yml"
         assert caller["with"]["environment"] == environment
         assert caller["with"]["image"] == "${{ needs.build.outputs.image }}"
@@ -438,6 +438,28 @@ def test_workflow_credential_separation_serialization_and_main_only_image_build(
     assert manual["jobs"]["staging"]["uses"] == image["jobs"]["staging"]["uses"]
     assert manual["jobs"]["staging"]["with"]["rollback_from"] == "${{ inputs.rollback_from }}"
     assert "rollback_from" not in image["jobs"]["staging"]["with"]
+
+
+def test_automatic_staging_uses_only_the_verified_production_schema():
+    def load(name):
+        return yaml.load((ROOT / ".github/workflows" / name).read_text(), Loader=yaml.BaseLoader)
+
+    jobs = load("commercial-image.yml")["jobs"]
+    inspect = jobs["production-schema"]
+    assert inspect["needs"] == "build"
+    assert inspect["uses"] == "./.github/workflows/commercial-schema-inspect.yml"
+    assert inspect["with"] == {"environment": "production", "schema": "${{ needs.build.outputs.schema }}"}
+    assert inspect["permissions"] == {"contents": "read"}
+    assert inspect["secrets"] == {"SCHEMA_ATTENTION_DATABASE_URL": "${{ secrets.SCHEMA_ATTENTION_DATABASE_URL }}"}
+    staging = jobs["staging"]
+    assert "!cancelled() && needs.build.result == 'success'" in staging["if"]
+    assert staging["with"]["production_schema"] == (
+        "${{ needs.production-schema.result == 'success' && needs.production-schema.outputs.current || '' }}"
+    )
+    steps = load("commercial-promote.yml")["jobs"]["deploy"]["steps"]
+    probe = next(step for step in steps if step.get("run") == "python -m tabula_rasa.deployment.qualify_worker")
+    assert probe["if"] == "inputs.automatic && inputs.environment == 'staging' && vars.NAS_WORKER_IMAGE != ''"
+    assert probe["env"] == {"PRODUCTION_SCHEMA": "${{ inputs.production_schema }}"}
 
 
 PRODUCTION_ORIGIN = "https://production.example.test"
