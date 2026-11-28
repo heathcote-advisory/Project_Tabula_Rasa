@@ -135,7 +135,7 @@ def test_control_plane_revision_preserves_the_existing_v1_portable_inventory(rev
     Draft202012Validator(json_schema(format_version=1)).validate(artifact)
 
 
-@pytest.mark.parametrize("revision", ["0026_customer_policies", "0027_billing_storage", SUPPORTED_DATABASE_REVISION])
+@pytest.mark.parametrize("revision", ["0026_customer_policies", "0027_billing_storage", "0028_billing_account_links", SUPPORTED_DATABASE_REVISION])
 def test_billing_revision_preserves_the_v2_portable_inventory(revision):
     from jsonschema import Draft202012Validator
     from tabula_rasa.bookkeeping_export.schema import json_schema

@@ -31,9 +31,11 @@ FORMAT_VERSION = 2
 # 0026 adds personal legal acknowledgement evidence only; canonical v2 is unchanged.
 # 0027 adds dormant billing storage, outside the bookkeeping inventory.
 # 0028 adds billing account links and identity chronology only.
-SUPPORTED_DATABASE_REVISION = "0028_billing_account_links"
+# 0029 moves dormant billing storage to payer accounts.
+SUPPORTED_DATABASE_REVISION = "0029_account_subscriptions"
 V2_DATABASE_REVISIONS = ('0024_mileage_vehicles', '0025_enrollment_drive_setup',
-                        '0026_customer_policies', '0027_billing_storage', SUPPORTED_DATABASE_REVISION)
+                        '0026_customer_policies', '0027_billing_storage', '0028_billing_account_links',
+                        SUPPORTED_DATABASE_REVISION)
 SUPPORTED_DATABASE_REVISIONS = ("0004_mileage_order", "0005_bookkeeping_cutover",
                                 "0006_identity_control_plane", "0007_identity_sessions", "0008_owner_lock_scope",
                                 "0009_external_connections", "0010_workspace_lifecycle",

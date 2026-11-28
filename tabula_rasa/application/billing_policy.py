@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 
 FREE_SEATS_PER_BUSINESS = 3
@@ -64,3 +65,34 @@ def renewal_grace_active(first_failed_renewal_at: datetime, *, as_of: datetime) 
     """Grace includes the first failure and ends after 15 elapsed days."""
     start = _utc(first_failed_renewal_at)
     return start <= _utc(as_of) < start + RENEWAL_GRACE
+
+
+SubscriptionState = Literal["free", "trial", "paid", "ending", "grace"]
+
+
+@dataclass(frozen=True)
+class SubscriptionTerms:
+    state: SubscriptionState
+    term_ends_at: datetime | None = None
+    first_failed_renewal_at: datetime | None = None
+
+    def __post_init__(self):
+        if self.state not in {"free", "trial", "paid", "ending", "grace"}:
+            raise ValueError("Unsupported subscription state.")
+        if (self.state == "free") != (self.term_ends_at is None):
+            raise ValueError("A non-free subscription requires a term end.")
+        if (self.state == "grace") != (self.first_failed_renewal_at is not None):
+            raise ValueError("Grace requires the first failed renewal.")
+        for field in ("term_ends_at", "first_failed_renewal_at"):
+            instant = getattr(self, field)
+            if instant is not None:
+                object.__setattr__(self, field, _utc(instant))
+
+    def effective_state(self, *, as_of: datetime) -> SubscriptionState | Literal["unconfirmed"]:
+        now = _utc(as_of)
+        if self.first_failed_renewal_at is not None:
+            if now >= _utc(self.first_failed_renewal_at) + RENEWAL_GRACE:
+                return "free"
+        elif self.term_ends_at is not None and now >= _utc(self.term_ends_at):
+            return "unconfirmed" if self.state == "paid" else "free"
+        return self.state

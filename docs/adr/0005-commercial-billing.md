@@ -64,39 +64,45 @@ renewal needs review before those provider states drive access.
 
 Pending payment, checkout returns, and unverified provider events are advisory.
 Reconcile authoritative provider state before expanding or reducing access.
-The proposed outage rule is to use the last verified paid term and any already
-established grace deadline, preserve read and export access, and route an
-unconfirmed renewal for reconciliation. Approval is still needed for edit
-access when a known term ends during a prolonged outage. Billing cancellation
+If current provider terms are unavailable, reconciliation leaves the last
+verified terms intact. The policy distinguishes a known trial or cancellation
+deadline and confirmed grace expiry from an unconfirmed paid renewal. The
+proposed outage policy preserves read and export access while reconciling the
+unconfirmed renewal. Edit access after a known paid term expires still needs
+approval. Billing cancellation
 and account closure are separate workflows. Billing changes preserve business
 records and receipts. The [customer lifecycle policy](../operations/CUSTOMER_LIFECYCLE.md)
 continues to govern closure, export, and retention.
 
 ## Shared billing account
 
-Introduce a stable billing-account ID with its own payer authority and
+A stable billing-account ID has its own payer authority and
 explicit links to organizations. Each organization has at most one active
-billing link. The account owns the commercial subscription and purchased
-capacity. The organization owns business membership, permissions, and its
+billing link. The payer account has one current subscription and one consolidated
+bill across its linked businesses and purchased capacity. The organization owns business membership, permissions, and its
 ledger. One payer can cover several independently permissioned organizations.
 Account control confers authority over payment and subscription details.
 Existing membership and [organization authority](0003-commercial-identity-and-tenancy.md)
-continue to determine business access. The proposed first-release rule requires
-approval from the payer and an active owner of each organization to add a link.
-When one person holds both authorities, that person can confirm both. Linking,
-unlinking, payer transfer, and audit contracts need maintainer review before
-the write path.
+continue to determine business access. The payer requests the link, and an
+active owner or admin of that business approves it. When one person holds both
+authorities, that person can perform both steps. The approval records the
+approver and time against the exact request. It carries no charge consent.
+Payer authority is checked separately at the account boundary. Unlinking and
+payer transfer still need a maintainer decision.
 
-Revision `0027_billing_storage` already owns organization-bound customer
-identity, immutable plan versions, provider-scoped event identity, and
-append-only subscription history. The shared-account migration must decide how
-those organization-bound records relate to an account-wide subscription. Use
-stable internal IDs independently of provider identifiers, and retain the
-existing organization-scoped protections. Apply verified receipt deduplication,
-the subscription update, and history insertion in one PostgreSQL transaction
-for each applied event. The adapter verifies events and supplies normalized
-provider facts. The application owns the entitlement decision. Existing durable
-jobs can support bounded reconciliation when provider state is uncertain.
+Revision `0029_account_subscriptions` moves the dormant billing records from
+`0027_billing_storage` to payer accounts and retains immutable plan versions,
+provider-scoped event identity and append-only history. It aborts if legacy
+billing customers have data requiring an explicit mapping. A subscription
+keeps an internal ID through the free, trial, paid, grace and ending states.
+Provider adapters verify deliveries and fetch current terms for the mapped
+subscription. Reconciliation captures the local version first, then writes
+the receipt, subscription update and history in one PostgreSQL transaction.
+Duplicate deliveries have no second effect, a receipt bound to a different
+account is rejected, and a stale observation requires a fresh provider read.
+The first recorded failure for the same renewal remains the grace anchor,
+with corrections allowed to move it earlier when verified. Existing durable
+jobs can support reconciliation when provider state is uncertain.
 
 Revision `0028_billing_account_links` stores the shared payer identity, one
 active link per organization, and server-recorded membership timestamps.
@@ -105,8 +111,9 @@ activation timestamp when someone rejoins. Existing memberships receive the
 same migration timestamp. Within each role-priority group, stable user IDs
 break a tie between members with that timestamp. The provider-independent policy
 uses the selected business's roster and its account's link order. Runtime
-authorization continues to use the existing policy until a billing enrollment
-path and these rollout rules are approved.
+authorization continues to use the existing policy. The repository and
+reconciliation workflow are internal. Public link delivery, payer checkout,
+and deployed enforcement depend on the approved rollout.
 
 ## Provider shortlist and setup
 
