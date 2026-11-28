@@ -150,15 +150,17 @@ def named_smoke(origin, release, *, previous_release=None, maintenance=False, em
                             'href', '/api/v1/auth/login', **({'timeout': timeout()} if timeout else {}))
                         expect(page.get_by_role('button', name='Sign out', exact=True)).to_have_count(
                             0, **({'timeout': timeout()} if timeout else {}))
-                        for path, status in browser_gateway:
-                            report(path, status)
-                        return not (handover and browser_gateway)
                     except (AssertionError, Error):
-                        if handover and browser_gateway:
-                            for path, status in browser_gateway:
-                                report(path, status)
+                        if not browser_gateway:
+                            raise NamedSmokeError('Public sign-in shell check failed.') from None
+                    for path, status in browser_gateway:
+                        report(path, status)
+                    if browser_gateway:
+                        if handover:
                             return False
-                        raise NamedSmokeError('Public sign-in shell check failed.') from None
+                        raise NamedSmokeError(
+                            f'Public sign-in shell resource check failed (HTTP {browser_gateway[0][1]}).')
+                    return True
 
                 try:
                     named_probe(context, release, previous_release=previous_release, maintenance=maintenance,

@@ -301,8 +301,10 @@ def healthy_response(path):
 @pytest.mark.parametrize('rolling,fault,status,retries', [
     (True, 'page', 502, True),
     (True, 'session', 503, True),
+    (True, 'session', 504, True),
     (True, 'page', 403, False),
     (False, 'page', 502, False),
+    (False, 'session', 504, False),
 ])
 def test_rolling_browser_smoke_retries_only_observed_shell_gateways(
     monkeypatch, rolling, fault, status, retries,
