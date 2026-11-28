@@ -30,11 +30,17 @@ def old_schema(database):
 
 def snapshot(database):
     with database.transaction(read_only=True) as connection:
-        return {table: connection.execute(text(f'SELECT row_to_json(t)::text FROM {table} t ORDER BY row_to_json(t)::text')).scalars().all()
-                for table in ('organizations', 'organization_entities', 'memberships', 'identity_users',
-                              'identity_bindings', 'identity_sessions', 'workspace_invitations',
-                              'workspace_bootstraps', 'legacy_entity_claims', 'external_connections',
-                              'business_entities', 'accounts', 'categories', 'documents', 'migration_id_mappings')}
+        rows = {table: connection.execute(text(f'SELECT row_to_json(t)::text FROM {table} t ORDER BY row_to_json(t)::text')).scalars().all()
+                for table in ('organizations', 'organization_entities', 'identity_users', 'identity_bindings',
+                              'identity_sessions', 'workspace_invitations', 'workspace_bootstraps', 'legacy_entity_claims',
+                              'external_connections', 'business_entities', 'accounts', 'categories', 'documents',
+                              'migration_id_mappings')}
+        # The billing upgrade's join-time backfill behavior is covered by the
+        # billing account tests. Compare the original authorization fields here.
+        rows['memberships'] = connection.execute(text("""
+            SELECT (to_jsonb(m) - 'joined_at')::text FROM memberships m ORDER BY m.organization_id, m.user_id
+        """)).scalars().all()
+        return rows
 
 
 @pytest.mark.parametrize('binding_state', ['active', 'inactive'])
@@ -106,7 +112,7 @@ def test_forward_upgrade_preserves_sessions_invitations_defaults_and_receipt_rep
     assert [item.entity_id for item in sessions.identity.allowed_entities(recipient.user_id)] == [business['entity_id']]
     assert other['organization_id'] != business['organization_id']
     with database.transaction(read_only=True) as connection:
-        assert current_revision(connection) == '0027_billing_storage'
+        assert current_revision(connection) == '0028_billing_account_links'
 
 
 def test_upgrade_preserves_two_claimed_ledgers_provenance_documents_and_provider_bindings(empty_database, monkeypatch):

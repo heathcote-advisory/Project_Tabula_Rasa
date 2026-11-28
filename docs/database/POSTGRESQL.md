@@ -879,3 +879,21 @@ An approved commercial contract must define plan versions, lifecycle
 transitions, lapse and cancellation rights, and provider reconciliation before a
 billing writer or access gate is enabled. Deploying the schema leaves beta
 admission and bookkeeping access intact.
+
+Revision `0028_billing_account_links` adds payer accounts and billing links.
+The payer is an existing identity user. Each linked organization must already
+own a business, and its primary key in `billing_account_links` allows just one
+current payer account. A payer account can cover several such organizations.
+The migration creates no accounts or links. The two new tables have
+default-deny row-level security and require no runtime grants.
+
+The migration adds nullable `memberships.joined_at`. A database trigger
+records the time an active membership is created or an inactive membership
+rejoins. Role edits preserve the timestamp. Preexisting active memberships
+retain an unknown date. The internal billing projection uses one read
+snapshot, evaluates link order within the payer account, and reads only the
+selected organization's active roster. An incomplete roster returns an
+explicit unavailable result for billing enforcement. Normal authorization
+and beta admission do not use the projection. See the
+[commercial billing ADR](../adr/0005-commercial-billing.md) for the target
+contract and the pending decisions for activation.

@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from tabula_rasa.deployment.schema_migration import rollout_path
-from tabula_rasa.infrastructure.postgres.migrations import migration_config, upgrade
+from tabula_rasa.infrastructure.postgres.migrations import migration_config
 from tests.postgres.test_identity import setup
 
 
@@ -27,7 +27,8 @@ def test_upgrade_leaves_existing_organizations_unenrolled(empty_database):
     _, _, _, alpha, beta = setup(database)
 
     assert rollout_path(previous, target)[0].module.rollout["grants"] == ()
-    upgrade(database)
+    with database.engine.begin() as connection:
+        command.upgrade(migration_config(connection), target)
 
     assert database.health()["revision"] == target
     with database.engine.connect() as connection:
@@ -106,20 +107,26 @@ def test_plan_versions_provider_event_identity_and_tenant_references(database):
 
 
 def test_dormant_tables_deny_runtime_and_protect_immutable_records(database):
-    _, _, _, alpha, _ = setup(database)
+    _, alice, _, alpha, _ = setup(database)
     role = "billing_runtime_" + uuid4().hex
     # Closing this uncommitted connection also rolls back the cluster-level role.
     with database.engine.connect() as connection:
         connection.execute(text("INSERT INTO billing_customers (organization_id) VALUES (:org)"), {"org": alpha})
+        connection.execute(text("INSERT INTO billing_accounts (id, payer_user_id) VALUES ('account', :payer)"),
+                           {"payer": alice.id})
+        connection.execute(text("""INSERT INTO billing_account_links (organization_id, billing_account_id)
+            VALUES (:org, 'account')"""), {"org": alpha})
         for table in ("billing_plan_versions", "billing_event_receipts", "billing_subscription_history"):
             _assert_rejected(connection, f"DELETE FROM {table}", "23514")
             _assert_rejected(connection, f"TRUNCATE {table} CASCADE", "23514")
         connection.exec_driver_sql(f'CREATE ROLE "{role}" NOLOGIN')
         connection.exec_driver_sql(f'GRANT USAGE ON SCHEMA public TO "{role}"')
-        relation_list = ", ".join(BILLING_TABLES)
+        relation_list = ", ".join((*BILLING_TABLES, "billing_accounts", "billing_account_links"))
         connection.exec_driver_sql(f'GRANT SELECT, INSERT, UPDATE, DELETE ON {relation_list} TO "{role}"')
         connection.exec_driver_sql(f'SET LOCAL ROLE "{role}"')
         assert connection.scalar(text("SELECT count(*) FROM billing_customers")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM billing_accounts")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM billing_account_links")) == 0
         _assert_rejected(
             connection, "INSERT INTO billing_customers (organization_id) VALUES (:org)", "42501", org=alpha,
         )

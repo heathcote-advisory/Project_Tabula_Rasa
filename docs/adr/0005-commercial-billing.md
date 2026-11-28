@@ -98,16 +98,17 @@ for each applied event. The adapter verifies events and supplies normalized
 provider facts. The application owns the entitlement decision. Existing durable
 jobs can support bounded reconciliation when provider state is uncertain.
 
-The application already has authoritative role and active membership records,
-but membership has no join timestamp. Persist a server timestamp for new
-memberships and active billing links before enabling enforcement. Preserve
-membership order through role changes. The treatment of existing memberships
-without verified dates and of reactivated memberships needs a migration
-decision. Invitation creation and user registration precede membership and
-cannot establish when someone joined the business.
-The provider-independent policy module takes trusted timestamps and evaluates
-the confirmed ordering and grace rules. Its results are separate from runtime
-authorization until an approved billing enrollment path supplies those facts.
+Revision `0028_billing_account_links` stores the shared payer identity, one
+active link per organization, and server-recorded membership timestamps.
+Role changes preserve the join date. The dormant implementation uses the new
+activation timestamp when someone rejoins. Existing active members with
+unknown dates keep their access, and the billing repository reports the
+business's seat calculation as unavailable pending a reliable ordering.
+Invitation creation and user registration precede membership and cannot
+establish when someone joined a business. The provider-independent policy
+uses the selected business's roster and its account's link order. Runtime
+authorization continues to use the existing policy until a billing enrollment
+path and these rollout rules are approved.
 
 ## Provider shortlist and setup
 

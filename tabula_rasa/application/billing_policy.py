@@ -20,7 +20,6 @@ class BillingMember:
 class LinkedBusiness:
     organization_id: str
     linked_at: datetime
-    active_members: tuple[BillingMember, ...]
 
 
 @dataclass(frozen=True)
@@ -35,27 +34,30 @@ def _utc(instant: datetime) -> datetime:
     return instant.astimezone(UTC)
 
 
-def free_plan_limits(businesses: tuple[LinkedBusiness, ...]) -> dict[str, FreeBusinessLimits]:
-    """Calculate limits for one account's current links and active memberships.
+def free_plan_limits(
+    businesses: tuple[LinkedBusiness, ...],
+    *,
+    organization_id: str,
+    active_members: tuple[BillingMember, ...],
+) -> FreeBusinessLimits:
+    """Calculate limits for one business from its account's current links.
 
-    The caller supplies existing identity roles for active users and excludes
-    invitations. Billing eligibility only narrows existing permissions.
+    The caller supplies the selected business's active memberships and their
+    existing roles. Billing eligibility only narrows existing permissions.
     """
-    limits = {}
-    ordered_businesses = sorted(businesses, key=lambda business: (_utc(business.linked_at), business.organization_id))
-    for index, business in enumerate(ordered_businesses):
-        if business.organization_id in limits:
-            raise ValueError("A billing account must contain each active business link once.")
-        members = sorted(business.active_members, key=lambda member: (
-            _SEAT_PRIORITY.get(member.role, 2), _utc(member.joined_at), member.user_id,
-        ))
-        if len({member.user_id for member in members}) != len(members):
-            raise ValueError("A business must contain each active membership once.")
-        limits[business.organization_id] = FreeBusinessLimits(
-            editable=index == 0,
-            seated_user_ids=frozenset(member.user_id for member in members[:FREE_SEATS_PER_BUSINESS]),
-        )
-    return limits
+    linked_ids = {business.organization_id for business in businesses}
+    if len(linked_ids) != len(businesses) or organization_id not in linked_ids:
+        raise ValueError("A billing account must contain each active business link once.")
+    first = min(businesses, key=lambda business: (_utc(business.linked_at), business.organization_id))
+    members = sorted(active_members, key=lambda member: (
+        _SEAT_PRIORITY.get(member.role, 2), _utc(member.joined_at), member.user_id,
+    ))
+    if len({member.user_id for member in members}) != len(members):
+        raise ValueError("A business must contain each active membership once.")
+    return FreeBusinessLimits(
+        editable=first.organization_id == organization_id,
+        seated_user_ids=frozenset(member.user_id for member in members[:FREE_SEATS_PER_BUSINESS]),
+    )
 
 
 def renewal_grace_active(first_failed_renewal_at: datetime, *, as_of: datetime) -> bool:
