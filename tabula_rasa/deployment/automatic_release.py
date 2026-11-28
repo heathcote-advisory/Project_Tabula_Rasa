@@ -229,7 +229,7 @@ def run(environ, *, read=release.api, github=release.api, metadata=release.image
             if deploy == prior_deploy["id"]:
                 raise release.ReleaseError("Render did not create a new deployment for the requested restart.")
             try:
-                smoke(origin, candidate["release"], previous_release=previous["release"])
+                smoke(origin, candidate["release"], previous_release=previous["release"], emit=emit)
             except NamedSmokeError as error:
                 raise release.ReleaseError(f"Post-deployment named-user smoke failed. {error}") from None
             except release.ReleaseError:
