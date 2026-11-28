@@ -83,9 +83,10 @@ class SubscriptionTerms:
             raise ValueError("A non-free subscription requires a term end.")
         if (self.state == "grace") != (self.first_failed_renewal_at is not None):
             raise ValueError("Grace requires the first failed renewal.")
-        for instant in (self.term_ends_at, self.first_failed_renewal_at):
+        for field in ("term_ends_at", "first_failed_renewal_at"):
+            instant = getattr(self, field)
             if instant is not None:
-                _utc(instant)
+                object.__setattr__(self, field, _utc(instant))
 
     def effective_state(self, *, as_of: datetime) -> SubscriptionState | Literal["unconfirmed"]:
         now = _utc(as_of)

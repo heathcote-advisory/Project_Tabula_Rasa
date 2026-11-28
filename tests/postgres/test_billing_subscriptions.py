@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from dataclasses import replace
+from zoneinfo import ZoneInfo
 
 import pytest
 from alembic import command
@@ -114,7 +115,9 @@ def test_verified_reconciliation_is_account_scoped_atomic_and_idempotent(databas
         repo.initialize_free(alice.id, "account-a", "second-sub", plan_key="free-plan", plan_version=1)
 
     first = VerifiedSubscriptionEvent("synthetic", "test", "first", "external-a")
-    end = datetime(2026, 12, 1, tzinfo=UTC)
+    # This instant occurs during the repeated hour in New York. A provider
+    # may represent the same renewal in local time on a later observation.
+    end = datetime(2026, 11, 1, 6, 30, tzinfo=UTC)
     assert repo.reconciliation_target(first) == ("account-a", 1)
     assert repo.reconciliation_target(replace(first, provider_scope="live")) is None
     assert reconcile_subscription_event(repo, replace(first, provider_scope="live"), lambda _: pytest.fail(
@@ -138,7 +141,7 @@ def test_verified_reconciliation_is_account_scoped_atomic_and_idempotent(databas
         repo.apply_verified_event("account-a", failure, **{**kwargs, "expected_version": 2, "plan_version": 9})
     assert repo.apply_verified_event("account-a", failure, **{**kwargs, "expected_version": 2})
     retry = replace(failure, provider_event_id="retry")
-    retry_terms = SubscriptionTerms("grace", end, end + timedelta(days=1))
+    retry_terms = SubscriptionTerms("grace", end.astimezone(ZoneInfo("America/New_York")), end + timedelta(days=1))
     assert repo.apply_verified_event("account-a", retry, **{**kwargs, "expected_version": 3, "terms": retry_terms})
     current = repo.for_payer(alice.id, "account-a")
     assert current.version == 4
