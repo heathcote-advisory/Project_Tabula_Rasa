@@ -32,11 +32,11 @@ Preflight checks and protected private-origin maintenance smoke remain strict.
 After automatic full-downtime schema maintenance, the shared public smoke also
 receives the verified prior revision. It checks version before readiness because
 the old application can correctly return readiness 503 against the new schema.
-Maintenance smoke uses one five-minute deadline for the complete public boundary,
+Maintenance smoke uses one ten-minute deadline for the complete public boundary,
 including the sign-in page and its same-origin browser reads/assets. Explicit HTTP
 probes and browser waits have at most five seconds, capped by the remaining
 deadline. It waits three seconds between attempts,
-with at most 101 attempts. The known prior version and HTTP 502, 503 or 504 from
+with at most 201 attempts. The known prior version and HTTP 502, 503 or 504 from
 version, readiness, denied APIs, routing probes, the sign-in page or its same-origin
 browser reads/assets keep the handover pending. Each retry starts again with version/readiness
 and verifies the complete HTTP and browser boundary; an earlier successful probe
