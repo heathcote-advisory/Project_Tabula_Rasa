@@ -238,11 +238,11 @@ def test_maintenance_handover_still_fails_closed(defect):
         assert str(failure.value) == 'Version endpoint returned an unexpected status (HTTP 403).'
     if defect == 'unexpected_status':
         assert str(failure.value) == 'Readiness failed (HTTP 403).'
-    assert sleep.call_count == (100 if defect in {'never_ready', 'version_unavailable'} else 0)
+    assert sleep.call_count == (200 if defect in {'never_ready', 'version_unavailable'} else 0)
     if defect == 'never_ready':
-        assert request.get.call_count == 202
+        assert request.get.call_count == 402
     if defect == 'version_unavailable':
-        assert request.get.call_count == 101
+        assert request.get.call_count == 201
     if defect != 'access':
         assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
 
@@ -257,8 +257,8 @@ def test_maintenance_gateway_failure_exhausts_budget_without_access_checks(path,
     with pytest.raises(smoke.NamedSmokeError, match='handover did not converge'):
         smoke.named_probe(SimpleNamespace(request=request), 'c' * 40,
                           previous_release='d' * 40, maintenance=True, sleep=sleep)
-    assert sleep.call_count == 100
-    assert request.get.call_count == (101 if path == '/version' else 202)
+    assert sleep.call_count == 200
+    assert request.get.call_count == (201 if path == '/version' else 402)
     assert not any(c.args[0].startswith('/api/') for c in request.get.call_args_list)
 
 
@@ -388,12 +388,12 @@ def test_maintenance_shell_gateway_uses_the_same_budget_and_rechecks_http():
     assert sum(c.args[0] == '/version' for c in request.get.call_args_list) == 2
 
 
-def test_maintenance_waits_past_old_budget_but_obeys_one_five_minute_deadline():
+def test_maintenance_waits_past_five_minutes_but_obeys_one_ten_minute_deadline():
     clock = [0.0]
     request, emit = Mock(), Mock()
 
     def get(path, **_):
-        if clock[0] < 240:
+        if clock[0] < 480:
             return SimpleNamespace(status=502)
         return healthy_response(path)
 
@@ -403,8 +403,8 @@ def test_maintenance_waits_past_old_budget_but_obeys_one_five_minute_deadline():
     request.get.side_effect = get
     smoke.named_probe(SimpleNamespace(request=request), 'c' * 40, previous_release='d' * 40,
                       maintenance=True, sleep=sleep, monotonic=lambda: clock[0], emit=emit)
-    assert clock[0] == 240
-    assert emit.call_args_list[-1].args[0]['elapsed_seconds'] == 240
+    assert clock[0] == 480
+    assert emit.call_args_list[-1].args[0]['elapsed_seconds'] == 480
 
     clock[0] = 0
 
@@ -413,10 +413,10 @@ def test_maintenance_waits_past_old_budget_but_obeys_one_five_minute_deadline():
         return SimpleNamespace(status=502)
 
     request.get.side_effect = slow_gateway
-    with pytest.raises(smoke.NamedSmokeError, match='five minutes'):
+    with pytest.raises(smoke.NamedSmokeError, match='10 minutes'):
         smoke.named_probe(SimpleNamespace(request=request), 'c' * 40, previous_release='d' * 40,
                           maintenance=True, sleep=sleep, monotonic=lambda: clock[0])
-    assert clock[0] == 300
+    assert clock[0] == 600
 
 
 def test_shell_semantic_failure_does_not_retry():

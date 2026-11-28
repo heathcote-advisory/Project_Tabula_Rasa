@@ -4,6 +4,12 @@ import time
 from types import SimpleNamespace
 
 GATEWAY_STATUSES = {502, 503, 504}
+MAINTENANCE_HANDOVER_SECONDS = 10 * 60
+HANDOVER_INTERVAL_SECONDS = 3
+MAINTENANCE_HANDOVER_ATTEMPTS = MAINTENANCE_HANDOVER_SECONDS // HANDOVER_INTERVAL_SECONDS + 1
+MAINTENANCE_HANDOVER_TIMEOUT = (
+    f'Release handover did not converge within {MAINTENANCE_HANDOVER_SECONDS // 60} minutes.'
+)
 
 
 class NamedSmokeError(ValueError):
@@ -80,13 +86,13 @@ def named_probe(context, release, *, previous_release=None, maintenance=False, s
     if not maintenance and context.request.get('/health/ready').status != 200:
         raise NamedSmokeError('Readiness failed.')
     started = monotonic()
-    deadline = started + 300
-    checks = 101 if maintenance else 21 if previous_release is not None else 1
+    deadline = started + MAINTENANCE_HANDOVER_SECONDS
+    checks = MAINTENANCE_HANDOVER_ATTEMPTS if maintenance else 21 if previous_release is not None else 1
 
     def timeout():
         remaining = deadline - monotonic()
         if remaining <= 0:
-            raise NamedSmokeError('Release handover did not converge within five minutes.')
+            raise NamedSmokeError(MAINTENANCE_HANDOVER_TIMEOUT)
         return max(1, min(5000, int(remaining * 1000)))
 
     def report(path, status):
@@ -109,9 +115,9 @@ def named_probe(context, release, *, previous_release=None, maintenance=False, s
             if verify_shell is None or verify_shell(timeout if maintenance else None, report):
                 return
         if attempt == checks - 1 or maintenance and monotonic() >= deadline:
-            raise NamedSmokeError('Release handover did not converge within five minutes.' if maintenance
+            raise NamedSmokeError(MAINTENANCE_HANDOVER_TIMEOUT if maintenance
                                   else 'Release handover did not converge.')
-        sleep(max(0, min(3, deadline - monotonic())) if maintenance else 3)
+        sleep(min(HANDOVER_INTERVAL_SECONDS, max(0, deadline - monotonic())) if maintenance else HANDOVER_INTERVAL_SECONDS)
 
 
 def named_smoke(origin, release, *, previous_release=None, maintenance=False, emit=lambda _: None):
