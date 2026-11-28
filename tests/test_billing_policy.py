@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from tabula_rasa.application.billing_policy import BillingMember, FreeBusinessLimits, LinkedBusiness
+from tabula_rasa.application.billing_policy import BillingMember, FreeBusinessLimits, LinkedBusiness, SubscriptionTerms
 from tabula_rasa.application.billing_policy import free_plan_limits, renewal_grace_active
 
 
@@ -78,3 +78,20 @@ def test_billing_times_require_a_timezone():
         free_plan_limits((LinkedBusiness("alpha", naive),), organization_id="alpha", active_members=())
     with pytest.raises(ValueError, match="timezone-aware"):
         renewal_grace_active(START, as_of=naive)
+
+
+@pytest.mark.parametrize(("state", "at_deadline"), [("trial", "free"), ("ending", "free"), ("paid", "unconfirmed")])
+def test_term_expiry_preserves_the_distinction_between_cancelled_and_unconfirmed(state, at_deadline):
+    terms = SubscriptionTerms(state, NEXT_DAY)
+    assert terms.effective_state(as_of=START) == state
+    assert terms.effective_state(as_of=NEXT_DAY) == at_deadline
+
+
+def test_verified_grace_uses_its_own_deadline_and_terms_require_evidence():
+    terms = SubscriptionTerms("grace", START, START)
+    assert terms.effective_state(as_of=START + timedelta(days=14)) == "grace"
+    assert terms.effective_state(as_of=START + timedelta(days=15)) == "free"
+    with pytest.raises(ValueError, match="failed renewal"):
+        SubscriptionTerms("grace", START)
+    with pytest.raises(ValueError, match="term end"):
+        SubscriptionTerms("paid")

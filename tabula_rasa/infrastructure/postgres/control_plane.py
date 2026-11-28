@@ -23,6 +23,16 @@ def identity_operation(database, *, read_only=False):
     raise IdentityStorageUnavailable(exhausted=code == 'database_exhausted') from None
 
 
+def lock_active_users(connection, *users):
+    """Match the membership triggers' user-before-organization lock order."""
+    expected = sorted(set(users))
+    found = connection.execute(text("""SELECT id FROM identity_users
+        WHERE id=ANY(:users) AND state='active' ORDER BY id FOR UPDATE"""),
+        {"users": expected}).scalars().all()
+    if len(found) != len(expected):
+        raise IdentityError("forbidden")
+
+
 ENTITY_ACCESS_SQL = '''SELECT e.entity_id, e.organization_id, b.name, b.currency_code, b.version AS settings_version, m.role,
     m.authorization_version, o.name AS organization_name,
     (SELECT recover_until FROM customer_lifecycle_requests WHERE entity_id=e.entity_id

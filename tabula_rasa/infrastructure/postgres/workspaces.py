@@ -13,7 +13,7 @@ from tabula_rasa.application.ledger_setup import LedgerSetupService
 from tabula_rasa.application.workspaces import (
     InvitationCredential, grant_allowed, normalized_email, require_capability, require_bootstrap_id,
 )
-from .control_plane import ENTITY_ACCESS_SQL, PostgresIdentityRepository, identity_operation
+from .control_plane import ENTITY_ACCESS_SQL, PostgresIdentityRepository, identity_operation, lock_active_users
 from .reference_data import PostgresLedgerSetupRepository
 from .sessions import credential_hash
 from . import beta
@@ -26,14 +26,7 @@ class PostgresWorkspaceRepository:
         self.identity = PostgresIdentityRepository(database)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
-    @staticmethod
-    def _users(connection, *users):
-        # Match the existing membership triggers: users before organization.
-        rows = connection.execute(text('''SELECT id FROM identity_users
-            WHERE id=ANY(:users) AND state='active' ORDER BY id FOR UPDATE'''),
-            {'users': sorted(set(users))}).scalars().all()
-        if len(rows) != len(set(users)):
-            raise IdentityError('forbidden')
+    _users = staticmethod(lock_active_users)
 
     @staticmethod
     def _business_access(connection, user, org, *, lock=False):

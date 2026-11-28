@@ -47,7 +47,7 @@ def test_upgrade_sets_one_join_time_without_enrolling_existing_organizations(emp
 
     upgrade(database)
     accounts = PostgresBillingAccounts(database)
-    assert database.health()["revision"] == "0028_billing_account_links"
+    assert database.health()["revision"] == "0029_account_subscriptions"
     assert identity.allowed_entities(alice.id) == original
     with database.engine.connect() as connection:
         after = connection.scalar(text("SELECT clock_timestamp()"))

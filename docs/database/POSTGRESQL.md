@@ -896,3 +896,15 @@ only the selected organization's active roster. Normal authorization and beta
 admission do not use the projection. See the
 [commercial billing ADR](../adr/0005-commercial-billing.md) for the target
 contract and the pending decisions for activation.
+
+Forward revision `0029_account_subscriptions` rekeys the dormant billing
+customers, subscriptions, provider references, receipts and history to payer
+accounts. It retains the plan catalog and existing account links. The
+maintenance migration locks the legacy customer table and refuses populated
+legacy customers for operator mapping. Uniqueness permits one current
+subscription per account. Versioned subscription history records the plan,
+state, term end and verified first failed renewal. The isolated repository
+applies a verified observation and consumes its event identity atomically.
+Billing link requests retain the initiating payer and approving business
+owner or admin. The new table uses default-deny row-level security. The
+migration requires no additional runtime grants.

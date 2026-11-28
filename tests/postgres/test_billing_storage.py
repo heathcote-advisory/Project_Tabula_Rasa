@@ -51,17 +51,20 @@ def _assert_rejected(connection, statement, sqlstate, **params):
 
 
 def test_plan_versions_provider_event_identity_and_tenant_references(database):
-    _, _, _, alpha, beta = setup(database)
+    _, alice, bob, _, _ = setup(database)
+    alpha, beta = "payer-alpha", "payer-beta"
     with database.engine.begin() as connection:
         connection.exec_driver_sql("""
             INSERT INTO billing_plan_versions (plan_key, version, entitlements)
             VALUES ('internal-plan', 1, '{"business_limit": 1}'), ('internal-plan', 2, '{"business_limit": 2}')
         """)
-        for org, suffix in ((alpha, "alpha"), (beta, "beta")):
-            connection.execute(text("INSERT INTO billing_customers (organization_id) VALUES (:org)"), {"org": org})
+        for org, user, suffix in ((alpha, alice, "alpha"), (beta, bob, "beta")):
+            connection.execute(text("INSERT INTO billing_accounts (id, payer_user_id) VALUES (:org, :payer)"),
+                               {"org": org, "payer": user.id})
+            connection.execute(text("INSERT INTO billing_customers (billing_account_id) VALUES (:org)"), {"org": org})
             connection.execute(text("""
-                INSERT INTO billing_subscriptions (organization_id, id, plan_key, plan_version, state)
-                VALUES (:org, :subscription, 'internal-plan', 1, 'trial')
+                INSERT INTO billing_subscriptions (billing_account_id, id, plan_key, plan_version, state, version, term_ends_at)
+                VALUES (:org, :subscription, 'internal-plan', 1, 'trial', 1, '2026-12-31T00:00:00Z')
             """), {"org": org, "subscription": suffix})
             connection.execute(text("""
                 INSERT INTO billing_provider_customers VALUES (:org, 'example', 'sandbox', :customer)
@@ -75,7 +78,7 @@ def test_plan_versions_provider_event_identity_and_tenant_references(database):
         _assert_rejected(connection, provider_subscription, "23505", org=alpha, subscription="alpha")
 
         receipt = """
-            INSERT INTO billing_event_receipts (organization_id, id, provider, provider_scope, provider_event_id)
+            INSERT INTO billing_event_receipts (billing_account_id, id, provider, provider_scope, provider_event_id)
             VALUES (:org, :id, 'example', :scope, 'event-1')
         """
         connection.execute(text(receipt), {"org": beta, "id": "receipt", "scope": "sandbox"})
@@ -85,19 +88,19 @@ def test_plan_versions_provider_event_identity_and_tenant_references(database):
 
         history = """
             INSERT INTO billing_subscription_history
-                (organization_id, subscription_id, version, plan_key, plan_version, state, event_receipt_id)
-            VALUES (:org, :subscription, :version, 'internal-plan', :plan_version, 'active', 'receipt')
+                (billing_account_id, subscription_id, version, plan_key, plan_version, state, event_receipt_id)
+            VALUES (:org, :subscription, :version, 'internal-plan', :plan_version, 'paid', 'receipt')
         """
         _assert_rejected(connection, history, "23503", org=alpha, subscription="alpha", version=1, plan_version=2)
         _assert_rejected(connection, history, "23503", org=beta, subscription="beta", version=1, plan_version=3)
         connection.execute(text(history), {"org": beta, "subscription": "beta", "version": 1, "plan_version": 2})
         _assert_rejected(connection, history, "23505", org=beta, subscription="beta", version=2, plan_version=2)
         connection.execute(text("""
-            UPDATE billing_subscriptions SET plan_version = 2, state = 'active' WHERE organization_id = :org
+            UPDATE billing_subscriptions SET plan_version = 2, state = 'paid' WHERE billing_account_id = :org
         """), {"org": beta})
         assert connection.execute(text("""
-            SELECT organization_id, plan_version, state FROM billing_subscriptions ORDER BY id
-        """)).all() == [(alpha, 1, "trial"), (beta, 2, "active")]
+            SELECT billing_account_id, plan_version, state FROM billing_subscriptions ORDER BY id
+        """)).all() == [(alpha, 1, "trial"), (beta, 2, "paid")]
 
         connection.execute(text("""
             INSERT INTO billing_provider_customers VALUES (:org, 'example', 'other-sandbox', 'beta')
@@ -111,9 +114,9 @@ def test_dormant_tables_deny_runtime_and_protect_immutable_records(database):
     role = "billing_runtime_" + uuid4().hex
     # Closing this uncommitted connection also rolls back the cluster-level role.
     with database.engine.connect() as connection:
-        connection.execute(text("INSERT INTO billing_customers (organization_id) VALUES (:org)"), {"org": alpha})
         connection.execute(text("INSERT INTO billing_accounts (id, payer_user_id) VALUES ('account', :payer)"),
                            {"payer": alice.id})
+        connection.execute(text("INSERT INTO billing_customers (billing_account_id) VALUES ('account')"))
         connection.execute(text("""INSERT INTO billing_account_links (organization_id, billing_account_id)
             VALUES (:org, 'account')"""), {"org": alpha})
         for table in ("billing_plan_versions", "billing_event_receipts", "billing_subscription_history"):
@@ -121,12 +124,12 @@ def test_dormant_tables_deny_runtime_and_protect_immutable_records(database):
             _assert_rejected(connection, f"TRUNCATE {table} CASCADE", "23514")
         connection.exec_driver_sql(f'CREATE ROLE "{role}" NOLOGIN')
         connection.exec_driver_sql(f'GRANT USAGE ON SCHEMA public TO "{role}"')
-        relation_list = ", ".join((*BILLING_TABLES, "billing_accounts", "billing_account_links"))
+        relation_list = ", ".join((*BILLING_TABLES, "billing_accounts", "billing_account_links", "billing_link_requests"))
         connection.exec_driver_sql(f'GRANT SELECT, INSERT, UPDATE, DELETE ON {relation_list} TO "{role}"')
         connection.exec_driver_sql(f'SET LOCAL ROLE "{role}"')
         assert connection.scalar(text("SELECT count(*) FROM billing_customers")) == 0
         assert connection.scalar(text("SELECT count(*) FROM billing_accounts")) == 0
         assert connection.scalar(text("SELECT count(*) FROM billing_account_links")) == 0
         _assert_rejected(
-            connection, "INSERT INTO billing_customers (organization_id) VALUES (:org)", "42501", org=alpha,
+            connection, "INSERT INTO billing_customers (billing_account_id) VALUES ('account')", "42501",
         )
